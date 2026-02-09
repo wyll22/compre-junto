@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, numeric, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -6,7 +6,7 @@ import { relations } from "drizzle-orm";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  identifier: text("identifier").notNull().unique(), // Phone or Email
+  identifier: text("identifier").notNull(), 
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -27,14 +27,14 @@ export const groups = pgTable("groups", {
   productId: integer("product_id").notNull(),
   currentPeople: integer("current_people").notNull().default(0),
   minPeople: integer("min_people").notNull(),
-  status: text("status").notNull().default("aberto"), // 'aberto', 'fechado'
+  status: text("status").notNull().default("aberto"), 
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const members = pgTable("members", {
   id: serial("id").primaryKey(),
   groupId: integer("group_id").notNull(),
-  userId: integer("user_id"), // Optional for backwards compatibility, but will be used now
+  userId: integer("user_id"),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   createdAt: timestamp("created_at").defaultNow(),

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertProductSchema, insertMemberSchema, insertUserSchema, products, groups, members, users } from './schema';
+import { insertProductSchema, products, groups, members } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -9,37 +9,9 @@ export const errorSchemas = {
   notFound: z.object({
     message: z.string(),
   }),
-  internal: z.object({
-    message: z.string(),
-  }),
 };
 
 export const api = {
-  auth: {
-    login: {
-      method: 'POST' as const,
-      path: '/api/auth/login' as const,
-      input: insertUserSchema,
-      responses: {
-        200: z.custom<typeof users.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
-    },
-    me: {
-      method: 'GET' as const,
-      path: '/api/auth/me' as const,
-      responses: {
-        200: z.custom<typeof users.$inferSelect>().nullable(),
-      },
-    },
-    logout: {
-      method: 'POST' as const,
-      path: '/api/auth/logout' as const,
-      responses: {
-        200: z.object({ success: z.boolean() }),
-      },
-    },
-  },
   products: {
     list: {
       method: 'GET' as const,
@@ -93,7 +65,7 @@ export const api = {
       path: '/api/groups' as const,
       input: z.object({
         productId: z.coerce.number().optional(),
-        status: z.enum(['aberto', 'fechado']).optional(),
+        status: z.enum(['aberto', 'fechado', 'completo']).optional(),
       }).optional(),
       responses: {
         200: z.array(z.custom<typeof groups.$inferSelect & { product: typeof products.$inferSelect, members: (typeof members.$inferSelect)[] }>()),
@@ -110,12 +82,14 @@ export const api = {
     join: {
         method: 'POST' as const,
         path: '/api/groups/:id/join' as const,
-        input: z.object({}), // Now user info comes from session
+        input: z.object({
+          name: z.string().min(1, "Nome é obrigatório"),
+          phone: z.string().min(1, "Telefone é obrigatório"),
+        }),
         responses: {
             200: z.custom<typeof groups.$inferSelect>(),
             400: errorSchemas.validation,
             404: errorSchemas.notFound,
-            401: z.object({ message: z.string() }),
         }
     },
     get: {

@@ -3,55 +3,11 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import session from "express-session";
-import MemoryStore from "memorystore";
-
-const SessionStore = MemoryStore(session);
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-
-  app.use(
-    session({
-      cookie: { maxAge: 86400000 },
-      store: new SessionStore({
-        checkPeriod: 86400000,
-      }),
-      resave: false,
-      saveUninitialized: false,
-      secret: process.env.SESSION_SECRET || "compre-junto-fsa-secret",
-    })
-  );
-
-  // Auth
-  app.post(api.auth.login.path, async (req, res) => {
-    try {
-      const input = api.auth.login.input.parse(req.body);
-      let user = await storage.getUserByIdentifier(input.identifier);
-      if (!user) {
-        user = await storage.createUser(input);
-      }
-      (req.session as any).userId = user.id;
-      res.json(user);
-    } catch (err) {
-      res.status(400).json({ message: "Erro ao realizar login" });
-    }
-  });
-
-  app.get(api.auth.me.path, async (req, res) => {
-    const userId = (req.session as any).userId;
-    if (!userId) return res.json(null);
-    const user = await storage.getUser(userId);
-    res.json(user || null);
-  });
-
-  app.post(api.auth.logout.path, (req, res) => {
-    req.session.destroy(() => {
-      res.json({ success: true });
-    });
-  });
 
   // Products
   app.get(api.products.list.path, async (req, res) => {
@@ -122,22 +78,16 @@ export async function registerRoutes(
   });
 
   app.post(api.groups.join.path, async (req, res) => {
-    const userId = (req.session as any).userId;
-    if (!userId) return res.status(401).json({ message: "Você precisa estar logado para entrar no grupo" });
-
-    const user = await storage.getUser(userId);
-    if (!user) return res.status(401).json({ message: "Usuário não encontrado" });
-
     try {
+        const input = api.groups.join.input.parse(req.body);
         const groupId = Number(req.params.id);
-        const group = await storage.addMemberToGroup(groupId, user);
+        const group = await storage.addMemberToGroup(groupId, input);
         res.json(group);
     } catch (err) {
         res.status(400).json({ message: "Erro ao entrar no grupo" });
     }
   });
 
-  // Seed data
   seedDatabase();
 
   return httpServer;

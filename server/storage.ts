@@ -9,46 +9,19 @@ import {
 import { eq, like, and, desc } from "drizzle-orm";
 
 export interface IStorage {
-  // Users
-  getUser(id: number): Promise<User | undefined>;
-  getUserByIdentifier(identifier: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-
-  // Products
   getProducts(category?: string, search?: string): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product>;
   deleteProduct(id: number): Promise<void>;
-
-  // Groups
   getGroups(productId?: number, status?: string): Promise<(Group & { product: Product, members: Member[] })[]>;
   getGroup(id: number): Promise<(Group & { product: Product, members: Member[] }) | undefined>;
   createGroup(group: InsertGroup): Promise<Group>;
   updateGroup(id: number, group: Partial<InsertGroup>): Promise<Group>;
-
-  // Members
-  addMemberToGroup(groupId: number, user: User): Promise<Group>;
+  addMemberToGroup(groupId: number, userData: { name: string, phone: string }): Promise<Group>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // Users
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-
-  async getUserByIdentifier(identifier: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.identifier, identifier));
-    return user;
-  }
-
-  async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
-    return newUser;
-  }
-
-  // Products
   async getProducts(category?: string, search?: string): Promise<Product[]> {
     let conditions = [];
     if (category && category !== 'Todos') {
@@ -57,7 +30,6 @@ export class DatabaseStorage implements IStorage {
     if (search) {
       conditions.push(like(products.name, `%${search}%`));
     }
-
     if (conditions.length > 0) {
       return await db.select().from(products).where(and(...conditions));
     }
@@ -86,7 +58,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(products).where(eq(products.id, id));
   }
 
-  // Groups
   async getGroups(productId?: number, status?: string): Promise<(Group & { product: Product, members: Member[] })[]> {
     const result = await db.query.groups.findMany({
       where: and(
@@ -130,20 +101,17 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async addMemberToGroup(groupId: number, user: User): Promise<Group> {
-    // Check if already a member
-    const existing = await db.select().from(members).where(and(eq(members.groupId, groupId), eq(members.userId, user.id)));
-    if (existing.length > 0) {
-        const group = await this.getGroup(groupId);
-        if (!group) throw new Error("Group not found");
-        return group;
-    }
+  async addMemberToGroup(groupId: number, userData: { name: string, phone: string }): Promise<Group> {
+    const [user] = await db.insert(users).values({
+      name: userData.name,
+      identifier: userData.phone
+    }).returning();
 
     await db.insert(members).values({
         groupId,
         userId: user.id,
         name: user.name,
-        phone: user.identifier // Assuming identifier is phone for now
+        phone: user.identifier
     });
     
     const group = await this.getGroup(groupId);
