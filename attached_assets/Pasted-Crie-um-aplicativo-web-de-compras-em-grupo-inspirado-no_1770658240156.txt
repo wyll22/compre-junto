@@ -1,0 +1,80 @@
+Crie um aplicativo web de compras em grupo inspirado no modelo do Facily,
+mas adaptado para um projeto local chamado "Compre Junto FSA".
+
+Requisitos obrigatórios:
+
+1. Estrutura geral
+- App web responsivo (mobile first)
+- Interface simples, limpa e em português (Brasil)
+- Visual parecido com marketplace de compras em grupo (estilo Facily)
+- NÃO usar serviços pagos
+- NÃO exigir login ou autenticação por enquanto
+
+2. Banco de dados (usar o Database nativo do Replit)
+Criar as seguintes tabelas:
+
+Tabela: products
+- id (serial, primary key)
+- name (text)
+- description (text)
+- image_url (text)
+- original_price (numeric)
+- group_price (numeric)
+- min_people (integer)
+- category (text)
+- created_at (timestamp)
+
+Tabela: groups
+- id (serial)
+- product_id (integer)
+- current_people (integer)
+- min_people (integer)
+- status (text) -- aberto, fechado
+
+Tabela: members
+- id (serial)
+- group_id (integer)
+- name (text)
+- phone (text)
+- created_at (timestamp)
+
+3. Funcionalidades do app
+- Listar produtos em cards com:
+  • imagem
+  • nome
+  • preço original
+  • preço em grupo
+  • quantidade mínima de pessoas
+- Barra de categorias no topo (horizontal):
+  • Todos
+  • Alimentos
+  • Bebidas
+  • Higiene
+  • Limpeza
+  • Outros
+- Filtrar produtos por categoria ao clicar
+- Botão "Participar do Grupo"
+- Ao clicar, aumenta o número de participantes do grupo
+- Mostrar barra de progresso indicando quantas pessoas faltam
+- Quando atingir o mínimo, mostrar status "Grupo Completo"
+
+4. Área simples de administração (sem login)
+- Página /admin
+- Permitir cadastrar, editar e excluir produtos
+- Campo para definir categoria do produto
+- Tudo funcionando direto no banco de dados
+
+5. Integrações
+- Botão de compartilhar grupo via WhatsApp (link simples)
+- Sem pagamento online (apenas simulação)
+
+6. Tecnologias
+- Frontend simples (HTML, CSS, JavaScript ou React, se preferir)
+- Backend em Node.js
+- Usar apenas recursos gratuitos do Replit
+- Código organizado e comentado
+
+Objetivo final:
+Um MVP funcional de compras em grupo estilo Facily,
+com foco em uso local e simplicidade,
+pronto para evoluir no futuro com pagamentos e login.
