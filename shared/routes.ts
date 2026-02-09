@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertProductSchema, insertMemberSchema, products, groups, members } from './schema';
+import { insertProductSchema, insertMemberSchema, insertUserSchema, products, groups, members, users } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -15,6 +15,31 @@ export const errorSchemas = {
 };
 
 export const api = {
+  auth: {
+    login: {
+      method: 'POST' as const,
+      path: '/api/auth/login' as const,
+      input: insertUserSchema,
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    me: {
+      method: 'GET' as const,
+      path: '/api/auth/me' as const,
+      responses: {
+        200: z.custom<typeof users.$inferSelect>().nullable(),
+      },
+    },
+    logout: {
+      method: 'POST' as const,
+      path: '/api/auth/logout' as const,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+      },
+    },
+  },
   products: {
     list: {
       method: 'GET' as const,
@@ -71,8 +96,7 @@ export const api = {
         status: z.enum(['aberto', 'fechado']).optional(),
       }).optional(),
       responses: {
-        // We will return groups with product info in practice, but keeping type simple here for now or defining custom
-        200: z.array(z.custom<typeof groups.$inferSelect>()),
+        200: z.array(z.custom<typeof groups.$inferSelect & { product: typeof products.$inferSelect, members: (typeof members.$inferSelect)[] }>()),
       }
     },
     create: {
@@ -86,18 +110,19 @@ export const api = {
     join: {
         method: 'POST' as const,
         path: '/api/groups/:id/join' as const,
-        input: insertMemberSchema.omit({ groupId: true }),
+        input: z.object({}), // Now user info comes from session
         responses: {
             200: z.custom<typeof groups.$inferSelect>(),
             400: errorSchemas.validation,
             404: errorSchemas.notFound,
+            401: z.object({ message: z.string() }),
         }
     },
     get: {
       method: 'GET' as const,
       path: '/api/groups/:id' as const,
       responses: {
-        200: z.custom<typeof groups.$inferSelect>(),
+        200: z.custom<typeof groups.$inferSelect & { product: typeof products.$inferSelect, members: (typeof members.$inferSelect)[] }>(),
         404: errorSchemas.notFound,
       },
     }

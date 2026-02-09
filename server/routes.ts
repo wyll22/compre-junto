@@ -3,12 +3,55 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { insertProductSchema } from "@shared/schema";
+import session from "express-session";
+import MemoryStore from "memorystore";
+
+const SessionStore = MemoryStore(session);
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  app.use(
+    session({
+      cookie: { maxAge: 86400000 },
+      store: new SessionStore({
+        checkPeriod: 86400000,
+      }),
+      resave: false,
+      saveUninitialized: false,
+      secret: process.env.SESSION_SECRET || "compre-junto-fsa-secret",
+    })
+  );
+
+  // Auth
+  app.post(api.auth.login.path, async (req, res) => {
+    try {
+      const input = api.auth.login.input.parse(req.body);
+      let user = await storage.getUserByIdentifier(input.identifier);
+      if (!user) {
+        user = await storage.createUser(input);
+      }
+      (req.session as any).userId = user.id;
+      res.json(user);
+    } catch (err) {
+      res.status(400).json({ message: "Erro ao realizar login" });
+    }
+  });
+
+  app.get(api.auth.me.path, async (req, res) => {
+    const userId = (req.session as any).userId;
+    if (!userId) return res.json(null);
+    const user = await storage.getUser(userId);
+    res.json(user || null);
+  });
+
+  app.post(api.auth.logout.path, (req, res) => {
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
 
   // Products
   app.get(api.products.list.path, async (req, res) => {
@@ -20,7 +63,7 @@ export async function registerRoutes(
 
   app.get(api.products.get.path, async (req, res) => {
     const product = await storage.getProduct(Number(req.params.id));
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product) return res.status(404).json({ message: "Produto não encontrado" });
     res.json(product);
   });
 
@@ -43,7 +86,7 @@ export async function registerRoutes(
         const product = await storage.updateProduct(Number(req.params.id), input);
         res.json(product);
     } catch (err) {
-        res.status(400).json({ message: "Update failed" });
+        res.status(400).json({ message: "Erro ao atualizar produto" });
     }
   });
 
@@ -62,14 +105,14 @@ export async function registerRoutes(
 
   app.get(api.groups.get.path, async (req, res) => {
       const group = await storage.getGroup(Number(req.params.id));
-      if (!group) return res.status(404).json({ message: "Group not found" });
+      if (!group) return res.status(404).json({ message: "Grupo não encontrado" });
       res.json(group);
   });
 
   app.post(api.groups.create.path, async (req, res) => {
     const productId = req.body.productId;
     const product = await storage.getProduct(productId);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product) return res.status(404).json({ message: "Produto não encontrado" });
 
     const group = await storage.createGroup({
         productId,
@@ -79,13 +122,18 @@ export async function registerRoutes(
   });
 
   app.post(api.groups.join.path, async (req, res) => {
+    const userId = (req.session as any).userId;
+    if (!userId) return res.status(401).json({ message: "Você precisa estar logado para entrar no grupo" });
+
+    const user = await storage.getUser(userId);
+    if (!user) return res.status(401).json({ message: "Usuário não encontrado" });
+
     try {
-        const input = api.groups.join.input.parse(req.body);
         const groupId = Number(req.params.id);
-        const group = await storage.addMemberToGroup({ ...input, groupId });
+        const group = await storage.addMemberToGroup(groupId, user);
         res.json(group);
     } catch (err) {
-        res.status(400).json({ message: "Failed to join group" });
+        res.status(400).json({ message: "Erro ao entrar no grupo" });
     }
   });
 
@@ -98,7 +146,7 @@ export async function registerRoutes(
 async function seedDatabase() {
   const products = await storage.getProducts();
   if (products.length === 0) {
-    console.log("Seeding database...");
+    console.log("Semeando banco de dados...");
     await storage.createProduct({
         name: "Arroz Tio João 5kg",
         description: "Arroz branco tipo 1, soltinho e saboroso.",
@@ -116,42 +164,6 @@ async function seedDatabase() {
         groupPrice: "6.99",
         minPeople: 15,
         category: "Alimentos"
-    });
-    await storage.createProduct({
-        name: "Coca-Cola 2L",
-        description: "Refrigerante de cola.",
-        imageUrl: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&auto=format&fit=crop&q=60",
-        originalPrice: "10.00",
-        groupPrice: "7.50",
-        minPeople: 20,
-        category: "Bebidas"
-    });
-    await storage.createProduct({
-        name: "Heineken 350ml (Pack 12)",
-        description: "Cerveja Premium Lager.",
-        imageUrl: "https://images.unsplash.com/photo-1623592477122-861cb7044675?w=500&auto=format&fit=crop&q=60",
-        originalPrice: "48.00",
-        groupPrice: "39.90",
-        minPeople: 5,
-        category: "Bebidas"
-    });
-    await storage.createProduct({
-        name: "Sabão em Pó Omo 1.6kg",
-        description: "Limpeza profunda e perfume duradouro.",
-        imageUrl: "https://images.unsplash.com/photo-1585830816768-ae42475477c7?w=500&auto=format&fit=crop&q=60",
-        originalPrice: "22.00",
-        groupPrice: "16.90",
-        minPeople: 30,
-        category: "Limpeza"
-    });
-    await storage.createProduct({
-        name: "Kit Shampoo + Condicionador Pantene",
-        description: "Para cabelos danificados.",
-        imageUrl: "https://images.unsplash.com/photo-1585232561307-3f83b0b70d47?w=500&auto=format&fit=crop&q=60",
-        originalPrice: "35.90",
-        groupPrice: "24.90",
-        minPeople: 10,
-        category: "Higiene"
     });
   }
 }

@@ -3,6 +3,13 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  identifier: text("identifier").notNull().unique(), // Phone or Email
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -27,10 +34,15 @@ export const groups = pgTable("groups", {
 export const members = pgTable("members", {
   id: serial("id").primaryKey(),
   groupId: integer("group_id").notNull(),
+  userId: integer("user_id"), // Optional for backwards compatibility, but will be used now
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const usersRelations = relations(users, ({ many }) => ({
+  memberships: many(members),
+}));
 
 export const productsRelations = relations(products, ({ many }) => ({
   groups: many(groups),
@@ -49,12 +61,19 @@ export const membersRelations = relations(members, ({ one }) => ({
     fields: [members.groupId],
     references: [groups.id],
   }),
+  user: one(users, {
+    fields: [members.userId],
+    references: [users.id],
+  }),
 }));
 
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true, currentPeople: true, status: true });
 export const insertMemberSchema = createInsertSchema(members).omit({ id: true, createdAt: true });
 
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Group = typeof groups.$inferSelect;

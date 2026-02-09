@@ -1,13 +1,19 @@
 import { db } from "./db";
 import {
-  products, groups, members,
+  products, groups, members, users,
   type Product, type InsertProduct,
   type Group, type InsertGroup,
-  type Member, type InsertMember
+  type Member, type InsertMember,
+  type User, type InsertUser
 } from "@shared/schema";
 import { eq, like, and, desc } from "drizzle-orm";
 
 export interface IStorage {
+  // Users
+  getUser(id: number): Promise<User | undefined>;
+  getUserByIdentifier(identifier: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+
   // Products
   getProducts(category?: string, search?: string): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
@@ -22,10 +28,27 @@ export interface IStorage {
   updateGroup(id: number, group: Partial<InsertGroup>): Promise<Group>;
 
   // Members
-  addMemberToGroup(member: InsertMember): Promise<Group>;
+  addMemberToGroup(groupId: number, user: User): Promise<Group>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // Users
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByIdentifier(identifier: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.identifier, identifier));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
+  }
+
+  // Products
   async getProducts(category?: string, search?: string): Promise<Product[]> {
     let conditions = [];
     if (category && category !== 'Todos') {
@@ -63,6 +86,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(products).where(eq(products.id, id));
   }
 
+  // Groups
   async getGroups(productId?: number, status?: string): Promise<(Group & { product: Product, members: Member[] })[]> {
     const result = await db.query.groups.findMany({
       where: and(
@@ -106,29 +130,35 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async addMemberToGroup(member: InsertMember): Promise<Group> {
-    // Transactional logic would be better, but simple sequence for now
-    await db.insert(members).values(member);
+  async addMemberToGroup(groupId: number, user: User): Promise<Group> {
+    // Check if already a member
+    const existing = await db.select().from(members).where(and(eq(members.groupId, groupId), eq(members.userId, user.id)));
+    if (existing.length > 0) {
+        const group = await this.getGroup(groupId);
+        if (!group) throw new Error("Group not found");
+        return group;
+    }
+
+    await db.insert(members).values({
+        groupId,
+        userId: user.id,
+        name: user.name,
+        phone: user.identifier // Assuming identifier is phone for now
+    });
     
-    // Get group to increment
-    const group = await this.getGroup(member.groupId);
+    const group = await this.getGroup(groupId);
     if (!group) throw new Error("Group not found");
 
     const newCount = group.currentPeople + 1;
     const updates: Partial<InsertGroup> = { currentPeople: newCount };
     
-    // Check if filled
     if (newCount >= group.minPeople) {
-        // We might want to mark as 'fechado' or keep open for more? Requirement says "Mostrar status Grupo Completo". 
-        // We'll update status if needed, or just let frontend handle display.
-        // Let's keep it 'aberto' so more can join? Facily allows over-subscription usually.
-        // But let's verify requirements: "Quando atingir o mínimo, mostrar status Grupo Completo"
-        // I'll assume we can keep it open or close it. I'll leave it open but frontend shows "Completo".
+        updates.status = 'completo';
     }
 
     const [updatedGroup] = await db.update(groups)
         .set(updates)
-        .where(eq(groups.id, member.groupId))
+        .where(eq(groups.id, groupId))
         .returning();
     
     return updatedGroup;
