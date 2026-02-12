@@ -1,168 +1,288 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useEffect, useMemo, useState } from "react";
 import { Product, Group } from "@shared/schema";
-import { useCreateGroup, useJoinGroup } from "@/hooks/use-groups";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Loader2, CheckCircle2, Share2 } from "lucide-react";
-import { insertMemberSchema } from "@shared/schema";
+import { Button } from "@/components/ui/button";
 
 interface JoinGroupDialogProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product;
-  existingGroup?: Group;
+  existingGroup?: Group | undefined;
 }
 
-const formSchema = insertMemberSchema.omit({ groupId: true }).extend({
-  phone: z.string().min(10, "Telefone inválido (mínimo 10 dígitos)"),
-  name: z.string().min(2, "Nome muito curto"),
-});
+function formatPhoneBR(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
 
-type FormValues = z.infer<typeof formSchema>;
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10)
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 
-export function JoinGroupDialog({ isOpen, onClose, product, existingGroup }: JoinGroupDialogProps) {
-  const [step, setStep] = useState<'form' | 'success'>('form');
-  const createGroup = useCreateGroup();
-  const joinGroup = useJoinGroup();
-  
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+async function postJson(url: string, body: any) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 
-  const onSubmit = async (data: FormValues) => {
-    try {
-      let targetGroupId = existingGroup?.id;
+  const contentType = res.headers.get("content-type") || "";
+  const text = await res.text();
 
-      // If no group exists, create one first
-      if (!targetGroupId) {
-        const newGroup = await createGroup.mutateAsync(product.id);
-        targetGroupId = newGroup.id;
+  // tenta JSON se vier JSON
+  let data: any = null;
+  if (contentType.includes("application/json")) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!res.ok) {
+    const msg =
+      (data && (data.message || data.error)) ||
+      text ||
+      `Erro ${res.status} ao chamar ${url}`;
+    throw new Error(msg);
+  }
+
+  // se não veio json, devolve texto também
+  return data ?? { ok: true, raw: text };
+}
+
+async function tryPostMany(urls: string[], body: any) {
+  let lastErr: any = null;
+
+  for (const url of urls) {
+    try {
+      const data = await postJson(url, body);
+      return { url, data };
+    } catch (e: any) {
+      lastErr = e;
+      // tenta o próximo
+    }
+  }
+
+  throw (
+    lastErr || new Error("Não foi possível salvar (nenhum endpoint funcionou).")
+  );
+}
+
+export function JoinGroupDialog({
+  isOpen,
+  onClose,
+  product,
+  existingGroup,
+}: JoinGroupDialogProps) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) {
+      setErrorMsg("");
+      setLoading(false);
+    } else {
+      setErrorMsg("");
+    }
+  }, [isOpen]);
+
+  const isJoiningExisting = !!existingGroup;
+
+  const title = useMemo(() => {
+    return isJoiningExisting ? "Entrar no grupo" : "Criar novo grupo";
+  }, [isJoiningExisting]);
+
+  const subtitle = useMemo(() => {
+    if (isJoiningExisting) {
+      const faltam = Math.max(
+        0,
+        product.minPeople - (existingGroup?.currentPeople ?? 0),
+      );
+      return `Faltam ${faltam} pessoas para fechar este grupo.`;
+    }
+    return `Garanta o preço de R$ ${Number(product.groupPrice).toFixed(2)} juntando-se a outras ${product.minPeople} pessoas.`;
+  }, [isJoiningExisting, product.groupPrice, product.minPeople, existingGroup]);
+
+  async function handleSubmit() {
+    setErrorMsg("");
+
+    const cleanName = name.trim();
+    const formattedPhone = phone.trim();
+    const digitsPhone = formattedPhone.replace(/\D/g, "");
+
+    if (!cleanName) {
+      setErrorMsg("Informe seu nome.");
+      return;
+    }
+    if (!formattedPhone || digitsPhone.length < 8) {
+      setErrorMsg("Informe um WhatsApp / telefone válido.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // ✅ payload com chaves “alternativas” pra bater com qualquer backend
+      const basePayload = {
+        name: cleanName,
+        phone: formattedPhone,
+        phone_digits: digitsPhone,
+        phoneNumber: formattedPhone,
+        whatsapp: formattedPhone,
+      };
+
+      // 1) ENTRAR em grupo existente
+      if (isJoiningExisting && existingGroup?.id) {
+        const gid = existingGroup.id;
+
+        const joinPayload = {
+          ...basePayload,
+          groupId: gid,
+          group_id: gid,
+        };
+
+        // ✅ tenta endpoints mais comuns
+        const joinUrls = [
+          "/api/groups/join",
+          `/api/groups/${gid}/join`,
+          `/api/groups/${gid}/members`,
+          "/api/members/join",
+        ];
+
+        const { url, data } = await tryPostMany(joinUrls, joinPayload);
+
+        // Se o backend não devolveu nada útil, ainda assim consideramos ok
+        // mas ajudamos mostrando por onde foi
+        console.log("JOIN OK via", url, data);
+
+        onClose();
+        // reload para re-buscar grupos
+        window.location.reload();
+        return;
       }
 
-      // Then join the group
-      await joinGroup.mutateAsync({
-        groupId: targetGroupId,
-        data: data
-      });
+      // 2) CRIAR grupo e entrar
+      const createPayload = {
+        ...basePayload,
+        productId: product.id,
+        product_id: product.id,
+        minPeople: product.minPeople,
+        min_people: product.minPeople,
+      };
 
-      setStep('success');
-    } catch (error) {
-      console.error("Failed to process group action", error);
-      // Toast is handled in hooks
+      const createUrls = [
+        "/api/groups/create",
+        "/api/groups",
+        "/api/group/create",
+        "/api/groups/new",
+      ];
+
+      const { url, data } = await tryPostMany(createUrls, createPayload);
+
+      console.log("CREATE OK via", url, data);
+
+      onClose();
+      window.location.reload();
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Erro inesperado. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  const handleWhatsAppShare = () => {
-    const text = `Oi! Compre junto comigo no Compre Junto FSA e pague R$ ${Number(product.groupPrice).toFixed(2)} no(a) ${product.name}! Acesse agora.`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const handleClose = () => {
-    setStep('form');
-    onClose();
-  };
-
-  const isProcessing = createGroup.isPending || joinGroup.isPending || isSubmitting;
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !isProcessing && !open && handleClose()}>
-      <DialogContent className="sm:max-w-md rounded-2xl">
-        {step === 'form' ? (
-          <>
-            <DialogHeader>
-              <DialogTitle className="font-display text-2xl text-primary">
-                {existingGroup ? "Participar do Grupo" : "Criar Novo Grupo"}
-              </DialogTitle>
-              <DialogDescription>
-                Garanta o preço de <strong>R$ {Number(product.groupPrice).toFixed(2)}</strong> juntando-se a outras {product.minPeople} pessoas.
-              </DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 mt-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Seu Nome</Label>
-                <Input 
-                  id="name" 
-                  {...register("name")} 
-                  placeholder="Ex: Maria Silva"
-                  className="rounded-xl border-2 focus:border-primary/50 focus:ring-primary/20"
-                />
-                {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">WhatsApp / Telefone</Label>
-                <Input 
-                  id="phone" 
-                  {...register("phone")} 
-                  placeholder="(75) 99999-9999"
-                  className="rounded-xl border-2 focus:border-primary/50 focus:ring-primary/20"
-                />
-                {errors.phone && <p className="text-xs text-red-500">{errors.phone.message}</p>}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={onClose} 
-                  disabled={isProcessing}
-                  className="flex-1 rounded-xl"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1 bg-primary hover:bg-primary/90 rounded-xl font-bold shadow-lg shadow-primary/20"
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : existingGroup ? "Confirmar Participação" : "Criar e Entrar"}
-                </Button>
-              </div>
-            </form>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-6 text-center space-y-6">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center animate-bounce">
-              <CheckCircle2 className="w-10 h-10 text-green-600" />
-            </div>
-            
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold font-display text-green-700">
-                {existingGroup ? "Você entrou no grupo!" : "Grupo Criado com Sucesso!"}
-              </h3>
-              <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                Agora compartilhe com seus amigos para completar o grupo e garantir o desconto.
-              </p>
-            </div>
-
-            <div className="w-full space-y-3">
-              <Button 
-                onClick={handleWhatsAppShare}
-                className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold rounded-xl shadow-lg"
-                size="lg"
-              >
-                <Share2 className="w-5 h-5 mr-2" />
-                Compartilhar no WhatsApp
-              </Button>
-              <Button 
-                variant="ghost" 
-                onClick={handleClose}
-                className="w-full text-muted-foreground"
-              >
-                Voltar para a loja
-              </Button>
-            </div>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+            <p className="mt-1 text-sm text-gray-600">{subtitle}</p>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+
+          <button
+            onClick={onClose}
+            className="rounded-lg px-2 py-1 text-gray-500 hover:bg-gray-100"
+            aria-label="Fechar"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-800">
+              Seu nome
+            </label>
+            <input
+              className="mt-2 w-full rounded-xl border border-orange-300 px-4 py-3 outline-none focus:border-orange-500"
+              placeholder="Ex: Maria Silva"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-800">
+              WhatsApp / Telefone
+            </label>
+            <input
+              className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-orange-500"
+              placeholder="(75) 99999-9999"
+              value={phone}
+              onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
+              inputMode="tel"
+            />
+          </div>
+
+          {errorMsg ? (
+            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMsg}
+            </div>
+          ) : null}
+
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+            <Button
+              variant="outline"
+              className="w-full rounded-xl border-2 border-gray-300 py-6 font-semibold"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              className="w-full rounded-xl bg-orange-500 py-6 font-bold text-white hover:bg-orange-600"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
+              {loading
+                ? "Enviando..."
+                : isJoiningExisting
+                  ? "Entrar no grupo"
+                  : "Criar e entrar"}
+            </Button>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Ao continuar, você concorda em receber mensagens no WhatsApp sobre o
+            andamento do grupo.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

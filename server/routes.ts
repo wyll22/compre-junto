@@ -6,9 +6,8 @@ import { z } from "zod";
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
 ): Promise<Server> {
-
   // Products
   app.get(api.products.list.path, async (req, res) => {
     const category = req.query.category as string;
@@ -19,7 +18,8 @@ export async function registerRoutes(
 
   app.get(api.products.get.path, async (req, res) => {
     const product = await storage.getProduct(Number(req.params.id));
-    if (!product) return res.status(404).json({ message: "Produto não encontrado" });
+    if (!product)
+      return res.status(404).json({ message: "Produto não encontrado" });
     res.json(product);
   });
 
@@ -38,11 +38,11 @@ export async function registerRoutes(
 
   app.put(api.products.update.path, async (req, res) => {
     try {
-        const input = api.products.update.input.parse(req.body);
-        const product = await storage.updateProduct(Number(req.params.id), input);
-        res.json(product);
+      const input = api.products.update.input.parse(req.body);
+      const product = await storage.updateProduct(Number(req.params.id), input);
+      res.json(product);
     } catch (err) {
-        res.status(400).json({ message: "Erro ao atualizar produto" });
+      res.status(400).json({ message: "Erro ao atualizar produto" });
     }
   });
 
@@ -53,38 +53,82 @@ export async function registerRoutes(
 
   // Groups
   app.get(api.groups.list.path, async (req, res) => {
-    const productId = req.query.productId ? Number(req.query.productId) : undefined;
+    const productId = req.query.productId
+      ? Number(req.query.productId)
+      : undefined;
     const status = req.query.status as string;
     const groups = await storage.getGroups(productId, status);
     res.json(groups);
   });
 
   app.get(api.groups.get.path, async (req, res) => {
-      const group = await storage.getGroup(Number(req.params.id));
-      if (!group) return res.status(404).json({ message: "Grupo não encontrado" });
-      res.json(group);
+    const group = await storage.getGroup(Number(req.params.id));
+    if (!group)
+      return res.status(404).json({ message: "Grupo não encontrado" });
+    res.json(group);
   });
 
+  // Criar grupo + já entrar como 1º membro (nome/telefone)
   app.post(api.groups.create.path, async (req, res) => {
-    const productId = req.body.productId;
-    const product = await storage.getProduct(productId);
-    if (!product) return res.status(404).json({ message: "Produto não encontrado" });
+    try {
+      const productId = Number(req.body.productId);
+      const name = String(req.body.name ?? "").trim();
+      const phone = String(req.body.phone ?? "").trim();
 
-    const group = await storage.createGroup({
+      if (!productId)
+        return res.status(400).json({ message: "productId é obrigatório" });
+      if (!name) return res.status(400).json({ message: "name é obrigatório" });
+      if (!phone)
+        return res.status(400).json({ message: "phone é obrigatório" });
+
+      const product = await storage.getProduct(productId);
+      if (!product)
+        return res.status(404).json({ message: "Produto não encontrado" });
+
+      // 1) cria o grupo
+      const group = await storage.createGroup({
         productId,
         minPeople: product.minPeople,
-    });
-    res.status(201).json(group);
-  });
+      });
 
+      // 2) adiciona o primeiro membro e atualiza contagem do grupo
+      const updatedGroup = await storage.addMemberToGroup(group.id, {
+        name,
+        phone,
+      });
+
+      res.status(201).json(updatedGroup);
+    } catch (err) {
+      console.error(err);
+      res.status(400).json({ message: "Erro ao criar grupo" });
+    }
+  });
+  // Entrar em um grupo existente (recebe groupId no body)
   app.post(api.groups.join.path, async (req, res) => {
     try {
-        const input = api.groups.join.input.parse(req.body);
-        const groupId = Number(req.params.id);
-        const group = await storage.addMemberToGroup(groupId, input);
-        res.json(group);
+      const groupId = Number(req.body.groupId);
+      const name = String(req.body.name ?? "").trim();
+      const phone = String(req.body.phone ?? "").trim();
+
+      if (!groupId)
+        return res.status(400).json({ message: "groupId é obrigatório" });
+      if (!name) return res.status(400).json({ message: "name é obrigatório" });
+      if (!phone)
+        return res.status(400).json({ message: "phone é obrigatório" });
+
+      const group = await storage.getGroup(groupId);
+      if (!group)
+        return res.status(404).json({ message: "Grupo não encontrado" });
+
+      const updatedGroup = await storage.addMemberToGroup(groupId, {
+        name,
+        phone,
+      });
+
+      res.json(updatedGroup);
     } catch (err) {
-        res.status(400).json({ message: "Erro ao entrar no grupo" });
+      console.error(err);
+      res.status(400).json({ message: "Erro ao entrar no grupo" });
     }
   });
 
@@ -98,22 +142,24 @@ async function seedDatabase() {
   if (products.length === 0) {
     console.log("Semeando banco de dados...");
     await storage.createProduct({
-        name: "Arroz Tio João 5kg",
-        description: "Arroz branco tipo 1, soltinho e saboroso.",
-        imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&auto=format&fit=crop&q=60",
-        originalPrice: "25.90",
-        groupPrice: "19.90",
-        minPeople: 10,
-        category: "Alimentos"
+      name: "Arroz Tio João 5kg",
+      description: "Arroz branco tipo 1, soltinho e saboroso.",
+      imageUrl:
+        "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&auto=format&fit=crop&q=60",
+      originalPrice: "25.90",
+      groupPrice: "19.90",
+      minPeople: 10,
+      category: "Alimentos",
     });
     await storage.createProduct({
-        name: "Feijão Camil 1kg",
-        description: "Feijão carioca de alta qualidade.",
-        imageUrl: "https://images.unsplash.com/photo-1551489186-cf8726f514f8?w=500&auto=format&fit=crop&q=60",
-        originalPrice: "9.90",
-        groupPrice: "6.99",
-        minPeople: 15,
-        category: "Alimentos"
+      name: "Feijão Camil 1kg",
+      description: "Feijão carioca de alta qualidade.",
+      imageUrl:
+        "https://images.unsplash.com/photo-1551489186-cf8726f514f8?w=500&auto=format&fit=crop&q=60",
+      originalPrice: "9.90",
+      groupPrice: "6.99",
+      minPeople: 15,
+      category: "Alimentos",
     });
   }
 }
