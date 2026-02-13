@@ -69,7 +69,7 @@ export const membersRelations = relations(members, ({ one }) => ({
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
-export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true, currentPeople: true, status: true });
+export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
 export const insertMemberSchema = createInsertSchema(members).omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;

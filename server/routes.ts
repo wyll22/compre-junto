@@ -103,6 +103,7 @@ export async function registerRoutes(
       res.status(400).json({ message: "Erro ao criar grupo" });
     }
   });
+
   // Entrar em um grupo existente (recebe groupId no body)
   app.post(api.groups.join.path, async (req, res) => {
     try {
@@ -132,34 +133,8 @@ export async function registerRoutes(
     }
   });
 
-  seedDatabase();
+  // Executa o seed dos produtos ao iniciar as rotas
+  storage.seedProducts().catch(console.error);
 
   return httpServer;
-}
-
-async function seedDatabase() {
-  const products = await storage.getProducts();
-  if (products.length === 0) {
-    console.log("Semeando banco de dados...");
-    await storage.createProduct({
-      name: "Arroz Tio João 5kg",
-      description: "Arroz branco tipo 1, soltinho e saboroso.",
-      imageUrl:
-        "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&auto=format&fit=crop&q=60",
-      originalPrice: "25.90",
-      groupPrice: "19.90",
-      minPeople: 10,
-      category: "Alimentos",
-    });
-    await storage.createProduct({
-      name: "Feijão Camil 1kg",
-      description: "Feijão carioca de alta qualidade.",
-      imageUrl:
-        "https://images.unsplash.com/photo-1551489186-cf8726f514f8?w=500&auto=format&fit=crop&q=60",
-      originalPrice: "9.90",
-      groupPrice: "6.99",
-      minPeople: 15,
-      category: "Alimentos",
-    });
-  }
 }
