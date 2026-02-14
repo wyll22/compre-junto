@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertProductSchema, products, groups, members } from './schema';
+import { insertProductSchema, insertBannerSchema, insertVideoSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -16,91 +16,102 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/products' as const,
-      input: z.object({
-        category: z.string().optional(),
-        search: z.string().optional(),
-      }).optional(),
-      responses: {
-        200: z.array(z.custom<typeof products.$inferSelect>()),
-      },
     },
     get: {
       method: 'GET' as const,
       path: '/api/products/:id' as const,
-      responses: {
-        200: z.custom<typeof products.$inferSelect>(),
-        404: errorSchemas.notFound,
-      },
     },
     create: {
       method: 'POST' as const,
       path: '/api/products' as const,
       input: insertProductSchema,
-      responses: {
-        201: z.custom<typeof products.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
     },
     update: {
       method: 'PUT' as const,
       path: '/api/products/:id' as const,
       input: insertProductSchema.partial(),
-      responses: {
-        200: z.custom<typeof products.$inferSelect>(),
-        404: errorSchemas.notFound,
-      },
     },
     delete: {
       method: 'DELETE' as const,
       path: '/api/products/:id' as const,
-      responses: {
-        204: z.void(),
-        404: errorSchemas.notFound,
-      },
     },
   },
   groups: {
     list: {
       method: 'GET' as const,
       path: '/api/groups' as const,
-      input: z.object({
-        productId: z.coerce.number().optional(),
-        status: z.enum(['aberto', 'fechado', 'completo']).optional(),
-      }).optional(),
-      responses: {
-        200: z.array(z.custom<typeof groups.$inferSelect & { product: typeof products.$inferSelect, members: (typeof members.$inferSelect)[] }>()),
-      }
-    },
-    create: {
-        method: 'POST' as const,
-        path: '/api/groups' as const,
-        input: z.object({ productId: z.number() }),
-        responses: {
-            201: z.custom<typeof groups.$inferSelect>(),
-        }
-    },
-    join: {
-        method: 'POST' as const,
-        path: '/api/groups/:id/join' as const,
-        input: z.object({
-          name: z.string().min(1, "Nome é obrigatório"),
-          phone: z.string().min(1, "Telefone é obrigatório"),
-        }),
-        responses: {
-            200: z.custom<typeof groups.$inferSelect>(),
-            400: errorSchemas.validation,
-            404: errorSchemas.notFound,
-        }
     },
     get: {
       method: 'GET' as const,
       path: '/api/groups/:id' as const,
-      responses: {
-        200: z.custom<typeof groups.$inferSelect & { product: typeof products.$inferSelect, members: (typeof members.$inferSelect)[] }>(),
-        404: errorSchemas.notFound,
-      },
-    }
-  }
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/groups' as const,
+    },
+    join: {
+      method: 'POST' as const,
+      path: '/api/groups/:id/join' as const,
+    },
+    updateStatus: {
+      method: 'PATCH' as const,
+      path: '/api/groups/:id/status' as const,
+    },
+  },
+  banners: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/banners' as const,
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/banners' as const,
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/banners/:id' as const,
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/banners/:id' as const,
+    },
+  },
+  videos: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/videos' as const,
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/videos' as const,
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/videos/:id' as const,
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/videos/:id' as const,
+    },
+  },
+  auth: {
+    register: {
+      method: 'POST' as const,
+      path: '/api/auth/register' as const,
+    },
+    login: {
+      method: 'POST' as const,
+      path: '/api/auth/login' as const,
+    },
+    logout: {
+      method: 'POST' as const,
+      path: '/api/auth/logout' as const,
+    },
+    me: {
+      method: 'GET' as const,
+      path: '/api/auth/me' as const,
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

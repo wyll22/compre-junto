@@ -1,43 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl } from "@shared/routes";
-import { type InsertMember } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-export function useGroups(params?: { productId?: number; status?: 'aberto' | 'fechado' }) {
+export function useGroups(params?: { productId?: number; status?: string }) {
   return useQuery({
-    queryKey: [api.groups.list.path, params],
+    queryKey: ["/api/groups", params],
     queryFn: async () => {
-      const url = new URL(api.groups.list.path, window.location.origin);
+      const url = new URL("/api/groups", window.location.origin);
       if (params?.productId) {
         url.searchParams.append("productId", String(params.productId));
       }
       if (params?.status) {
         url.searchParams.append("status", params.status);
       }
-
       const res = await fetch(url.toString(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch groups");
-      return api.groups.list.responses[200].parse(await res.json());
-    },
-  });
-}
-
-export function useCreateGroup() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (productId: number) => {
-      const res = await fetch(api.groups.create.path, {
-        method: api.groups.create.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to create group");
-      return api.groups.create.responses[201].parse(await res.json());
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.groups.list.path] });
+      return await res.json();
     },
   });
 }
@@ -47,31 +25,50 @@ export function useJoinGroup() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ groupId, data }: { groupId: number; data: Omit<InsertMember, "groupId"> }) => {
-      const url = buildUrl(api.groups.join.path, { id: groupId });
-      const res = await fetch(url, {
-        method: api.groups.join.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-      
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to join group");
-      }
-      return api.groups.join.responses[200].parse(await res.json());
+    mutationFn: async ({ groupId, name, phone }: { groupId: number; name: string; phone: string }) => {
+      const res = await apiRequest("POST", `/api/groups/${groupId}/join`, { name, phone });
+      return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.groups.list.path] });
-      toast({ title: "Sucesso!", description: "Você entrou no grupo com sucesso." });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
+      toast({ title: "Sucesso!", description: "Voce entrou no grupo!" });
     },
-    onError: (error) => {
-      toast({ 
-        title: "Erro", 
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
         description: error instanceof Error ? error.message : "Erro ao entrar no grupo",
-        variant: "destructive" 
+        variant: "destructive",
       });
+    },
+  });
+}
+
+export function useCreateGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { productId: number; name?: string; phone?: string }) => {
+      const res = await apiRequest("POST", "/api/groups", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
+    },
+  });
+}
+
+export function useUpdateGroupStatus() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/groups/${id}/status`, { status });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
+      toast({ title: "Sucesso", description: "Status do grupo atualizado!" });
     },
   });
 }

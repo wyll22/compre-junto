@@ -1,9 +1,9 @@
-import { Product, Group } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock } from "lucide-react";
+import { Users, Clock, ShoppingCart } from "lucide-react";
 import { useGroups } from "@/hooks/use-groups";
+import { useAuth } from "@/hooks/use-auth";
 import { useMemo, useState } from "react";
 import { JoinGroupDialog } from "./JoinGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,20 +11,19 @@ import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 
 interface ProductCardProps {
-  product: Product;
-  showBuyNow?: boolean;
+  product: any;
+  saleMode: "grupo" | "agora";
 }
 
 function isOpenStatus(status: unknown) {
-  const s = String(status ?? "")
-    .toLowerCase()
-    .trim();
+  const s = String(status ?? "").toLowerCase().trim();
   return s === "aberto" || s === "open";
 }
 
-export function ProductCard({ product, showBuyNow = false }: ProductCardProps) {
+export function ProductCard({ product, saleMode }: ProductCardProps) {
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [, setLocation] = useLocation();
+  const { data: user } = useAuth();
 
   const handleAddToCart = () => {
     const savedCart = localStorage.getItem("fsa_cart");
@@ -32,10 +31,12 @@ export function ProductCard({ product, showBuyNow = false }: ProductCardProps) {
     if (savedCart) {
       try {
         cart = JSON.parse(savedCart);
-      } catch (e) {
+      } catch {
         cart = [];
       }
     }
+
+    const price = product.nowPrice || product.originalPrice;
 
     const existingIndex = cart.findIndex((item: any) => item.productId === product.id);
     if (existingIndex > -1) {
@@ -45,186 +46,175 @@ export function ProductCard({ product, showBuyNow = false }: ProductCardProps) {
         productId: product.id,
         name: product.name,
         imageUrl: product.imageUrl,
-        groupPrice: product.groupPrice,
-        qty: 1
+        price: price,
+        qty: 1,
       });
     }
 
     localStorage.setItem("fsa_cart", JSON.stringify(cart));
-    // Dispara evento customizado para atualizar contador no mesmo window
-    window.dispatchEvent(new Event('cart-updated'));
-    setLocation("/carrinho");
+    window.dispatchEvent(new Event("cart-updated"));
   };
 
-  // ✅ NÃO filtra por status aqui (evita “sumir” grupo por status diferente)
-  const { data: groups, isLoading } = useGroups({
-    productId: product.id,
-  } as any);
+  const handleJoinGroup = () => {
+    if (!user) {
+      setLocation("/login?redirect=/");
+      return;
+    }
+    setIsJoinDialogOpen(true);
+  };
 
-  // ✅ melhor grupo aberto (aberto/open) com mais pessoas
-  const availableGroup: Group | undefined = useMemo(() => {
+  const { data: groups, isLoading } = useGroups(
+    saleMode === "grupo" ? { productId: product.id } : undefined,
+  );
+
+  const availableGroup = useMemo(() => {
+    if (saleMode !== "grupo") return undefined;
     const list = (groups ?? []) as any[];
     const openGroups = list.filter((g) => isOpenStatus(g?.status));
-    openGroups.sort(
-      (a, b) => Number(b?.currentPeople ?? 0) - Number(a?.currentPeople ?? 0),
-    );
+    openGroups.sort((a, b) => Number(b?.currentPeople ?? 0) - Number(a?.currentPeople ?? 0));
     return openGroups[0];
-  }, [groups]);
+  }, [groups, saleMode]);
 
   const hasOpenGroup = !!availableGroup;
 
-  // desconto
-  const savings = Math.round(
-    ((Number(product.originalPrice) - Number(product.groupPrice)) /
-      Number(product.originalPrice)) *
-      100,
-  );
+  const originalPrice = Number(product.originalPrice);
+  const groupPrice = Number(product.groupPrice);
+  const nowPrice = product.nowPrice ? Number(product.nowPrice) : originalPrice;
 
-  const currentPeople = hasOpenGroup
-    ? Number((availableGroup as any).currentPeople ?? 0)
-    : 0;
+  const displayPrice = saleMode === "grupo" ? groupPrice : nowPrice;
+  const savings = Math.round(((originalPrice - displayPrice) / originalPrice) * 100);
 
-  const peopleLeft = Math.max(0, product.minPeople - currentPeople);
+  const currentPeople = hasOpenGroup ? Number(availableGroup.currentPeople ?? 0) : 0;
+  const minPeople = product.minPeople;
+  const peopleLeft = Math.max(0, minPeople - currentPeople);
+  const progressPercent = minPeople > 0 ? (currentPeople / minPeople) * 100 : 0;
 
   return (
     <>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="group relative bg-card rounded-2xl border border-border/50 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full overflow-hidden"
+        transition={{ duration: 0.25 }}
+        data-testid={`card-product-${product.id}`}
+        className="group relative bg-card rounded-md border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col h-full overflow-visible"
       >
-        {/* Badge desconto */}
-        <div className="absolute top-3 left-3 z-10">
-          <Badge className="bg-red-500 hover:bg-red-600 text-white font-bold px-2 py-1 text-xs shadow-md">
-            -{savings}% OFF
-          </Badge>
-        </div>
-
-        {/* Imagem */}
-        <div className="aspect-[4/3] w-full overflow-hidden bg-gray-100 relative">
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        </div>
-
-        {/* Conteúdo */}
-        <div className="p-4 flex-1 flex flex-col">
-          <div className="mb-1">
-            <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-              {product.category}
-            </span>
+        {savings > 0 && (
+          <div className="absolute top-2 left-2 z-10">
+            <Badge className="bg-destructive text-destructive-foreground font-bold px-1.5 py-0.5 text-[10px]">
+              -{savings}%
+            </Badge>
           </div>
+        )}
 
-          <h3 className="font-display font-semibold text-lg leading-tight mb-2 line-clamp-2 min-h-[3rem]">
+        <div className="aspect-square w-full overflow-hidden bg-muted relative rounded-t-md">
+          <img
+            src={product.imageUrl || "https://via.placeholder.com/400x400?text=Sem+Imagem"}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x400?text=Sem+Imagem";
+            }}
+          />
+        </div>
+
+        <div className="p-3 flex-1 flex flex-col">
+          <span className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase mb-0.5">
+            {product.category}
+          </span>
+
+          <h3 className="font-display font-semibold text-sm leading-tight mb-2 line-clamp-2 min-h-[2.5rem] text-foreground">
             {product.name}
           </h3>
 
-          {/* Preços */}
-          <div className="mt-auto space-y-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm text-muted-foreground line-through decoration-red-400">
-                R$ {Number(product.originalPrice).toFixed(2)}
+          <div className="mt-auto space-y-2">
+            <div>
+              <span className="text-xs text-muted-foreground line-through">
+                R$ {originalPrice.toFixed(2)}
               </span>
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold text-primary tracking-tight">
-                  R$ {Number(product.groupPrice).toFixed(2)}
-                </span>
-                <span className="text-[10px] text-primary/80 font-medium">
-                  {showBuyNow ? "Preço individual" : "Preço em grupo"}
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold text-primary tracking-tight">
+                  R$ {displayPrice.toFixed(2)}
                 </span>
               </div>
+              <span className="text-[10px] text-primary/80 font-medium">
+                {saleMode === "grupo" ? "Preco em grupo" : "Preco individual"}
+              </span>
             </div>
 
-            {/* Status grupo - Somente se NÃO for modo Buy Now */}
-            {!showBuyNow && (
+            {saleMode === "grupo" && (
               isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-2 w-full" />
-                  <Skeleton className="h-8 w-full rounded-lg" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-1.5 w-full" />
+                  <Skeleton className="h-8 w-full rounded-md" />
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {hasOpenGroup ? (
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-medium text-muted-foreground">
-                        <span className="flex items-center gap-1 text-orange-600">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-medium">
+                        <span className="flex items-center gap-0.5 text-primary">
                           <Users className="w-3 h-3" />
-                          Grupo aberto!
+                          Grupo aberto
                         </span>
                         <span className="text-muted-foreground">
-                          Mínimo {product.minPeople} pessoas
+                          {currentPeople}/{minPeople}
                         </span>
                       </div>
-
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-muted-foreground">
-                          {currentPeople}/{product.minPeople} no grupo
-                        </span>
-                        <span className="text-orange-600">
-                          Faltam {peopleLeft} para fechar
-                        </span>
-                      </div>
-
-                      <Progress
-                        value={(currentPeople / product.minPeople) * 100}
-                        className="h-2 bg-orange-100"
-                      />
+                      <Progress value={progressPercent} className="h-1.5" />
+                      <span className="text-[10px] text-muted-foreground">
+                        Faltam {peopleLeft}
+                      </span>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-1.5">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                         <Clock className="w-3 h-3" />
-                        <span>Seja o primeiro a criar um grupo</span>
+                        <span>Seja o primeiro!</span>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Mínimo {product.minPeople} pessoas
-                      </div>
-                      <div className="text-xs text-orange-600 font-medium">
-                        Faltam {peopleLeft} para fechar
-                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        Min. {minPeople} pessoas | Faltam {peopleLeft}
+                      </span>
                     </div>
                   )}
 
                   <Button
-                    onClick={() => setIsJoinDialogOpen(true)}
-                    className={`w-full font-bold shadow-md hover:shadow-lg transition-all ${
-                      hasOpenGroup
-                        ? "bg-primary hover:bg-orange-600 text-white"
-                        : "bg-white border-2 border-primary text-primary hover:bg-orange-50"
-                    }`}
-                    size="lg"
+                    data-testid={`button-join-group-${product.id}`}
+                    onClick={handleJoinGroup}
+                    className="w-full font-bold"
+                    size="sm"
                   >
-                    <Users className="w-4 h-4 mr-2" />
+                    <Users className="w-3.5 h-3.5 mr-1.5" />
                     Entrar no grupo
                   </Button>
                 </div>
               )
             )}
 
-            {showBuyNow && (
+            {saleMode === "agora" && (
               <Button
+                data-testid={`button-add-cart-${product.id}`}
                 onClick={handleAddToCart}
-                variant="default"
-                className="w-full font-bold shadow-md hover:shadow-lg transition-all bg-primary hover:bg-orange-600 text-white"
-                size="lg"
+                className="w-full font-bold"
+                size="sm"
               >
-                Comprar agora
+                <ShoppingCart className="w-3.5 h-3.5 mr-1.5" />
+                Adicionar ao carrinho
               </Button>
             )}
           </div>
         </div>
       </motion.div>
 
-      <JoinGroupDialog
-        isOpen={isJoinDialogOpen}
-        onClose={() => setIsJoinDialogOpen(false)}
-        product={product}
-        existingGroup={availableGroup}
-      />
+      {saleMode === "grupo" && (
+        <JoinGroupDialog
+          isOpen={isJoinDialogOpen}
+          onClose={() => setIsJoinDialogOpen(false)}
+          product={product}
+          existingGroup={availableGroup}
+          user={user}
+        />
+      )}
     </>
   );
 }
