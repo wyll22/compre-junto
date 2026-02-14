@@ -825,7 +825,7 @@ export async function registerRoutes(
         });
       }
 
-      const user = await storage.getUser(userId);
+      const user = await storage.getUserById(userId);
       const changedByName = user?.name || "Admin";
 
       const order = await storage.changeOrderStatus(Number(req.params.id), newStatus, userId, changedByName, reason);
@@ -843,7 +843,7 @@ export async function registerRoutes(
     try {
       const order = await storage.getOrder(Number(req.params.id));
       if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
-      const user = await storage.getUser(userId);
+      const user = await storage.getUserById(userId);
       if (order.userId !== userId && user?.role !== "admin") {
         return res.status(403).json({ message: "Acesso negado" });
       }
