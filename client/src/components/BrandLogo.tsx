@@ -21,7 +21,7 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
     ? "min-w-[120px] lg:min-w-[140px] flex items-center"
     : "flex items-center justify-center";
 
-  const bgClass = size === "header" ? "bg-white rounded-md px-2 py-1" : "";
+  const bgClass = size === "header" ? "bg-white rounded-md inline-flex" : "";
 
   return (
     <div className={`${containerClass} ${className}`} data-testid="brand-logo">
