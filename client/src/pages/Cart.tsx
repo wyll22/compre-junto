@@ -169,14 +169,22 @@ export default function Cart() {
               </CardContent>
             </Card>
           )}
-          {orderFulfillment === "delivery" && (
+          {orderFulfillment === "delivery" && user && (
             <Card className="mb-4 max-w-sm w-full">
               <CardContent className="p-4 text-left">
                 <div className="flex items-center gap-2 mb-2">
                   <Truck className="w-4 h-4 text-primary" />
                   <span className="font-bold text-sm">Entrega no endereco</span>
                 </div>
-                <p className="text-xs text-muted-foreground">Sera enviado para o endereco cadastrado na sua conta.</p>
+                {user.addressStreet ? (
+                  <div className="space-y-0.5">
+                    <p className="text-sm">{user.addressStreet}, {user.addressNumber}{user.addressComplement ? ` - ${user.addressComplement}` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{user.addressDistrict} - {user.addressCity}/{user.addressState}</p>
+                    <p className="text-xs text-muted-foreground">CEP: {user.addressCep}</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Sera enviado para o endereco cadastrado na sua conta.</p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -363,24 +371,35 @@ export default function Cart() {
       {cartFulfillmentType === "delivery" && user && (
         <Card className="mt-4">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Truck className="w-4 h-4 text-primary" />
-              <span className="font-bold text-sm">Entrega no endereco</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-primary" />
+                <span className="font-bold text-sm">Endereco de entrega</span>
+              </div>
+              {user.addressStreet && (
+                <Link href="/minha-conta">
+                  <Button variant="outline" size="sm" data-testid="button-change-address">Alterar</Button>
+                </Link>
+              )}
             </div>
             {user.addressStreet ? (
-              <div>
-                <p className="text-sm">{user.addressStreet}, {user.addressNumber}</p>
-                <p className="text-xs text-muted-foreground">{user.addressDistrict} - {user.addressCity}/{user.addressState}</p>
-                <p className="text-xs text-muted-foreground">CEP: {user.addressCep}</p>
-                <Link href="/minha-conta">
-                  <Button variant="link" size="sm" className="px-0 h-auto text-xs mt-1">Alterar endereco</Button>
-                </Link>
+              <div className="bg-muted/50 rounded-md p-3 space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {user.addressStreet}, {user.addressNumber}
+                  {user.addressComplement ? ` - ${user.addressComplement}` : ""}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {user.addressDistrict}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {user.addressCity}/{user.addressState} - CEP: {user.addressCep}
+                </p>
               </div>
             ) : (
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Voce precisa cadastrar um endereco antes de finalizar.</p>
+              <div className="bg-muted/50 rounded-md p-3 text-center">
+                <p className="text-sm text-muted-foreground mb-3">Voce ainda nao cadastrou um endereco de entrega.</p>
                 <Link href="/minha-conta">
-                  <Button size="sm" variant="outline" data-testid="button-add-address">Cadastrar endereco</Button>
+                  <Button size="sm" data-testid="button-add-address">Cadastrar endereco</Button>
                 </Link>
               </div>
             )}
