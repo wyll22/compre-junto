@@ -127,7 +127,7 @@ export default function Account() {
               </Button>
             </Link>
             <Link href="/" data-testid="link-account-logo">
-              <BrandLogo />
+              <BrandLogo size="header" />
             </Link>
             <h1 className="text-lg font-bold font-display text-white">Minha Conta</h1>
           </div>

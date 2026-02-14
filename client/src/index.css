@@ -121,19 +121,3 @@
   background: linear-gradient(135deg, #0B6B3A 0%, #07512C 100%);
 }
 
-.brand-logo {
-  height: 120px;
-  width: auto;
-  object-fit: contain;
-  image-rendering: auto;
-  filter: none !important;
-  opacity: 1 !important;
-  display: block;
-  flex-shrink: 0;
-}
-
-@media (min-width: 768px) {
-  .brand-logo {
-    height: 140px;
-  }
-}

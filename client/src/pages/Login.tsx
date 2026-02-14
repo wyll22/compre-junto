@@ -64,7 +64,7 @@ export default function Login() {
               Voltar
             </Button>
           </Link>
-          <BrandLogo />
+          <BrandLogo size="large" />
           <p className="text-muted-foreground text-sm mt-1">
             {isRegister ? "Crie sua conta" : "Entre na sua conta"}
           </p>
