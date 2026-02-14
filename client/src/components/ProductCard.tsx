@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Clock, ShoppingCart } from "lucide-react";
 import { useGroups } from "@/hooks/use-groups";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { useMemo, useState } from "react";
 import { JoinGroupDialog } from "./JoinGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +25,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { data: user } = useAuth();
+  const { toast } = useToast();
 
   const handleAddToCart = () => {
     const savedCart = localStorage.getItem("fsa_cart");
@@ -53,6 +55,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
 
     localStorage.setItem("fsa_cart", JSON.stringify(cart));
     window.dispatchEvent(new Event("cart-updated"));
+    toast({ title: "Adicionado!", description: `${product.name} foi adicionado ao carrinho.` });
   };
 
   const handleJoinGroup = () => {

@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { parseApiError } from "@/lib/error-utils";
 
 interface CartItem {
   productId: number;
@@ -79,12 +80,7 @@ export default function Cart() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
     },
     onError: (err: any) => {
-      const msg = err?.message || "Erro ao criar pedido";
-      let parsed = msg;
-      try {
-        parsed = JSON.parse(msg.split(":").slice(1).join(":").trim()).message || msg;
-      } catch {}
-      toast({ title: "Erro", description: parsed, variant: "destructive" });
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
 

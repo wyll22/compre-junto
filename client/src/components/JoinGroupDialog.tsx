@@ -12,6 +12,7 @@ import {
 import { useJoinGroup, useCreateGroup } from "@/hooks/use-groups";
 import { Loader2 } from "lucide-react";
 import type { AuthUser } from "@/hooks/use-auth";
+import { parseApiError } from "@/lib/error-utils";
 
 interface JoinGroupDialogProps {
   isOpen: boolean;
@@ -90,7 +91,7 @@ export function JoinGroupDialog({ isOpen, onClose, product, existingGroup, user 
       }
       onClose();
     } catch (err: any) {
-      setErrorMsg(err?.message || "Erro ao processar. Tente novamente.");
+      setErrorMsg(parseApiError(err));
     }
   }
 

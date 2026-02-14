@@ -8,6 +8,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { parseApiError } from "@/lib/error-utils";
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -41,14 +42,7 @@ export default function Login() {
       }
       setLocation(redirect);
     } catch (err: any) {
-      const msg = err?.message || "Erro ao processar";
-      const cleanMsg = msg.includes(":") ? msg.split(":").slice(1).join(":").trim() : msg;
-      let parsed = cleanMsg;
-      try {
-        const obj = JSON.parse(cleanMsg);
-        parsed = obj.message || cleanMsg;
-      } catch {}
-      toast({ title: "Erro", description: parsed, variant: "destructive" });
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     }
   };
 
