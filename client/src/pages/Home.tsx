@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronLeft, ChevronRight, UserCircle } from "lucide-react";
-import headerLogoImg from "@assets/logo-header-v2.png";
+import headerLogoImg from "@assets/logo-clean.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { CATEGORIES } from "@shared/schema";
@@ -89,19 +89,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-3">
             <Link href="/" data-testid="link-brand-logo">
-              <div
-                className="relative z-20 w-[44px] h-[44px] md:w-[52px] md:h-[52px] rounded-[10px] flex items-center justify-center"
-                style={{ filter: "none", opacity: 1, mixBlendMode: "normal" }}
-              >
-                <img
-                  data-testid="img-brand-logo"
-                  src={headerLogoImg}
-                  alt="Compra Junto Formosa"
-                  decoding="async"
-                  className="h-[34px] md:h-[40px] w-auto object-contain"
-                  style={{ filter: "none", opacity: 1, mixBlendMode: "normal" }}
-                />
-              </div>
+              <img
+                data-testid="img-brand-logo"
+                src={headerLogoImg}
+                alt="Compra Junto Formosa"
+                decoding="async"
+                className="h-[56px] md:h-[72px] w-auto object-contain flex-shrink-0"
+              />
             </Link>
 
             <div className="relative flex-1 max-w-md hidden sm:block">
