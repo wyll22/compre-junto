@@ -407,7 +407,7 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Link href="/" data-testid="link-admin-logo">
-              <BrandLogo variant="header" />
+              <BrandLogo />
             </Link>
             <h1 className="text-lg font-bold font-display text-white">Painel Admin</h1>
           </div>

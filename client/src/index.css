@@ -122,40 +122,18 @@
 }
 
 .brand-logo {
+  height: 120px;
+  width: auto;
   object-fit: contain;
   image-rendering: auto;
   filter: none !important;
   opacity: 1 !important;
   display: block;
   flex-shrink: 0;
-  background: transparent;
-}
-
-.brand-logo--header {
-  height: 34px;
-  width: auto;
 }
 
 @media (min-width: 768px) {
-  .brand-logo--header {
-    height: 42px;
-  }
-}
-
-.brand-logo--auth {
-  height: 120px;
-  width: auto;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-@media (min-width: 768px) {
-  .brand-logo--auth {
+  .brand-logo {
     height: 140px;
   }
-}
-
-.dark .brand-logo {
-  filter: none !important;
-  opacity: 1 !important;
 }
