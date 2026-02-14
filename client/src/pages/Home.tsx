@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronLeft, ChevronRight, UserCircle } from "lucide-react";
-import logoImg from "@assets/logo-compre-junto_1771047701827.png";
+import logoImg from "@assets/49ECF8D6-8EFD-4DE3-B65C-335066A661D2_1771048499776.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { CATEGORIES } from "@shared/schema";
@@ -93,8 +93,8 @@ export default function Home() {
                 data-testid="img-brand-logo"
                 src={logoImg}
                 alt="Compra Junto Formosa"
-                className="h-[30px] md:h-[40px] w-auto object-contain rounded-md"
-                style={{ mixBlendMode: "multiply" }}
+                className="h-[28px] md:h-[44px] w-auto object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
             </Link>
 

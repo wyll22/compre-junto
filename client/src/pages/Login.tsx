@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
-import logoImg from "@assets/logo-compre-junto_1771047701827.png";
+import logoImg from "@assets/49ECF8D6-8EFD-4DE3-B65C-335066A661D2_1771048499776.png";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -69,6 +69,7 @@ export default function Login() {
               src={logoImg}
               alt="Compra Junto Formosa"
               className="h-24 w-auto object-contain mx-auto"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           <p className="text-muted-foreground text-sm mt-1">
             {isRegister ? "Crie sua conta" : "Entre na sua conta"}
