@@ -6,10 +6,6 @@ interface BrandLogoProps {
 }
 
 export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
-  const imgStyle: React.CSSProperties = {
-    filter: "drop-shadow(0 0 6px rgba(255,255,255,0.7)) drop-shadow(0 0 14px rgba(255,255,255,0.4))",
-  };
-
   if (size === "large") {
     return (
       <div className={`flex justify-center ${className}`}>
@@ -17,8 +13,7 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
           src={logoImg}
           alt="Compra Junto Formosa"
           decoding="async"
-          style={imgStyle}
-          className="w-[140px] md:w-[180px] h-auto object-contain"
+          className="w-[140px] md:w-[180px] h-auto object-contain rounded-full bg-black"
         />
       </div>
     );
@@ -29,8 +24,7 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
       src={logoImg}
       alt="Compra Junto Formosa"
       decoding="async"
-      style={imgStyle}
-      className={`w-[80px] md:w-[110px] h-auto object-contain flex-shrink-0 ${className}`}
+      className={`w-[80px] md:w-[110px] h-auto object-contain flex-shrink-0 rounded-full bg-black ${className}`}
     />
   );
 }
