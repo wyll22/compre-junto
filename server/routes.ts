@@ -370,6 +370,8 @@ export async function registerRoutes(
   });
 
   app.get("/api/products/all", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     const result = await pool.query(
       `SELECT id, name, description, image_url AS "imageUrl", original_price AS "originalPrice",
               group_price AS "groupPrice", now_price AS "nowPrice", min_people AS "minPeople",
@@ -438,7 +440,17 @@ export async function registerRoutes(
   });
 
   app.get("/api/groups/:id/members", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
     const members = await storage.getGroupMembers(Number(req.params.id));
+    const user = await storage.getUserById(userId);
+    if (user?.role === "admin") {
+      return res.json(members);
+    }
+    const isMember = members.some((m: any) => m.userId === userId);
+    if (!isMember) {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
     res.json(members);
   });
 
@@ -648,6 +660,10 @@ export async function registerRoutes(
     if (userId === null) return;
     const order = await storage.getOrder(Number(req.params.id));
     if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
+    const user = await storage.getUserById(userId);
+    if (order.userId !== userId && user?.role !== "admin") {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
     res.json(order);
   });
 
