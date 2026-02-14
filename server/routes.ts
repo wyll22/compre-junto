@@ -11,7 +11,7 @@ import { z } from "zod";
 import {
   registerSchema, loginSchema, changePasswordSchema, profileUpdateSchema,
   createProductSchema, createCategorySchema, createBannerSchema, createVideoSchema,
-  createOrderSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
+  createOrderSchema, createPickupPointSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
 } from "@shared/schema";
 
 function stripHtmlTags(str: string): string {
@@ -716,6 +716,44 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/pickup-points", async (req: Request, res: Response) => {
+    const activeOnly = req.query.active === "true";
+    const points = await storage.getPickupPoints(activeOnly);
+    res.json(points);
+  });
+
+  app.post("/api/pickup-points", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createPickupPointSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const point = await storage.createPickupPoint(parsed.data);
+      res.status(201).json(point);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao criar ponto de retirada" });
+    }
+  });
+
+  app.put("/api/pickup-points/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const point = await storage.updatePickupPoint(Number(req.params.id), req.body);
+      if (!point) return res.status(404).json({ message: "Ponto nao encontrado" });
+      res.json(point);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao atualizar" });
+    }
+  });
+
+  app.delete("/api/pickup-points/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    await storage.deletePickupPoint(Number(req.params.id));
+    res.status(204).send();
+  });
+
   app.post("/api/orders", async (req: Request, res: Response) => {
     const userId = requireAuth(req, res);
     if (userId === null) return;
@@ -724,7 +762,16 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
-      const order = await storage.createOrder({ userId, items: parsed.data.items, total: parsed.data.total });
+      if (parsed.data.fulfillmentType === "pickup" && !parsed.data.pickupPointId) {
+        return res.status(400).json({ message: "Selecione um ponto de retirada" });
+      }
+      const order = await storage.createOrder({
+        userId,
+        items: parsed.data.items,
+        total: parsed.data.total,
+        fulfillmentType: parsed.data.fulfillmentType,
+        pickupPointId: parsed.data.pickupPointId ?? null,
+      });
       res.status(201).json(order);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar pedido" });

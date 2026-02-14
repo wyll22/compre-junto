@@ -45,9 +45,22 @@ export const products = pgTable("products", {
   reserveFee: numeric("reserve_fee").default("0"),
   category: text("category").notNull(),
   saleMode: text("sale_mode").notNull().default("grupo"),
+  fulfillmentType: text("fulfillment_type").notNull().default("pickup"),
   active: boolean("active").notNull().default(true),
   categoryId: integer("category_id"),
   subcategoryId: integer("subcategory_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const pickupPoints = pgTable("pickup_points", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull().default("Formosa - GO"),
+  phone: text("phone").default(""),
+  hours: text("hours").default(""),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -96,6 +109,8 @@ export const orders = pgTable("orders", {
   items: jsonb("items").notNull(),
   total: numeric("total").notNull(),
   status: text("status").notNull().default("recebido"),
+  fulfillmentType: text("fulfillment_type").notNull().default("pickup"),
+  pickupPointId: integer("pickup_point_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -166,6 +181,7 @@ export const insertMemberSchema = createInsertSchema(members).omit({ id: true, c
 export const insertBannerSchema = createInsertSchema(banners).omit({ id: true, createdAt: true });
 export const insertVideoSchema = createInsertSchema(videos).omit({ id: true, createdAt: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
+export const insertPickupPointSchema = createInsertSchema(pickupPoints).omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -181,6 +197,8 @@ export type Video = typeof videos.$inferSelect;
 export type InsertVideo = z.infer<typeof insertVideoSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type PickupPoint = typeof pickupPoints.$inferSelect;
+export type InsertPickupPoint = z.infer<typeof insertPickupPointSchema>;
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export type Category = typeof categories.$inferSelect;
@@ -230,6 +248,7 @@ export const createProductSchema = z.object({
   reserveFee: z.union([z.string(), z.number()]).transform(String).optional().default("0"),
   category: z.string().min(1).max(200),
   saleMode: z.enum(["grupo", "agora"]).default("grupo"),
+  fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
   active: z.boolean().optional().default(true),
   categoryId: z.coerce.number().int().nullable().optional(),
   subcategoryId: z.coerce.number().int().nullable().optional(),
@@ -262,6 +281,18 @@ export const createVideoSchema = z.object({
 export const createOrderSchema = z.object({
   items: z.array(z.any()).min(1, "Carrinho vazio"),
   total: z.union([z.string(), z.number()]).transform(String),
+  fulfillmentType: z.enum(["pickup", "delivery"]),
+  pickupPointId: z.coerce.number().int().nullable().optional(),
+});
+
+export const createPickupPointSchema = z.object({
+  name: z.string().min(1, "Nome obrigatorio").max(300),
+  address: z.string().min(1, "Endereco obrigatorio").max(500),
+  city: z.string().max(200).optional().default("Formosa - GO"),
+  phone: z.string().max(30).optional().default(""),
+  hours: z.string().max(200).optional().default(""),
+  active: z.boolean().optional().default(true),
+  sortOrder: z.coerce.number().int().min(0).optional().default(0),
 });
 
 export const statusSchema = z.object({

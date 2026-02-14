@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Trash2, LayoutDashboard, ExternalLink, Edit, Package, Users, Image, Video, Loader2,
   ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
-  Mail, Phone, ChevronDown, ChevronUp, Search,
+  Mail, Phone, ChevronDown, ChevronUp, Search, MapPin,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -30,7 +30,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -73,6 +73,7 @@ function ProductForm({
     categoryId: "",
     subcategoryId: "",
     saleMode: "grupo",
+    fulfillmentType: "pickup",
     active: true,
   });
   const subCats = form.categoryId ? allCats.filter((c: any) => c.parentId === Number(form.categoryId)) : [];
@@ -92,13 +93,14 @@ function ProductForm({
         categoryId: editProduct.categoryId ? String(editProduct.categoryId) : "",
         subcategoryId: editProduct.subcategoryId ? String(editProduct.subcategoryId) : "",
         saleMode: editProduct.saleMode || "grupo",
+        fulfillmentType: editProduct.fulfillmentType || (editProduct.saleMode === "agora" ? "delivery" : "pickup"),
         active: editProduct.active !== false,
       });
     } else {
       setForm({
         name: "", description: "", imageUrl: "", originalPrice: "", groupPrice: "",
         nowPrice: "", minPeople: "10", stock: "100", reserveFee: "0",
-        categoryId: "", subcategoryId: "", saleMode: "grupo", active: true,
+        categoryId: "", subcategoryId: "", saleMode: "grupo", fulfillmentType: "pickup", active: true,
       });
     }
   }, [editProduct, isOpen]);
@@ -145,11 +147,21 @@ function ProductForm({
             <Textarea data-testid="input-product-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <Label>Tipo de Venda</Label>
-              <select data-testid="select-sale-mode" value={form.saleMode} onChange={(e) => setForm({ ...form, saleMode: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+              <select data-testid="select-sale-mode" value={form.saleMode} onChange={(e) => {
+                const sm = e.target.value;
+                setForm({ ...form, saleMode: sm, fulfillmentType: sm === "agora" ? "delivery" : "pickup" });
+              }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
                 {SALE_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Entrega</Label>
+              <select data-testid="select-fulfillment" value={form.fulfillmentType} onChange={(e) => setForm({ ...form, fulfillmentType: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                <option value="pickup">Retirada</option>
+                <option value="delivery">Entrega</option>
               </select>
             </div>
             <div className="space-y-1.5">
@@ -665,6 +677,32 @@ export default function Admin() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/videos"] }),
   });
 
+  const { data: pickupPoints } = useQuery({
+    queryKey: ["/api/pickup-points"],
+    queryFn: async () => { const res = await fetch("/api/pickup-points", { credentials: "include" }); return await res.json(); },
+    enabled: tab === "pickup",
+  });
+
+  const createPickupPoint = useMutation({
+    mutationFn: async (data: any) => { const res = await apiRequest("POST", "/api/pickup-points", data); return await res.json(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/pickup-points"] }); toast({ title: "Ponto de retirada criado!" }); },
+    onError: (err: any) => { toast({ title: "Erro", description: parseApiError(err), variant: "destructive" }); },
+  });
+
+  const updatePickupPoint = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => { const res = await apiRequest("PUT", `/api/pickup-points/${id}`, data); return await res.json(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/pickup-points"] }); toast({ title: "Ponto atualizado!" }); },
+    onError: (err: any) => { toast({ title: "Erro", description: parseApiError(err), variant: "destructive" }); },
+  });
+
+  const deletePickupPoint = useMutation({
+    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/pickup-points/${id}`); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/pickup-points"] }); toast({ title: "Ponto excluido!" }); },
+  });
+
+  const [pickupFormOpen, setPickupFormOpen] = useState(false);
+  const [editingPickup, setEditingPickup] = useState<any>(null);
+
   const { data: allCategories } = useQuery({
     queryKey: ["/api/categories"],
     queryFn: async () => {
@@ -781,6 +819,7 @@ export default function Admin() {
     { key: "categories", label: "Categorias", icon: FolderTree },
     { key: "banners", label: "Banners", icon: Image },
     { key: "videos", label: "Videos", icon: Video },
+    { key: "pickup", label: "Retirada", icon: MapPin },
   ];
 
   return (
@@ -851,9 +890,14 @@ export default function Admin() {
                             </TableCell>
                             <TableCell className="font-medium text-sm">{product.name}</TableCell>
                             <TableCell>
-                              <Badge variant={product.saleMode === "grupo" ? "default" : "secondary"} className="text-[10px]">
-                                {product.saleMode === "grupo" ? "Grupo" : "Agora"}
-                              </Badge>
+                              <div className="flex flex-col gap-0.5">
+                                <Badge variant={product.saleMode === "grupo" ? "default" : "secondary"} className="text-[10px]">
+                                  {product.saleMode === "grupo" ? "Grupo" : "Agora"}
+                                </Badge>
+                                <Badge variant="outline" className="text-[9px]">
+                                  {product.fulfillmentType === "delivery" ? "Entrega" : "Retirada"}
+                                </Badge>
+                              </div>
                             </TableCell>
                             <TableCell className="text-sm">{product.category}</TableCell>
                             <TableCell className="text-right text-sm text-muted-foreground">R$ {Number(product.originalPrice).toFixed(2)}</TableCell>
@@ -1321,6 +1365,121 @@ export default function Admin() {
             </div>
 
             <VideoForm isOpen={videoFormOpen} onClose={() => { setVideoFormOpen(false); setEditingVideo(null); }} editVideo={editingVideo} />
+          </>
+        )}
+
+        {tab === "pickup" && (
+          <>
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <h2 className="text-lg font-bold text-foreground">Pontos de Retirada ({(pickupPoints as any[])?.length || 0})</h2>
+              <Button size="sm" data-testid="button-new-pickup" onClick={() => { setEditingPickup(null); setPickupFormOpen(true); }}>
+                <Plus className="w-4 h-4 mr-1" /> Novo Ponto
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {!pickupPoints || (pickupPoints as any[]).length === 0 ? (
+                <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhum ponto de retirada cadastrado.</CardContent></Card>
+              ) : (
+                (pickupPoints as any[]).map((pt: any) => (
+                  <Card key={pt.id} data-testid={`card-pickup-${pt.id}`}>
+                    <CardContent className="p-3 flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <MapPin className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{pt.name}</p>
+                        <p className="text-xs text-muted-foreground">{pt.address}</p>
+                        <p className="text-xs text-muted-foreground">{pt.city}</p>
+                        {pt.phone && <p className="text-xs text-muted-foreground">{pt.phone}</p>}
+                        {pt.hours && <p className="text-xs text-muted-foreground">{pt.hours}</p>}
+                      </div>
+                      <Badge variant={pt.active ? "default" : "secondary"} className="text-[10px]">{pt.active ? "Ativo" : "Inativo"}</Badge>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" data-testid={`button-edit-pickup-${pt.id}`} onClick={() => { setEditingPickup(pt); setPickupFormOpen(true); }}><Edit className="w-4 h-4" /></Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir ponto de retirada?</AlertDialogTitle>
+                              <AlertDialogDescription>O ponto sera removido permanentemente.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deletePickupPoint.mutate(pt.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            <Dialog open={pickupFormOpen} onOpenChange={(open) => !open && setPickupFormOpen(false)}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{editingPickup ? "Editar Ponto" : "Novo Ponto de Retirada"}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  const data = {
+                    name: fd.get("name") as string,
+                    address: fd.get("address") as string,
+                    city: fd.get("city") as string || "Formosa - GO",
+                    phone: fd.get("phone") as string || "",
+                    hours: fd.get("hours") as string || "",
+                    active: (fd.get("active") as string) === "true",
+                  };
+                  if (editingPickup) {
+                    updatePickupPoint.mutate({ id: editingPickup.id, data });
+                  } else {
+                    createPickupPoint.mutate(data);
+                  }
+                  setPickupFormOpen(false);
+                  setEditingPickup(null);
+                }} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Nome</Label>
+                    <Input data-testid="input-pickup-name" name="name" defaultValue={editingPickup?.name || ""} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Endereco</Label>
+                    <Input data-testid="input-pickup-address" name="address" defaultValue={editingPickup?.address || ""} required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Cidade</Label>
+                      <Input data-testid="input-pickup-city" name="city" defaultValue={editingPickup?.city || "Formosa - GO"} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Telefone</Label>
+                      <Input data-testid="input-pickup-phone" name="phone" defaultValue={editingPickup?.phone || ""} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Horario</Label>
+                      <Input data-testid="input-pickup-hours" name="hours" defaultValue={editingPickup?.hours || ""} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Status</Label>
+                      <select name="active" defaultValue={editingPickup?.active !== false ? "true" : "false"} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                      </select>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={createPickupPoint.isPending || updatePickupPoint.isPending}>
+                    {createPickupPoint.isPending || updatePickupPoint.isPending ? "Salvando..." : "Salvar"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, ShoppingCart } from "lucide-react";
+import { Users, Clock, ShoppingCart, MapPin, Truck } from "lucide-react";
 import { useGroups } from "@/hooks/use-groups";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +50,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
         imageUrl: product.imageUrl,
         price: price,
         qty: 1,
+        fulfillmentType: product.fulfillmentType || "delivery",
       });
     }
 
@@ -122,9 +123,18 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
         </div>
 
         <div className="p-3 flex-1 flex flex-col">
-          <span className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase mb-0.5">
-            {product.category}
-          </span>
+          <div className="flex items-center gap-1 mb-0.5">
+            <span className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+              {product.category}
+            </span>
+            <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 gap-0.5">
+              {product.fulfillmentType === "delivery" ? (
+                <><Truck className="w-2.5 h-2.5" /> Entrega</>
+              ) : (
+                <><MapPin className="w-2.5 h-2.5" /> Retirada</>
+              )}
+            </Badge>
+          </div>
 
           <h3 className="font-display font-semibold text-sm leading-tight mb-2 line-clamp-2 min-h-[2.5rem] text-foreground">
             {product.name}

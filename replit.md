@@ -2,25 +2,9 @@
 
 ## Overview
 
-Compra Junto Formosa is a group buying web application for a local community in Formosa. Users can browse products in two modes (group buying and individual purchase), join buying groups for discounted prices, and manage a shopping cart. The app features user authentication, an admin panel, user account management, and a green/yellow brand identity. Built as a full-stack TypeScript project with React frontend and Express backend, using PostgreSQL for data storage. The interface is in Brazilian Portuguese with a mobile-first design.
+Compra Junto Formosa is a group buying web application designed for a local community in Formosa, Brazil. The platform allows users to purchase products individually or participate in group buying to secure discounted prices. Key functionalities include user authentication, a shopping cart, order management, and an administrative panel for content and product management. The application emphasizes a mobile-first design, is localized in Brazilian Portuguese, and features a distinct green and yellow brand identity.
 
-Key features:
-- Dual sale modes: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase)
-- Hierarchical category system: 9 top-level categories (Mercado, Bebidas, Casa & Limpeza, Higiene & Beleza, Pet Shop, Agro & Jardim, Ferramentas, Moda & Calcados, Ofertas) with ~43 subcategories managed via database
-- Mobile: 5 category chips visible (4 regular + pinned "Ofertas") + "Ver mais" modal for all categories
-- Subcategories appear inline when a category is selected
-- User authentication with register/login/logout (session-based with connect-pg-simple)
-- Group buying: users create or join groups for products to unlock group prices
-- Auto-close groups when min people reached + auto-create new group if stock allows
-- Duplicate user prevention in groups
-- Reserve fee tracking per member (pendente/pago/nenhuma)
-- Shopping cart (localStorage-based) with real order creation on backend
-- Order confirmation screen with order number
-- Minha Conta page: view groups, orders, update profile
-- Admin panel for managing products, groups, orders, banners, and videos
-- Banner carousel on home page (auto-rotate)
-- Videos section on home page (embedded YouTube/etc)
-- Green (#0B6B3A) and yellow (#D4A62A) brand identity
+The project aims to empower local commerce by facilitating community-driven purchasing, offering flexible fulfillment options (pickup and delivery), and providing a comprehensive user and administrative experience.
 
 ## User Preferences
 
@@ -29,175 +13,68 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
-- 2026-02-14: Legal pages and footer
-  - Created 5 legal pages: /privacidade, /termos, /trocas-e-reembolsos, /entregas, /contato
-  - Content in PT-BR covering LGPD, CDC, platform rules, group buying terms, delivery policy, FAQ
-  - Company config file: client/src/lib/companyConfig.ts with editable placeholders (nomeFantasia, razaoSocial, cnpj, cidadeUf, whatsappSuporte, emailSuporte, endereco, horarioAtendimento)
-  - Footer component with 3 columns: Institucional links, Contato info, Company data
-  - Footer added to Home, Cart, Login, Account, and all legal pages
-- 2026-02-14: Hierarchical category system
-  - Replaced flat 19-category list with hierarchical system (categories table with parentId)
-  - 9 top-level categories with ~43 subcategories, all managed via database
-  - Home page: category chips from API, mobile shows 4 + pinned Ofertas + "Ver mais" modal
-  - Subcategories appear inline when category is selected
-  - Admin: new "Categorias" tab for subcategory CRUD
-  - ProductForm now uses category/subcategory dropdowns (categoryId/subcategoryId)
-  - Legacy text `category` field preserved for backward compatibility (derived from selected category)
-  - Products API supports categoryId/subcategoryId filters
-- 2026-02-14: Enhanced customer area & login
-  - Login accepts email OR phone number in single field
-  - Registration includes displayName (apelido) field
-  - Account page rewritten with 5 tabs: Perfil, Endereco, Seguranca, Pedidos, Grupos
-  - Profile: avatar with initials, display name/apelido, phone with BR formatting
-  - Address: ViaCEP API integration for CEP auto-fill, all Brazilian address fields
-  - Security: change password with current password verification
-  - Orders: expandable cards with status icons/badges, item details
-  - Groups: enhanced cards with product images, progress bars, status badges
-  - New fields on users table: displayName, addressCep/Street/Number/Complement/District/City/State
-  - New endpoint: POST /api/auth/password for password change
-- 2026-02-14: Complete admin panel overhaul
-  - NEW Dashboard tab: stat cards (produtos ativos, pedidos, clientes, grupos, receita total, grupos abertos, pedidos pendentes)
-  - NEW Clientes tab: user listing with search, detail dialog showing full profile + address
-  - Enhanced Orders tab: now shows customer name/email/phone, search bar
-  - Enhanced Groups tab: progress bars, reserve fee management per member (pendente/pago)
-  - Enhanced Categories tab: top-level category editing (name + active toggle), collapsible subcategory lists, delete confirmations, create new top-level categories
-  - Enhanced Banners/Videos: delete confirmation dialogs
-  - New endpoints: GET /api/admin/stats, GET /api/admin/users, PATCH /api/members/:id/reserve-status
-  - Orders admin now joins with user data (getOrdersWithUsers)
-- 2026-02-14: Security hardening (phase 2)
-  - XSS sanitization: global middleware strips HTML tags, javascript: URIs, on* event handlers from all request bodies
-  - CSRF protection: Origin/Referer validation on all mutations in production, rejects unknown/missing origins
-  - SESSION_SECRET: required env var in production (fails fast), crypto fallback only in dev
-  - Audit logs: audit_logs table tracking admin actions (create/edit/delete products, categories, group/order status changes) with userId, userName, action, entity, details (JSON diff), ipAddress
-  - New endpoint: GET /api/admin/audit-logs (admin-only)
-  - Backend role enforcement: /api/products/all requires admin, /api/groups/:id/members requires auth + membership, /api/orders/:id checks ownership
-- 2026-02-14: Security hardening (phase 1)
-  - Helmet for security headers (CSP, XSS protection, HSTS, etc.)
-  - Strict CORS: exact origin matching, credentials enabled
-  - Zod validation schemas for all 20+ API routes with safeParse
-  - Global log sanitization: PII fields redacted ([REDACTED]), names partially masked, recursive depth limit
-  - Rate limiting: 5 attempts per user/15min lockout, in-memory store with auto-cleanup
-  - Password policy: minimum 8 characters
-  - Session security: 7-day rolling sessions, regeneration on login/password change
-  - Trust proxy enabled for accurate IP detection behind reverse proxy
-  - Numeric fields use z.coerce.number() for form compatibility
-- 2026-02-14: Major update with comprehensive features
-  - Added Minha Conta page with Meus Grupos, Meus Pedidos, Meus Dados tabs
-  - Cart now creates real orders on backend with confirmation screen
-  - Admin panel now includes Orders tab with status management
-  - Admin groups view shows product name and member list dialog
-  - Home page now shows banner carousel and videos section
-  - Session storage upgraded to PostgreSQL-backed (connect-pg-simple)
-  - Auto-close groups when min people reached, auto-create new if stock allows
-  - Reserve fee tracking (pendente/pago/nenhuma) per group member
-  - Duplicate user prevention in same group
-  - User profile update endpoint
-  - Admin can view all products (including inactive) via /api/products/all
+- 2026-02-14: Dual fulfillment logistics (pickup/delivery)
+  - Added fulfillmentType field (pickup/delivery) to products and orders tables
+  - pickup_points table for collection locations with full CRUD
+  - Products default: saleMode "grupo" → pickup, "agora" → delivery (admin can override)
+  - ProductCard shows "Retirada"/"Entrega" badge per product
+  - Cart: mixed fulfillment detection blocks checkout, resolution buttons
+  - Checkout: pickup point radio selector or delivery address display
+  - Order confirmation shows pickup/delivery details
+  - Admin: "Retirada" tab for pickup points, fulfillment field in ProductForm
+  - Entregas legal page updated with "Modalidades de Recebimento" section
+  - API: GET/POST/PUT/DELETE /api/pickup-points + orders accept fulfillmentType/pickupPointId
 
 ## System Architecture
 
 ### Monorepo Structure
-The project uses a single repository with three main directories:
-- `client/` — React frontend (Vite-powered SPA)
-- `server/` — Express backend (Node.js)
-- `shared/` — Shared types, schemas, and constants used by both client and server
+The project is organized as a monorepo containing three main components:
+- `client/`: React frontend (Vite-powered SPA)
+- `server/`: Express backend (Node.js)
+- `shared/`: Common types, schemas, and constants.
 
 ### Frontend
-- **Framework**: React with TypeScript
-- **Bundler**: Vite (dev server with HMR, production build outputs to `dist/public`)
-- **Routing**: Wouter (lightweight client-side router)
-- **State/Data Fetching**: TanStack React Query for server state management
-- **UI Components**: shadcn/ui (Radix primitives + Tailwind CSS)
-- **Styling**: Tailwind CSS with CSS variables for theming (green/yellow brand palette)
-- **Animations**: Framer Motion
-- **Icons**: Lucide React
-- **Forms**: React Hook Form with Zod validation
-- **Cart**: Client-side only, stored in localStorage (`fsa_cart` key)
-
-Pages: Home (`/`), Login (`/login`), Cart (`/carrinho`), Minha Conta (`/minha-conta`), Admin (`/admin`), Privacidade (`/privacidade`), Termos (`/termos`), Trocas e Reembolsos (`/trocas-e-reembolsos`), Entregas (`/entregas`), Contato (`/contato`), 404
-
-Path aliases:
-- `@/*` → `client/src/*`
-- `@shared/*` → `shared/*`
+- **Framework**: React with TypeScript.
+- **Bundler**: Vite.
+- **Routing**: Wouter.
+- **State Management/Data Fetching**: TanStack React Query.
+- **UI Components**: shadcn/ui (Radix primitives + Tailwind CSS).
+- **Styling**: Tailwind CSS with CSS variables for a green/yellow theme.
+- **Animations**: Framer Motion.
+- **Icons**: Lucide React.
+- **Forms**: React Hook Form with Zod validation.
+- **Shopping Cart**: Client-side, persisted in `localStorage`.
+- **UI/UX Decisions**: Mobile-first design, 5 visible category chips on mobile (4 regular + "Ofertas"), inline subcategory display, auto-rotating banner carousel, embedded video section, dual fulfillment type indication (pickup/delivery badges).
+- **Technical Implementations**: Hierarchical category system (9 top-level, ~43 subcategories), legal pages with dynamic company config, enhanced customer account area with multiple tabs (Profile, Address, Security, Orders, Groups), address auto-fill using ViaCEP API.
 
 ### Backend
-- **Framework**: Express on Node.js
-- **Language**: TypeScript, run with `tsx` in development
-- **API Pattern**: RESTful JSON API under `/api/*`
-- **Authentication**: Session-based with express-session + connect-pg-simple, bcryptjs for password hashing
-- **Storage Layer**: `server/storage.ts` defines an `IStorage` interface with PostgreSQL implementation using raw pool queries
-- **Session**: PostgreSQL-backed session store (persistent across restarts)
-- **Auth Middleware**: requireAuth and requireAdmin functions in routes.ts
+- **Framework**: Express.js with Node.js.
+- **Language**: TypeScript.
+- **API Pattern**: RESTful JSON API.
+- **Authentication**: Session-based using `express-session` and `connect-pg-simple`, with `bcryptjs` for password hashing.
+- **Storage Layer**: Custom `IStorage` interface with PostgreSQL implementation.
+- **Security**: Helmet for security headers, strict CORS, Zod validation for all API routes, global XSS sanitization middleware, CSRF protection, rate limiting, and robust backend role enforcement. Audit logs track administrative actions.
 
 ### Database
-- **Database**: PostgreSQL via `DATABASE_URL`
-- **ORM/Schema**: Drizzle ORM with `drizzle-zod` for Zod schema generation
-- **Schema Location**: `shared/schema.ts`
-- **Migrations**: Drizzle Kit (`npm run db:push`)
+- **Database**: PostgreSQL.
+- **ORM/Schema**: Drizzle ORM with `drizzle-zod` for schema generation.
+- **Migrations**: Drizzle Kit.
+- **Core Tables**: `users`, `categories`, `products`, `groups`, `members`, `banners`, `videos`, `orders`, `pickup_points`, `audit_logs`.
 
-**Tables:**
-- `users` — id, name, email (unique), password (bcrypt hash), phone, role (user/admin), emailVerified, phoneVerified, createdAt
-- `categories` — id, name, slug, parentId (self-ref, null for top-level), sortOrder, active
-- `products` — id, name, description, imageUrl, originalPrice, groupPrice, nowPrice, minPeople, stock, reserveFee, category (legacy text), categoryId (FK to categories), subcategoryId (FK to categories), saleMode (grupo/agora), active, createdAt
-- `groups` — id, productId, currentPeople, minPeople, status (aberto/fechado), createdAt
-- `members` — id, groupId, userId, name, phone, reserveStatus (pendente/pago/nenhuma), createdAt
-- `banners` — id, title, imageUrl, mobileImageUrl, linkUrl, sortOrder, active, createdAt
-- `videos` — id, title, embedUrl, sortOrder, active, createdAt
-- `orders` — id, userId, items (jsonb), total, status (recebido/processando/enviado/entregue/cancelado), createdAt
-
-### API Routes
-- `GET /api/categories` — list categories (optional parentId filter)
-- `POST /api/categories` — create category (admin)
-- `PUT /api/categories/:id` — update category (admin)
-- `DELETE /api/categories/:id` — delete category (admin)
-- `GET /api/products` — list active products (optional category/search/saleMode/categoryId/subcategoryId filters)
-- `GET /api/products/all` — list ALL products including inactive (admin)
-- `GET /api/products/:id` — get single product
-- `POST /api/products` — create product (admin)
-- `PUT /api/products/:id` — update product (admin)
-- `DELETE /api/products/:id` — delete product (admin)
-- `GET /api/groups` — list groups (optional productId/status filters, includes product info)
-- `GET /api/groups/:id` — get single group
-- `GET /api/groups/:id/members` — list group members
-- `POST /api/groups` — create group (auth required, auto-joins creator)
-- `POST /api/groups/:id/join` — join a group (auth required, duplicate prevention)
-- `PATCH /api/groups/:id/status` — update group status (admin)
-- `GET /api/user/groups` — get current user's groups with product info
-- `GET /api/banners` — list banners (optional active=true filter)
-- `POST /api/banners` — create banner (admin)
-- `PUT /api/banners/:id` — update banner (admin)
-- `DELETE /api/banners/:id` — delete banner (admin)
-- `GET /api/videos` — list videos (optional active=true filter)
-- `POST /api/videos` — create video (admin)
-- `PUT /api/videos/:id` — update video (admin)
-- `DELETE /api/videos/:id` — delete video (admin)
-- `POST /api/orders` — create order (auth required)
-- `GET /api/orders` — list user's orders (admin: ?all=true for all)
-- `GET /api/orders/:id` — get single order
-- `PATCH /api/orders/:id/status` — update order status (admin)
-- `POST /api/auth/register` — register new user
-- `POST /api/auth/login` — login
-- `POST /api/auth/logout` — logout
-- `GET /api/auth/me` — get current user
-- `PUT /api/auth/profile` — update user profile (auth required)
-
-### Dev vs Production
-- **Development**: `npm run dev` runs `tsx server/index.ts` with Vite middleware for HMR
-- **Production**: `npm run build` creates `dist/` then `npm start` serves it
+### Feature Specifications
+- **Dual Sale Modes**: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase).
+- **Group Buying Mechanics**: Users create or join groups; auto-closes groups when minimum participants are met; auto-creates new groups if stock permits; prevents duplicate user entries; tracks reserve fees (`pendente`/`pago`/`nenhuma`).
+- **Fulfillment Logistics**: Products and orders support `pickup` or `delivery`. Dedicated `pickup_points` management. Cart detects mixed fulfillment types and prompts resolution.
+- **Admin Panel**: Comprehensive dashboard with statistics, CRUD for products, categories, groups, orders, banners, videos, pickup points, and user management. Includes reserve fee management per member and detailed audit logs.
 
 ## External Dependencies
 
 ### Required Services
-- **PostgreSQL Database**: Connected via `DATABASE_URL` environment variable
+- **PostgreSQL Database**: Accessed via `DATABASE_URL`.
 
 ### Key NPM Packages
-- **drizzle-orm** + **drizzle-kit** + **drizzle-zod**: Database schema and migrations
-- **pg**: PostgreSQL client
-- **express** + **express-session** + **connect-pg-simple**: HTTP server, sessions with PG store
-- **bcryptjs**: Password hashing
-- **zod**: Runtime validation
-- **@tanstack/react-query**: Client-side data fetching
-- **wouter**: Client-side routing
-- **framer-motion**: Animations
-- **shadcn/ui ecosystem**: UI components
-- **lucide-react**: Icons
+- **Database & ORM**: `drizzle-orm`, `drizzle-kit`, `drizzle-zod`, `pg`.
+- **Backend Core**: `express`, `express-session`, `connect-pg-simple`, `bcryptjs`, `zod`.
+- **Frontend Core**: `@tanstack/react-query`, `wouter`, `framer-motion`.
+- **UI & Icons**: `shadcn/ui` ecosystem, `lucide-react`.
+- **Address Auto-fill**: ViaCEP API (implicitly through `client` implementation).

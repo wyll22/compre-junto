@@ -23,6 +23,7 @@ type ProductRow = {
   reserveFee: string | number | null;
   category: string;
   saleMode: string;
+  fulfillmentType: string;
   active: boolean;
   categoryId: number | null;
   subcategoryId: number | null;
@@ -93,6 +94,20 @@ type OrderRow = {
   items: any;
   total: string | number;
   status: string;
+  fulfillmentType: string;
+  pickupPointId: number | null;
+  createdAt?: Date | string | null;
+};
+
+type PickupPointRow = {
+  id: number;
+  name: string;
+  address: string;
+  city: string;
+  phone: string | null;
+  hours: string | null;
+  active: boolean;
+  sortOrder: number;
   createdAt?: Date | string | null;
 };
 
@@ -139,10 +154,16 @@ export interface IStorage {
   }>): Promise<UserRow | null>;
   changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean>;
 
-  createOrder(input: { userId: number; items: any; total: string }): Promise<OrderRow>;
+  createOrder(input: { userId: number; items: any; total: string; fulfillmentType: string; pickupPointId?: number | null }): Promise<OrderRow>;
   getOrders(userId?: number): Promise<OrderRow[]>;
   getOrder(id: number): Promise<OrderRow | null>;
   updateOrderStatus(id: number, status: string): Promise<OrderRow | null>;
+
+  getPickupPoints(activeOnly?: boolean): Promise<PickupPointRow[]>;
+  getPickupPoint(id: number): Promise<PickupPointRow | null>;
+  createPickupPoint(input: any): Promise<PickupPointRow>;
+  updatePickupPoint(id: number, input: any): Promise<PickupPointRow | null>;
+  deletePickupPoint(id: number): Promise<void>;
 
   getAdminStats(): Promise<{ totalProducts: number; totalOrders: number; totalUsers: number; totalGroups: number; totalRevenue: number; openGroups: number; pendingOrders: number }>;
   getAllUsers(): Promise<UserRow[]>;
@@ -177,6 +198,7 @@ const PRODUCT_SELECT = `
   reserve_fee AS "reserveFee",
   category,
   sale_mode AS "saleMode",
+  fulfillment_type AS "fulfillmentType",
   active,
   category_id AS "categoryId",
   subcategory_id AS "subcategoryId",
@@ -228,6 +250,20 @@ const ORDER_SELECT = `
   items,
   total,
   status,
+  fulfillment_type AS "fulfillmentType",
+  pickup_point_id AS "pickupPointId",
+  created_at AS "createdAt"
+`;
+
+const PICKUP_POINT_SELECT = `
+  id,
+  name,
+  address,
+  city,
+  phone,
+  hours,
+  active,
+  sort_order AS "sortOrder",
   created_at AS "createdAt"
 `;
 
@@ -394,8 +430,8 @@ class DatabaseStorage implements IStorage {
   async createProduct(input: any): Promise<ProductRow> {
     const result = await pool.query(
       `INSERT INTO products
-        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, active, category_id, subcategory_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, fulfillment_type, active, category_id, subcategory_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING ${PRODUCT_SELECT}`,
       [
         input.name,
@@ -409,6 +445,7 @@ class DatabaseStorage implements IStorage {
         input.reserveFee ? String(input.reserveFee) : "0",
         input.category || "Outros",
         input.saleMode || "grupo",
+        input.fulfillmentType || (input.saleMode === "agora" ? "delivery" : "pickup"),
         input.active !== undefined ? input.active : true,
         input.categoryId || null,
         input.subcategoryId || null,
@@ -430,6 +467,7 @@ class DatabaseStorage implements IStorage {
       reserveFee: "reserve_fee",
       category: "category",
       saleMode: "sale_mode",
+      fulfillmentType: "fulfillment_type",
       active: "active",
       categoryId: "category_id",
       subcategoryId: "subcategory_id",
@@ -817,12 +855,12 @@ class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async createOrder(input: { userId: number; items: any; total: string }): Promise<OrderRow> {
+  async createOrder(input: { userId: number; items: any; total: string; fulfillmentType: string; pickupPointId?: number | null }): Promise<OrderRow> {
     const result = await pool.query(
-      `INSERT INTO orders (user_id, items, total, status)
-      VALUES ($1, $2::jsonb, $3, 'recebido')
+      `INSERT INTO orders (user_id, items, total, status, fulfillment_type, pickup_point_id)
+      VALUES ($1, $2::jsonb, $3, 'recebido', $4, $5)
       RETURNING ${ORDER_SELECT}`,
-      [input.userId, JSON.stringify(input.items), input.total],
+      [input.userId, JSON.stringify(input.items), input.total, input.fulfillmentType, input.pickupPointId ?? null],
     );
     return result.rows[0] as OrderRow;
   }
@@ -851,6 +889,58 @@ class DatabaseStorage implements IStorage {
       [status, id],
     );
     return (result.rows[0] as OrderRow | undefined) ?? null;
+  }
+
+  async getPickupPoints(activeOnly?: boolean): Promise<PickupPointRow[]> {
+    const where = activeOnly ? `WHERE active = true` : "";
+    const result = await pool.query(
+      `SELECT ${PICKUP_POINT_SELECT} FROM pickup_points ${where} ORDER BY sort_order ASC, id ASC`,
+    );
+    return result.rows as PickupPointRow[];
+  }
+
+  async getPickupPoint(id: number): Promise<PickupPointRow | null> {
+    const result = await pool.query(
+      `SELECT ${PICKUP_POINT_SELECT} FROM pickup_points WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    return (result.rows[0] as PickupPointRow | undefined) ?? null;
+  }
+
+  async createPickupPoint(input: any): Promise<PickupPointRow> {
+    const result = await pool.query(
+      `INSERT INTO pickup_points (name, address, city, phone, hours, active, sort_order)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING ${PICKUP_POINT_SELECT}`,
+      [input.name, input.address, input.city ?? "Formosa - GO", input.phone ?? "", input.hours ?? "", input.active !== undefined ? input.active : true, input.sortOrder ?? 0],
+    );
+    return result.rows[0] as PickupPointRow;
+  }
+
+  async updatePickupPoint(id: number, input: any): Promise<PickupPointRow | null> {
+    const map: Record<string, string> = {
+      name: "name", address: "address", city: "city", phone: "phone", hours: "hours", active: "active", sortOrder: "sort_order",
+    };
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, rawValue] of Object.entries(input)) {
+      if (rawValue === undefined) continue;
+      const dbField = map[key];
+      if (!dbField) continue;
+      values.push(rawValue);
+      fields.push(`${dbField} = $${values.length}`);
+    }
+    if (fields.length === 0) return this.getPickupPoint(id);
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE pickup_points SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING ${PICKUP_POINT_SELECT}`,
+      values,
+    );
+    return (result.rows[0] as PickupPointRow | undefined) ?? null;
+  }
+
+  async deletePickupPoint(id: number): Promise<void> {
+    await pool.query(`DELETE FROM pickup_points WHERE id = $1`, [id]);
   }
 
   async getAdminStats() {
@@ -882,7 +972,9 @@ class DatabaseStorage implements IStorage {
 
   async getOrdersWithUsers() {
     const result = await pool.query(
-      `SELECT o.id, o.user_id AS "userId", o.items, o.total, o.status, o.created_at AS "createdAt",
+      `SELECT o.id, o.user_id AS "userId", o.items, o.total, o.status,
+              o.fulfillment_type AS "fulfillmentType", o.pickup_point_id AS "pickupPointId",
+              o.created_at AS "createdAt",
               u.name AS "userName", u.email AS "userEmail", u.phone AS "userPhone"
        FROM orders o
        LEFT JOIN users u ON o.user_id = u.id
