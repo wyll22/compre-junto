@@ -131,30 +131,30 @@
 }
 
 .brand-logo--header {
-  width: 96px;
-  min-width: 96px;
-  height: auto;
+  height: 44px;
+  width: auto;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 6px;
+  padding: 4px 8px;
 }
 
 @media (min-width: 768px) {
   .brand-logo--header {
-    width: 140px;
-    min-width: 140px;
+    height: 56px;
+    padding: 4px 10px;
   }
 }
 
 .brand-logo--auth {
-  width: 140px;
-  min-width: 140px;
-  height: auto;
+  height: 120px;
+  width: auto;
   margin-left: auto;
   margin-right: auto;
 }
 
 @media (min-width: 768px) {
   .brand-logo--auth {
-    width: 180px;
-    min-width: 180px;
+    height: 140px;
   }
 }
 
