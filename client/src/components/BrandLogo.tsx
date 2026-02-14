@@ -6,19 +6,29 @@ interface BrandLogoProps {
 }
 
 export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
-  const sizeClass = size === "large"
-    ? "w-[160px] md:w-[200px] h-auto mx-auto"
-    : "w-[120px] md:w-[160px] h-auto";
+  if (size === "large") {
+    return (
+      <div className={`flex justify-center ${className}`}>
+        <div className="bg-white rounded-xl p-3 inline-block">
+          <img
+            src={logoImg}
+            alt="Compra Junto Formosa"
+            decoding="async"
+            className="w-[140px] md:w-[180px] h-auto object-contain"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <img
-      src={logoImg}
-      alt="Compra Junto Formosa"
-      decoding="async"
-      className={`object-contain flex-shrink-0 ${sizeClass} ${className}`}
-      onError={(e) => {
-        (e.target as HTMLImageElement).style.display = "none";
-      }}
-    />
+    <div className={`inline-block bg-white rounded-lg p-1.5 flex-shrink-0 ${className}`}>
+      <img
+        src={logoImg}
+        alt="Compra Junto Formosa"
+        decoding="async"
+        className="w-[80px] md:w-[110px] h-auto object-contain"
+      />
+    </div>
   );
 }
