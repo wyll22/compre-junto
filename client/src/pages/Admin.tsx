@@ -11,8 +11,9 @@ import {
   ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
   Mail, Phone, ChevronDown, ChevronUp, Search, MapPin, AlertTriangle, Settings, ArrowRight, History,
   Monitor, Globe, Database, Server, Shield, RefreshCcw, CheckCircle2, XCircle, FileText, Upload, Link2, Copy,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
 import {
@@ -1662,6 +1663,68 @@ function NavigationTab() {
   );
 }
 
+function AdminTabBar({ tabs, tab, setTab }: { tabs: { key: string; label: string; icon: any }[]; tab: string; setTab: (t: any) => void }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    checkScroll();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", checkScroll);
+    const ro = new ResizeObserver(checkScroll);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", checkScroll); ro.disconnect(); };
+  }, [checkScroll]);
+
+  const scroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -200 : 200, behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative mb-4">
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll("left")}
+          className="absolute left-0 top-0 bottom-0 z-10 flex items-center px-1 bg-gradient-to-r from-background via-background to-transparent"
+          data-testid="button-tabs-scroll-left"
+          aria-label="Rolar abas para esquerda"
+        >
+          <ChevronLeft className="w-5 h-5 text-muted-foreground" />
+        </button>
+      )}
+      <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent" style={{ scrollbarWidth: "thin" }}>
+        {tabs.map((t) => (
+          <Button key={t.key} data-testid={`tab-${t.key}`} variant={tab === t.key ? "default" : "outline"} size="sm" onClick={() => setTab(t.key)} className="flex-shrink-0">
+            <t.icon className="w-4 h-4 mr-1.5" />
+            {t.label}
+          </Button>
+        ))}
+      </div>
+      {canScrollRight && (
+        <button
+          onClick={() => scroll("right")}
+          className="absolute right-0 top-0 bottom-0 z-10 flex items-center px-1 bg-gradient-to-l from-background via-background to-transparent"
+          data-testid="button-tabs-scroll-right"
+          aria-label="Rolar abas para direita"
+        >
+          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { data: user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -1910,14 +1973,7 @@ export default function Admin() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex gap-1 mb-4 overflow-x-auto pb-1 hide-scrollbar">
-          {tabs.map((t) => (
-            <Button key={t.key} data-testid={`tab-${t.key}`} variant={tab === t.key ? "default" : "outline"} size="sm" onClick={() => setTab(t.key)} className="flex-shrink-0">
-              <t.icon className="w-4 h-4 mr-1.5" />
-              {t.label}
-            </Button>
-          ))}
-        </div>
+        <AdminTabBar tabs={tabs} tab={tab} setTab={setTab} />
 
         {tab === "dashboard" && <DashboardTab />}
 
