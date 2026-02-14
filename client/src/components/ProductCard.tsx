@@ -1,15 +1,57 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, ShoppingCart, MapPin, Truck, CheckCircle } from "lucide-react";
+import { Users, Clock, ShoppingCart, MapPin, Truck, CheckCircle, Timer } from "lucide-react";
 import { useGroups } from "@/hooks/use-groups";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { JoinGroupDialog } from "./JoinGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { useLocation, Link } from "wouter";
+
+function CountdownTimer({ endsAt }: { endsAt: string }) {
+  const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(endsAt));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeLeft(getTimeLeft(endsAt));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [endsAt]);
+
+  if (timeLeft.expired) {
+    return (
+      <div className="flex items-center gap-1 bg-destructive/10 text-destructive rounded-md px-2 py-1" data-testid="countdown-expired">
+        <Timer className="w-3 h-3" />
+        <span className="text-[10px] font-bold">Encerrado</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 bg-destructive/10 text-destructive rounded-md px-2 py-1" data-testid="countdown-timer">
+      <Timer className="w-3 h-3 flex-shrink-0" />
+      <span className="text-[10px] font-bold tabular-nums">
+        {timeLeft.days > 0 && `${timeLeft.days}d `}
+        {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:{String(timeLeft.seconds).padStart(2, "0")}
+      </span>
+    </div>
+  );
+}
+
+function getTimeLeft(endsAt: string) {
+  const now = Date.now();
+  const end = new Date(endsAt).getTime();
+  const diff = end - now;
+  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, expired: true };
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  return { days, hours, minutes, seconds, expired: false };
+}
 
 interface ProductCardProps {
   product: any;
@@ -113,6 +155,12 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
             <Badge className="bg-destructive text-destructive-foreground font-bold px-1.5 py-0.5 text-[10px]">
               -{savings}%
             </Badge>
+          </div>
+        )}
+
+        {product.saleEndsAt && (
+          <div className="absolute top-2 right-2 z-10">
+            <CountdownTimer endsAt={product.saleEndsAt} />
           </div>
         )}
 

@@ -49,6 +49,7 @@ export const products = pgTable("products", {
   active: boolean("active").notNull().default(true),
   categoryId: integer("category_id"),
   subcategoryId: integer("subcategory_id"),
+  saleEndsAt: timestamp("sale_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

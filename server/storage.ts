@@ -229,6 +229,7 @@ const PRODUCT_SELECT = `
   active,
   category_id AS "categoryId",
   subcategory_id AS "subcategoryId",
+  sale_ends_at AS "saleEndsAt",
   created_at AS "createdAt"
 `;
 
@@ -471,8 +472,8 @@ class DatabaseStorage implements IStorage {
   async createProduct(input: any): Promise<ProductRow> {
     const result = await pool.query(
       `INSERT INTO products
-        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, fulfillment_type, active, category_id, subcategory_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, fulfillment_type, active, category_id, subcategory_id, sale_ends_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING ${PRODUCT_SELECT}`,
       [
         input.name,
@@ -490,6 +491,7 @@ class DatabaseStorage implements IStorage {
         input.active !== undefined ? input.active : true,
         input.categoryId || null,
         input.subcategoryId || null,
+        input.saleEndsAt || null,
       ],
     );
     return result.rows[0] as ProductRow;
@@ -512,6 +514,7 @@ class DatabaseStorage implements IStorage {
       active: "active",
       categoryId: "category_id",
       subcategoryId: "subcategory_id",
+      saleEndsAt: "sale_ends_at",
     };
 
     const fields: string[] = [];
@@ -528,6 +531,9 @@ class DatabaseStorage implements IStorage {
       }
       if (key === "minPeople" || key === "stock") {
         value = Number(rawValue);
+      }
+      if (key === "saleEndsAt") {
+        value = rawValue ? new Date(rawValue as string) : null;
       }
 
       values.push(value);
