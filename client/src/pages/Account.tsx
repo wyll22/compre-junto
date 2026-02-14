@@ -131,7 +131,8 @@ export default function Account() {
                 data-testid="img-account-logo"
                 src={logoImg}
                 alt="Compra Junto Formosa"
-                className="h-[28px] md:h-[32px] w-auto object-contain"
+                decoding="async"
+                className="logo-header"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
             </Link>

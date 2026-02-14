@@ -68,7 +68,8 @@ export default function Login() {
               data-testid="img-login-logo"
               src={logoImg}
               alt="Compra Junto Formosa"
-              className="h-24 w-auto object-contain mx-auto"
+              decoding="async"
+              className="logo-auth"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           <p className="text-muted-foreground text-sm mt-1">
