@@ -48,8 +48,8 @@ export default function Login() {
           toast({ title: "Erro", description: "Informe seu email", variant: "destructive" });
           return;
         }
-        if (password.length < 4) {
-          toast({ title: "Erro", description: "Senha deve ter pelo menos 4 caracteres", variant: "destructive" });
+        if (password.length < 8) {
+          toast({ title: "Erro", description: "Senha deve ter pelo menos 8 caracteres", variant: "destructive" });
           return;
         }
         await register.mutateAsync({
@@ -181,10 +181,10 @@ export default function Login() {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Minimo 4 caracteres"
+                        placeholder="Minimo 8 caracteres"
                         className="pl-10"
                         required
-                        minLength={4}
+                        minLength={8}
                       />
                     </div>
                   </div>
@@ -220,7 +220,6 @@ export default function Login() {
                         placeholder="Sua senha"
                         className="pl-10"
                         required
-                        minLength={4}
                       />
                     </div>
                   </div>

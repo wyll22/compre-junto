@@ -11,6 +11,95 @@ declare module "express-session" {
   }
 }
 
+const MIN_PASSWORD_LENGTH = 8;
+
+function validatePassword(password: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres`;
+  }
+  return null;
+}
+
+const rateLimitStore = new Map<string, { count: number; windowStart: number; lockedUntil: number }>();
+
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000;
+const IP_MAX_ATTEMPTS = 20;
+
+function normalizeIdentifier(id: string): string {
+  const digits = id.replace(/\D/g, "");
+  if (digits.length >= 10 && digits.length <= 11) return `phone:${digits}`;
+  return `id:${id.toLowerCase().trim()}`;
+}
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  return req.socket.remoteAddress || "unknown";
+}
+
+function checkRateLimit(key: string, maxAttempts: number = MAX_ATTEMPTS): { allowed: boolean; message?: string; retryAfterSeconds?: number } {
+  const now = Date.now();
+  const record = rateLimitStore.get(key);
+
+  if (!record) return { allowed: true };
+
+  if (record.lockedUntil > now) {
+    const retryAfterSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+    return {
+      allowed: false,
+      message: `Conta bloqueada temporariamente. Tente novamente em ${Math.ceil(retryAfterSeconds / 60)} minuto(s)`,
+      retryAfterSeconds,
+    };
+  }
+
+  if (now - record.windowStart > RATE_LIMIT_WINDOW) {
+    rateLimitStore.delete(key);
+    return { allowed: true };
+  }
+
+  if (record.count >= maxAttempts) {
+    record.lockedUntil = now + LOCKOUT_DURATION;
+    rateLimitStore.set(key, record);
+    const retryAfterSeconds = Math.ceil(LOCKOUT_DURATION / 1000);
+    return {
+      allowed: false,
+      message: `Muitas tentativas. Tente novamente em ${Math.ceil(retryAfterSeconds / 60)} minuto(s)`,
+      retryAfterSeconds,
+    };
+  }
+
+  return { allowed: true };
+}
+
+function recordAttempt(key: string): void {
+  const now = Date.now();
+  const record = rateLimitStore.get(key);
+
+  if (!record || now - record.windowStart > RATE_LIMIT_WINDOW) {
+    rateLimitStore.set(key, { count: 1, windowStart: now, lockedUntil: 0 });
+    return;
+  }
+
+  record.count += 1;
+  rateLimitStore.set(key, record);
+}
+
+function clearAttempts(key: string): void {
+  rateLimitStore.delete(key);
+}
+
+setInterval(() => {
+  const now = Date.now();
+  const entries = Array.from(rateLimitStore.entries());
+  for (const [key, record] of entries) {
+    if (now - record.windowStart > RATE_LIMIT_WINDOW && record.lockedUntil < now) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
 function requireAuth(req: Request, res: Response): number | null {
   if (!req.session.userId) {
     res.status(401).json({ message: "Faca login para continuar" });
@@ -36,6 +125,8 @@ export async function registerRoutes(
 ): Promise<Server> {
   const PgStore = pgSession(session);
 
+  app.set("trust proxy", 1);
+
   app.use(
     session({
       store: new PgStore({
@@ -45,10 +136,11 @@ export async function registerRoutes(
       secret: process.env.SESSION_SECRET || "compra-junto-formosa-secret-key-2024",
       resave: false,
       saveUninitialized: false,
+      rolling: true,
       cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
       },
     }),
@@ -60,6 +152,19 @@ export async function registerRoutes(
       if (!name || !email || !password) {
         return res.status(400).json({ message: "Nome, email e senha sao obrigatorios" });
       }
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
+      }
+
+      const ip = getClientIp(req);
+      const registerKey = `register:${ip}`;
+      const rateCheck = checkRateLimit(registerKey, IP_MAX_ATTEMPTS);
+      if (!rateCheck.allowed) {
+        return res.status(429).json({ message: rateCheck.message });
+      }
+      recordAttempt(registerKey);
+
       const user = await storage.registerUser({ name, email, password, phone, displayName });
       req.session.userId = user.id;
       res.status(201).json(user);
@@ -75,19 +180,49 @@ export async function registerRoutes(
       if (!loginId || !password) {
         return res.status(400).json({ message: "Email/telefone e senha sao obrigatorios" });
       }
+
+      const loginKey = `login:${normalizeIdentifier(loginId)}`;
+      const ipKey = `login-ip:${getClientIp(req)}`;
+
+      const userCheck = checkRateLimit(loginKey);
+      if (!userCheck.allowed) {
+        return res.status(429).json({ message: userCheck.message, retryAfterSeconds: userCheck.retryAfterSeconds });
+      }
+      const ipCheck = checkRateLimit(ipKey);
+      if (!ipCheck.allowed) {
+        return res.status(429).json({ message: ipCheck.message, retryAfterSeconds: ipCheck.retryAfterSeconds });
+      }
+
       const user = await storage.loginUser(loginId, password);
       if (!user) {
+        recordAttempt(loginKey);
+        recordAttempt(ipKey);
         return res.status(401).json({ message: "Email/telefone ou senha incorretos" });
       }
-      req.session.userId = user.id;
-      res.json(user);
+
+      clearAttempts(loginKey);
+      clearAttempts(ipKey);
+
+      req.session.regenerate((err) => {
+        if (err) {
+          return res.status(500).json({ message: "Erro ao criar sessao" });
+        }
+        req.session.userId = user.id;
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            return res.status(500).json({ message: "Erro ao salvar sessao" });
+          }
+          res.json(user);
+        });
+      });
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao fazer login" });
     }
   });
 
   app.post("/api/auth/logout", (req: Request, res: Response) => {
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+      res.clearCookie("connect.sid");
       res.json({ ok: true });
     });
   });
@@ -127,14 +262,23 @@ export async function registerRoutes(
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ message: "Senha atual e nova senha sao obrigatorias" });
       }
-      if (newPassword.length < 4) {
-        return res.status(400).json({ message: "Nova senha deve ter pelo menos 4 caracteres" });
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
       }
       const success = await storage.changePassword(userId, currentPassword, newPassword);
       if (!success) {
         return res.status(400).json({ message: "Senha atual incorreta" });
       }
-      res.json({ ok: true, message: "Senha alterada com sucesso" });
+      req.session.regenerate((err) => {
+        if (err) {
+          return res.json({ ok: true, message: "Senha alterada com sucesso" });
+        }
+        req.session.userId = userId;
+        req.session.save(() => {
+          res.json({ ok: true, message: "Senha alterada com sucesso" });
+        });
+      });
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao alterar senha" });
     }

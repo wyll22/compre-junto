@@ -435,8 +435,8 @@ function SecurityTab() {
       toast({ title: "Erro", description: "Informe sua senha atual", variant: "destructive" });
       return;
     }
-    if (newPassword.length < 4) {
-      toast({ title: "Erro", description: "Nova senha deve ter pelo menos 4 caracteres", variant: "destructive" });
+    if (newPassword.length < 8) {
+      toast({ title: "Erro", description: "Nova senha deve ter pelo menos 8 caracteres", variant: "destructive" });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -482,7 +482,7 @@ function SecurityTab() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Minimo 4 caracteres"
+                placeholder="Minimo 8 caracteres"
                 className="pl-10"
               />
             </div>
