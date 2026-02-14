@@ -141,7 +141,7 @@ export interface IStorage {
   getGroups(productId?: number, status?: string): Promise<GroupRow[]>;
   getGroup(id: number): Promise<GroupRow | null>;
   createGroup(input: { productId: number; minPeople: number }): Promise<GroupRow>;
-  addMemberToGroup(groupId: number, input: { name: string; phone: string; userId?: number }): Promise<GroupRow>;
+  addMemberToGroup(groupId: number, input: { name: string; phone: string; userId?: number; quantity?: number }): Promise<GroupRow>;
   updateGroupStatus(id: number, status: string): Promise<GroupRow | null>;
   getGroupMembers(groupId: number): Promise<MemberRow[]>;
 
@@ -247,6 +247,7 @@ const MEMBER_SELECT = `
   user_id AS "userId",
   name,
   phone,
+  quantity,
   reserve_status AS "reserveStatus",
   created_at AS "createdAt"
 `;
@@ -592,7 +593,7 @@ class DatabaseStorage implements IStorage {
     return result.rows[0] as GroupRow;
   }
 
-  async addMemberToGroup(groupId: number, input: { name: string; phone: string; userId?: number }): Promise<GroupRow> {
+  async addMemberToGroup(groupId: number, input: { name: string; phone: string; userId?: number; quantity?: number }): Promise<GroupRow> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -622,8 +623,8 @@ class DatabaseStorage implements IStorage {
       const hasReserveFee = reserveFee && Number(reserveFee) > 0;
 
       await client.query(
-        `INSERT INTO members (group_id, name, phone, user_id, reserve_status) VALUES ($1, $2, $3, $4, $5)`,
-        [groupId, input.name, input.phone, input.userId || null, hasReserveFee ? "pendente" : "nenhuma"],
+        `INSERT INTO members (group_id, name, phone, user_id, quantity, reserve_status) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [groupId, input.name, input.phone, input.userId || null, input.quantity || 1, hasReserveFee ? "pendente" : "nenhuma"],
       );
 
       const nextPeople = Number(group.current_people) + 1;

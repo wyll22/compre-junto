@@ -10,7 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useJoinGroup, useCreateGroup } from "@/hooks/use-groups";
-import { Loader2 } from "lucide-react";
+import { Loader2, Minus, Plus } from "lucide-react";
 import type { AuthUser } from "@/hooks/use-auth";
 import { parseApiError } from "@/lib/error-utils";
 
@@ -33,6 +33,7 @@ function formatPhoneBR(value: string) {
 export function JoinGroupDialog({ isOpen, onClose, product, existingGroup, user }: JoinGroupDialogProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [errorMsg, setErrorMsg] = useState("");
 
   const joinGroup = useJoinGroup();
@@ -45,6 +46,7 @@ export function JoinGroupDialog({ isOpen, onClose, product, existingGroup, user 
     }
     if (!isOpen) {
       setErrorMsg("");
+      setQuantity(1);
     }
   }, [isOpen, user]);
 
@@ -81,12 +83,14 @@ export function JoinGroupDialog({ isOpen, onClose, product, existingGroup, user 
           groupId: existingGroup.id,
           name: cleanName,
           phone: cleanPhone,
+          quantity,
         });
       } else {
         await createGroup.mutateAsync({
           productId: product.id,
           name: cleanName,
           phone: cleanPhone,
+          quantity,
         });
       }
       onClose();
@@ -126,6 +130,43 @@ export function JoinGroupDialog({ isOpen, onClose, product, existingGroup, user 
               onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
               inputMode="tel"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="join-quantity">Quantidade</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                data-testid="button-qty-minus"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                disabled={quantity <= 1}
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+              <Input
+                data-testid="input-join-quantity"
+                id="join-quantity"
+                type="number"
+                min={1}
+                max={100}
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                className="w-16 text-center"
+                inputMode="numeric"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                data-testid="button-qty-plus"
+                onClick={() => setQuantity(Math.min(100, quantity + 1))}
+                disabled={quantity >= 100}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {errorMsg && (

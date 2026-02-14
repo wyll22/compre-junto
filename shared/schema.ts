@@ -79,6 +79,7 @@ export const members = pgTable("members", {
   userId: integer("user_id"),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
+  quantity: integer("quantity").notNull().default(1),
   reserveStatus: text("reserve_status").default("pendente"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -411,4 +412,5 @@ export const joinGroupSchema = z.object({
   productId: z.number().int().optional(),
   name: z.string().max(200).optional(),
   phone: z.string().max(30).optional(),
+  quantity: z.number().int().min(1).max(100).optional(),
 });

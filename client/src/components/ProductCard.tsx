@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, ShoppingCart, MapPin, Truck } from "lucide-react";
+import { Users, Clock, ShoppingCart, MapPin, Truck, CheckCircle } from "lucide-react";
 import { useGroups } from "@/hooks/use-groups";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -71,15 +71,19 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
     saleMode === "grupo" ? { productId: product.id } : undefined,
   );
 
-  const availableGroup = useMemo(() => {
-    if (saleMode !== "grupo") return undefined;
+  const { availableGroup, latestClosedGroup, hasOpenGroup } = useMemo(() => {
+    if (saleMode !== "grupo") return { availableGroup: undefined, latestClosedGroup: undefined, hasOpenGroup: false };
     const list = (groups ?? []) as any[];
     const openGroups = list.filter((g) => isOpenStatus(g?.status));
     openGroups.sort((a, b) => Number(b?.currentPeople ?? 0) - Number(a?.currentPeople ?? 0));
-    return openGroups[0];
+    const closedGroups = list.filter((g) => !isOpenStatus(g?.status));
+    closedGroups.sort((a, b) => Number(b?.id ?? 0) - Number(a?.id ?? 0));
+    return {
+      availableGroup: openGroups[0],
+      latestClosedGroup: closedGroups[0],
+      hasOpenGroup: !!openGroups[0],
+    };
   }, [groups, saleMode]);
-
-  const hasOpenGroup = !!availableGroup;
 
   const originalPrice = Number(product.originalPrice);
   const groupPrice = Number(product.groupPrice);
@@ -88,10 +92,12 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
   const displayPrice = saleMode === "grupo" ? groupPrice : nowPrice;
   const savings = Math.round(((originalPrice - displayPrice) / originalPrice) * 100);
 
-  const currentPeople = hasOpenGroup ? Number(availableGroup.currentPeople ?? 0) : 0;
+  const activeGroup = hasOpenGroup ? availableGroup : latestClosedGroup;
+  const currentPeople = activeGroup ? Number(activeGroup.currentPeople ?? 0) : 0;
   const minPeople = product.minPeople;
   const peopleLeft = Math.max(0, minPeople - currentPeople);
   const progressPercent = minPeople > 0 ? (currentPeople / minPeople) * 100 : 0;
+  const hasAnyGroup = !!activeGroup;
 
   return (
     <>
@@ -183,6 +189,22 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                         Faltam {peopleLeft}
                       </span>
                     </div>
+                  ) : hasAnyGroup ? (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-medium">
+                        <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                          <CheckCircle className="w-3 h-3" />
+                          Grupo fechado
+                        </span>
+                        <span className="text-muted-foreground">
+                          {currentPeople}/{minPeople}
+                        </span>
+                      </div>
+                      <Progress value={100} className="h-1.5" />
+                      <span className="text-[10px] text-muted-foreground">
+                        Grupo completo
+                      </span>
+                    </div>
                   ) : (
                     <div className="space-y-1">
                       <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -195,15 +217,38 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                     </div>
                   )}
 
-                  <Button
-                    data-testid={`button-join-group-${product.id}`}
-                    onClick={handleJoinGroup}
-                    className="w-full font-bold"
-                    size="sm"
-                  >
-                    <Users className="w-3.5 h-3.5 mr-1.5" />
-                    Entrar no grupo
-                  </Button>
+                  {hasOpenGroup ? (
+                    <Button
+                      data-testid={`button-join-group-${product.id}`}
+                      onClick={handleJoinGroup}
+                      className="w-full font-bold"
+                      size="sm"
+                    >
+                      <Users className="w-3.5 h-3.5 mr-1.5" />
+                      Entrar no grupo
+                    </Button>
+                  ) : hasAnyGroup ? (
+                    <Button
+                      data-testid={`button-join-group-${product.id}`}
+                      onClick={handleJoinGroup}
+                      className="w-full font-bold"
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Users className="w-3.5 h-3.5 mr-1.5" />
+                      Criar novo grupo
+                    </Button>
+                  ) : (
+                    <Button
+                      data-testid={`button-join-group-${product.id}`}
+                      onClick={handleJoinGroup}
+                      className="w-full font-bold"
+                      size="sm"
+                    >
+                      <Users className="w-3.5 h-3.5 mr-1.5" />
+                      Criar grupo
+                    </Button>
+                  )}
                 </div>
               )
             )}

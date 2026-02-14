@@ -1297,12 +1297,18 @@ export default function Admin() {
                 {groupMembers && (groupMembers as any[]).length > 0 ? (
                   <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                     {(groupMembers as any[]).map((m: any) => (
-                      <div key={m.id} className="flex items-center justify-between gap-2 p-3 bg-muted rounded-md" data-testid={`member-${m.id}`}>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm">{m.name}</p>
-                          <p className="text-xs text-muted-foreground">{m.phone}</p>
+                      <div key={m.id} className="flex flex-col gap-2 p-3 bg-muted rounded-md" data-testid={`member-${m.id}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm">{m.name}</p>
+                            <p className="text-xs text-muted-foreground">{m.phone}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                            Qtd: {m.quantity || 1}
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">Pagamento:</span>
                           <select
                             data-testid={`select-reserve-${m.id}`}
                             value={m.reserveStatus || "nenhuma"}
@@ -1316,6 +1322,11 @@ export default function Admin() {
                         </div>
                       </div>
                     ))}
+                    <div className="pt-2 border-t border-border">
+                      <p className="text-xs text-muted-foreground text-center">
+                        Total: {(groupMembers as any[]).reduce((acc: number, m: any) => acc + (m.quantity || 1), 0)} unidades | {(groupMembers as any[]).length} participantes
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">Nenhum membro neste grupo.</p>

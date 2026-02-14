@@ -25,8 +25,8 @@ export function useJoinGroup() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ groupId, name, phone }: { groupId: number; name: string; phone: string }) => {
-      const res = await apiRequest("POST", `/api/groups/${groupId}/join`, { name, phone });
+    mutationFn: async ({ groupId, name, phone, quantity }: { groupId: number; name: string; phone: string; quantity?: number }) => {
+      const res = await apiRequest("POST", `/api/groups/${groupId}/join`, { name, phone, quantity });
       return await res.json();
     },
     onSuccess: () => {
@@ -47,7 +47,7 @@ export function useCreateGroup() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { productId: number; name?: string; phone?: string }) => {
+    mutationFn: async (data: { productId: number; name?: string; phone?: string; quantity?: number }) => {
       const res = await apiRequest("POST", "/api/groups", data);
       return await res.json();
     },

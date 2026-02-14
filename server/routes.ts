@@ -628,10 +628,12 @@ export async function registerRoutes(
 
       const user = await storage.getUserById(userId);
       if (user) {
+        const quantity = Number(parsed.data.quantity) || 1;
         const updated = await storage.addMemberToGroup(group.id, {
           name: parsed.data.name || user.name,
           phone: parsed.data.phone || user.phone || "",
           userId,
+          quantity,
         });
         return res.status(201).json(updated);
       }
@@ -659,10 +661,13 @@ export async function registerRoutes(
 
       if (!name) return res.status(400).json({ message: "Nome e obrigatorio" });
 
+      const quantity = Number(parsed.data.quantity) || 1;
+
       const updated = await storage.addMemberToGroup(groupId, {
         name,
         phone,
         userId,
+        quantity,
       });
 
       res.json(updated);
