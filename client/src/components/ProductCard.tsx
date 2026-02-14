@@ -227,18 +227,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                       <Users className="w-3.5 h-3.5 mr-1.5" />
                       Entrar no grupo
                     </Button>
-                  ) : hasAnyGroup ? (
-                    <Button
-                      data-testid={`button-join-group-${product.id}`}
-                      onClick={handleJoinGroup}
-                      className="w-full font-bold"
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Users className="w-3.5 h-3.5 mr-1.5" />
-                      Criar novo grupo
-                    </Button>
-                  ) : (
+                  ) : !hasAnyGroup ? (
                     <Button
                       data-testid={`button-join-group-${product.id}`}
                       onClick={handleJoinGroup}
@@ -248,7 +237,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                       <Users className="w-3.5 h-3.5 mr-1.5" />
                       Criar grupo
                     </Button>
-                  )}
+                  ) : null}
                 </div>
               )
             )}
