@@ -204,6 +204,16 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: tru
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
+export const siteVisits = pgTable("site_visits", {
+  id: serial("id").primaryKey(),
+  visitorId: text("visitor_id").notNull(),
+  page: text("page").default("/"),
+  userAgent: text("user_agent").default(""),
+  ipAddress: text("ip_address").default(""),
+  userId: integer("user_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
@@ -214,6 +224,7 @@ export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, cre
 export const insertPickupPointSchema = createInsertSchema(pickupPoints).omit({ id: true, createdAt: true });
 export const insertOrderStatusHistorySchema = createInsertSchema(orderStatusHistory).omit({ id: true, createdAt: true });
 export const insertOrderSettingsSchema = createInsertSchema(orderSettings).omit({ id: true, updatedAt: true });
+export const insertSiteVisitSchema = createInsertSchema(siteVisits).omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -234,6 +245,8 @@ export type InsertPickupPoint = z.infer<typeof insertPickupPointSchema>;
 export type OrderStatusHistory = typeof orderStatusHistory.$inferSelect;
 export type InsertOrderStatusHistory = z.infer<typeof insertOrderStatusHistorySchema>;
 export type OrderSetting = typeof orderSettings.$inferSelect;
+export type SiteVisit = typeof siteVisits.$inferSelect;
+export type InsertSiteVisit = z.infer<typeof insertSiteVisitSchema>;
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export type Category = typeof categories.$inferSelect;

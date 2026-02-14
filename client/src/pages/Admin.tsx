@@ -1008,6 +1008,36 @@ function SystemTab() {
         </Card>
       )}
 
+      <Card data-testid="card-visitors">
+        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Visitantes</CardTitle>
+          <Eye className="w-4 h-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Hoje</p>
+              <p className="text-xl font-bold">{counts.visits_today}</p>
+              <p className="text-xs text-muted-foreground">{counts.unique_visitors_today} unicos</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Ultimos 7 dias</p>
+              <p className="text-xl font-bold">{counts.visits_week}</p>
+              <p className="text-xs text-muted-foreground">{counts.unique_visitors_week} unicos</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Ultimos 30 dias</p>
+              <p className="text-xl font-bold">{counts.visits_month}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-xl font-bold">{counts.total_visits}</p>
+              <p className="text-xs text-muted-foreground">{counts.unique_visitors} unicos</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">

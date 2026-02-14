@@ -997,6 +997,25 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/track-visit", async (req: Request, res: Response) => {
+    try {
+      const { visitorId, page } = req.body;
+      if (!visitorId || typeof visitorId !== "string") {
+        return res.status(400).json({ message: "visitorId obrigatorio" });
+      }
+      const ip = req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || req.socket.remoteAddress || "";
+      const userAgent = req.headers["user-agent"] || "";
+      const userId = (req.session as any)?.userId || null;
+      await pool.query(
+        `INSERT INTO site_visits (visitor_id, page, user_agent, ip_address, user_id) VALUES ($1, $2, $3, $4, $5)`,
+        [visitorId.slice(0, 100), (page || "/").slice(0, 500), userAgent.slice(0, 500), ip.slice(0, 100), userId]
+      );
+      res.json({ ok: true });
+    } catch (err) {
+      res.json({ ok: true });
+    }
+  });
+
   app.get("/api/admin/system-health", async (req: Request, res: Response) => {
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
@@ -1028,7 +1047,14 @@ export async function registerRoutes(
           (SELECT COALESCE(SUM(CAST(total AS NUMERIC)), 0) FROM orders WHERE status != 'cancelado') as total_revenue,
           (SELECT COALESCE(SUM(CAST(total AS NUMERIC)), 0) FROM orders WHERE status != 'cancelado' AND created_at > NOW() - INTERVAL '30 days') as revenue_30d,
           (SELECT COUNT(*) FROM orders WHERE status = 'pronto_retirada' AND pickup_deadline < NOW())::int as overdue_pickups,
-          (SELECT COUNT(*) FROM products WHERE stock <= 5 AND active = true)::int as low_stock_products
+          (SELECT COUNT(*) FROM products WHERE stock <= 5 AND active = true)::int as low_stock_products,
+          (SELECT COUNT(*) FROM site_visits)::int as total_visits,
+          (SELECT COUNT(DISTINCT visitor_id) FROM site_visits)::int as unique_visitors,
+          (SELECT COUNT(*) FROM site_visits WHERE created_at > NOW() - INTERVAL '24 hours')::int as visits_today,
+          (SELECT COUNT(DISTINCT visitor_id) FROM site_visits WHERE created_at > NOW() - INTERVAL '24 hours')::int as unique_visitors_today,
+          (SELECT COUNT(*) FROM site_visits WHERE created_at > NOW() - INTERVAL '7 days')::int as visits_week,
+          (SELECT COUNT(DISTINCT visitor_id) FROM site_visits WHERE created_at > NOW() - INTERVAL '7 days')::int as unique_visitors_week,
+          (SELECT COUNT(*) FROM site_visits WHERE created_at > NOW() - INTERVAL '30 days')::int as visits_month
       `);
 
       const recentErrors = await pool.query(`
