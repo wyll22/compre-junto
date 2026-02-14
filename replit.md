@@ -1,19 +1,33 @@
-# Compre Junto FSA
+# Compra Junto Formosa
 
 ## Overview
 
-Compre Junto FSA is a group buying web application inspired by Facily, built for a local community. Users can browse products, join buying groups to get discounted prices, and manage a shopping cart. The app is a full-stack TypeScript project with a React frontend and Express backend, using PostgreSQL for data storage. The interface is in Brazilian Portuguese and follows a mobile-first design approach.
+Compra Junto Formosa is a group buying web application for a local community in Formosa. Users can browse products in two modes (group buying and individual purchase), join buying groups for discounted prices, and manage a shopping cart. The app features user authentication, an admin panel, and a green/yellow brand identity. Built as a full-stack TypeScript project with React frontend and Express backend, using PostgreSQL for data storage. The interface is in Brazilian Portuguese with a mobile-first design.
 
 Key features:
-- Product listing with category filtering and search
+- Dual sale modes: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase)
+- 14+ product categories (Basico, Bebida, Higiene pessoal, etc.)
+- User authentication with register/login/logout (session-based)
 - Group buying: users create or join groups for products to unlock group prices
-- Shopping cart (localStorage-based)
-- Admin panel for managing products
-- No authentication required — users join groups by providing name and phone number
+- Shopping cart (localStorage-based, login required for checkout)
+- Admin panel for managing products, groups, banners, and videos
+- Green (#0B6B3A) and yellow (#D4A62A) brand identity
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+Preferred communication style: Simple, everyday language (Brazilian Portuguese).
+Default admin credentials: admin@comprajuntoformosa.com / admin123
+
+## Recent Changes
+
+- 2026-02-14: Evolved from "Compre Junto FSA" to "Compra Junto Formosa"
+- Added dual sale modes (grupo/agora) with tab-based switching
+- Added user authentication (register/login/logout with bcryptjs + sessions)
+- Expanded to 14+ product categories
+- Added new product fields: stock, reserveFee, nowPrice, active
+- Added banners and videos tables with full CRUD in admin
+- Rebuilt brand identity with green/yellow color palette
+- Created comprehensive admin panel with tabs for products, groups, banners, videos
 
 ## System Architecture
 
@@ -21,85 +35,89 @@ Preferred communication style: Simple, everyday language.
 The project uses a single repository with three main directories:
 - `client/` — React frontend (Vite-powered SPA)
 - `server/` — Express backend (Node.js)
-- `shared/` — Shared types, schemas, and API route definitions used by both client and server
+- `shared/` — Shared types, schemas, and constants used by both client and server
 
 ### Frontend
 - **Framework**: React with TypeScript
 - **Bundler**: Vite (dev server with HMR, production build outputs to `dist/public`)
 - **Routing**: Wouter (lightweight client-side router)
 - **State/Data Fetching**: TanStack React Query for server state management
-- **UI Components**: shadcn/ui (Radix primitives + Tailwind CSS + class-variance-authority)
-- **Styling**: Tailwind CSS with CSS variables for theming (orange/warm palette inspired by Facily/Shopee)
+- **UI Components**: shadcn/ui (Radix primitives + Tailwind CSS)
+- **Styling**: Tailwind CSS with CSS variables for theming (green/yellow brand palette)
 - **Animations**: Framer Motion
 - **Icons**: Lucide React
-- **Forms**: React Hook Form with Zod validation via @hookform/resolvers
+- **Forms**: React Hook Form with Zod validation
 - **Cart**: Client-side only, stored in localStorage (`fsa_cart` key)
 
-Pages: Home (product grid), Admin (product management), Cart, 404
+Pages: Home (`/`), Login (`/login`), Cart (`/carrinho`), Admin (`/admin`), 404
 
-Path aliases configured in tsconfig and vite:
+Path aliases:
 - `@/*` → `client/src/*`
 - `@shared/*` → `shared/*`
 
 ### Backend
-- **Framework**: Express 5 on Node.js
+- **Framework**: Express on Node.js
 - **Language**: TypeScript, run with `tsx` in development
 - **API Pattern**: RESTful JSON API under `/api/*`
-- **Route Definitions**: Centralized in `shared/routes.ts` with Zod schemas for input validation and response typing. The server references `api.products.*`, `api.groups.*`, etc.
-- **Storage Layer**: `server/storage.ts` defines an `IStorage` interface with a PostgreSQL implementation using raw pool queries (not Drizzle query builder directly for most operations)
-- **Build**: Custom build script (`script/build.ts`) uses Vite for client and esbuild for server, outputting to `dist/`
+- **Authentication**: Session-based with express-session, bcryptjs for password hashing
+- **Storage Layer**: `server/storage.ts` defines an `IStorage` interface with PostgreSQL implementation using raw pool queries
+- **Session**: In-memory session store (not persistent across restarts)
 
 ### Database
-- **Database**: PostgreSQL (required via `DATABASE_URL` environment variable)
-- **ORM/Schema**: Drizzle ORM with `drizzle-zod` for generating Zod schemas from table definitions
+- **Database**: PostgreSQL via `DATABASE_URL`
+- **ORM/Schema**: Drizzle ORM with `drizzle-zod` for Zod schema generation
 - **Schema Location**: `shared/schema.ts`
-- **Migrations**: Drizzle Kit (`drizzle-kit push` via `npm run db:push`)
+- **Migrations**: Drizzle Kit (`npm run db:push`)
 
 **Tables:**
-- `users` — id, name, identifier, createdAt
-- `products` — id, name, description, imageUrl, originalPrice (numeric), groupPrice (numeric), minPeople, category, createdAt
-- `groups` — id, productId, currentPeople, minPeople, status ("aberto"/"fechado"), createdAt
-- `members` — id, groupId, userId (optional), name, phone, createdAt
-
-Relations are defined with Drizzle's `relations()` helper.
+- `users` — id, name, email (unique), password (bcrypt hash), phone, role (user/admin), createdAt
+- `products` — id, name, description, imageUrl, originalPrice, groupPrice, nowPrice, minPeople, stock, reserveFee, category, saleMode (grupo/agora), active, createdAt
+- `groups` — id, productId, currentPeople, minPeople, status (aberto/fechado), createdAt
+- `members` — id, groupId, userId, name, phone, createdAt
+- `banners` — id, title, imageUrl, mobileImageUrl, linkUrl, sortOrder, active, createdAt
+- `videos` — id, title, embedUrl, sortOrder, active, createdAt
+- `orders` — id, userId, items (jsonb), totalAmount, status, createdAt
 
 ### API Routes
-Defined in `shared/routes.ts` and implemented in `server/routes.ts`:
-- `GET /api/products` — list products (optional category/search filters)
+- `GET /api/products` — list products (optional category/search/saleMode filters)
 - `GET /api/products/:id` — get single product
-- `POST /api/products` — create product
-- `PUT /api/products/:id` — update product
-- `DELETE /api/products/:id` — delete product
+- `POST /api/products` — create product (admin)
+- `PUT /api/products/:id` — update product (admin)
+- `DELETE /api/products/:id` — delete product (admin)
 - `GET /api/groups` — list groups (optional productId/status filters)
 - `POST /api/groups` — create group
-- `POST /api/groups/:id/join` — join a group (name + phone)
-
-### Known Issues
-The project has TypeScript compilation errors (`npm run check` fails). Key problems include:
-- Remnants of a removed authentication system (session middleware, user context references)
-- Type mismatches between shared route definitions and actual implementations
-- The `users` table exists in schema but auth flow was removed — joining groups uses name/phone directly
+- `POST /api/groups/:id/join` — join a group
+- `PATCH /api/groups/:id/status` — update group status (admin)
+- `GET /api/banners` — list banners
+- `POST /api/banners` — create banner (admin)
+- `PUT /api/banners/:id` — update banner (admin)
+- `DELETE /api/banners/:id` — delete banner (admin)
+- `GET /api/videos` — list videos
+- `POST /api/videos` — create video (admin)
+- `PUT /api/videos/:id` — update video (admin)
+- `DELETE /api/videos/:id` — delete video (admin)
+- `POST /api/auth/register` — register new user
+- `POST /api/auth/login` — login
+- `POST /api/auth/logout` — logout
+- `GET /api/auth/me` — get current user
 
 ### Dev vs Production
-- **Development**: `npm run dev` runs `tsx server/index.ts` which sets up Vite middleware for HMR
-- **Production**: `npm run build` creates `dist/` with compiled server (`dist/index.cjs`) and static client files (`dist/public/`), then `npm start` serves it
+- **Development**: `npm run dev` runs `tsx server/index.ts` with Vite middleware for HMR
+- **Production**: `npm run build` creates `dist/` then `npm start` serves it
 
 ## External Dependencies
 
 ### Required Services
-- **PostgreSQL Database**: Must be provisioned and connected via `DATABASE_URL` environment variable. Used for all persistent data (products, groups, members).
+- **PostgreSQL Database**: Connected via `DATABASE_URL` environment variable
 
 ### Key NPM Packages
-- **drizzle-orm** + **drizzle-kit** + **drizzle-zod**: Database schema, migrations, and Zod schema generation
-- **pg**: PostgreSQL client (node-postgres)
-- **express**: HTTP server framework
-- **zod**: Runtime validation for API inputs and responses
-- **@tanstack/react-query**: Client-side data fetching and caching
+- **drizzle-orm** + **drizzle-kit** + **drizzle-zod**: Database schema and migrations
+- **pg**: PostgreSQL client
+- **express** + **express-session**: HTTP server and sessions
+- **bcryptjs**: Password hashing
+- **zod**: Runtime validation
+- **@tanstack/react-query**: Client-side data fetching
 - **wouter**: Client-side routing
-- **framer-motion**: Page and component animations
-- **shadcn/ui ecosystem**: Radix UI primitives, Tailwind CSS, class-variance-authority, lucide-react
-- **react-hook-form** + **@hookform/resolvers**: Form handling with Zod integration
-
-### Replit-Specific
-- `@replit/vite-plugin-runtime-error-modal`: Runtime error overlay in dev
-- `@replit/vite-plugin-cartographer` and `@replit/vite-plugin-dev-banner`: Dev-only Replit integrations
+- **framer-motion**: Animations
+- **shadcn/ui ecosystem**: UI components
+- **lucide-react**: Icons
