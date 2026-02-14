@@ -170,7 +170,7 @@ export default function Home() {
                 >
                   <ShoppingCart className="w-5 h-5" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-[#D4A62A] text-[#1F2937] text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                    <span className="absolute -top-0.5 -right-0.5 bg-[#D4A62A] text-[#1F2937] text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full border-2 border-white shadow-sm leading-none px-0.5">
                       {cartCount}
                     </span>
                   )}
@@ -380,7 +380,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 w-full">
         {activeBanners.length > 0 && (
           <div className="mb-6 relative rounded-md overflow-hidden" data-testid="banner-carousel">
             <div className="relative aspect-[3/1] sm:aspect-[4/1] bg-muted">
