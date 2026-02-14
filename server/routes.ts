@@ -1,10 +1,11 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 import helmet from "helmet";
 import cors from "cors";
+import crypto from "crypto";
 import { pool } from "./db";
 import { z } from "zod";
 import {
@@ -12,6 +13,28 @@ import {
   createProductSchema, createCategorySchema, createBannerSchema, createVideoSchema,
   createOrderSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
 } from "@shared/schema";
+
+function stripHtmlTags(str: string): string {
+  return str
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+    .replace(/<[^>]*>/g, "")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+\s*=/gi, "");
+}
+
+function sanitizeInput(obj: any): any {
+  if (typeof obj === "string") return stripHtmlTags(obj);
+  if (Array.isArray(obj)) return obj.map(sanitizeInput);
+  if (obj && typeof obj === "object") {
+    const clean: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      clean[key] = sanitizeInput(value);
+    }
+    return clean;
+  }
+  return obj;
+}
 
 declare module "express-session" {
   interface SessionData {
@@ -122,6 +145,22 @@ async function requireAdmin(req: Request, res: Response): Promise<number | null>
   return userId;
 }
 
+async function auditLog(req: Request, userId: number, action: string, entity: string, entityId?: number, details?: any) {
+  try {
+    const user = await storage.getUserById(userId);
+    await storage.createAuditLog({
+      userId,
+      userName: user?.name || "Desconhecido",
+      action,
+      entity,
+      entityId,
+      details,
+      ipAddress: getClientIp(req),
+    });
+  } catch {
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -158,7 +197,7 @@ export async function registerRoutes(
         pool: pool as any,
         createTableIfMissing: true,
       }),
-      secret: process.env.SESSION_SECRET || "compra-junto-formosa-secret-key-2024",
+      secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString("hex"),
       resave: false,
       saveUninitialized: false,
       rolling: true,
@@ -170,6 +209,29 @@ export async function registerRoutes(
       },
     }),
   );
+
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (req.body && typeof req.body === "object") {
+      req.body = sanitizeInput(req.body);
+    }
+    next();
+  });
+
+  const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (!MUTATION_METHODS.has(req.method)) return next();
+    if (process.env.NODE_ENV !== "production") return next();
+    const origin = req.headers.origin;
+    const referer = req.headers.referer;
+    const allowedHost = process.env.APP_DOMAIN || "https://comprajuntoformosa.replit.app";
+    if (origin && origin !== allowedHost) {
+      return res.status(403).json({ message: "Origem invalida" });
+    }
+    if (!origin && referer && !referer.startsWith(allowedHost)) {
+      return res.status(403).json({ message: "Origem invalida" });
+    }
+    next();
+  });
 
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
@@ -331,6 +393,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
       const cat = await storage.createCategory(parsed.data);
+      await auditLog(req, userId, "criar", "categoria", cat.id, { name: parsed.data.name });
       res.status(201).json(cat);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar categoria" });
@@ -346,6 +409,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
       const cat = await storage.updateCategory(Number(req.params.id), parsed.data);
+      await auditLog(req, userId, "editar", "categoria", Number(req.params.id), { fields: Object.keys(parsed.data) });
       res.json(cat);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar categoria" });
@@ -356,6 +420,7 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     await storage.deleteCategory(Number(req.params.id));
+    await auditLog(req, userId, "excluir", "categoria", Number(req.params.id));
     res.status(204).send();
   });
 
@@ -398,6 +463,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
       const product = await storage.createProduct(parsed.data);
+      await auditLog(req, userId, "criar", "produto", product.id, { name: parsed.data.name, price: parsed.data.originalPrice });
       res.status(201).json(product);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar produto" });
@@ -412,7 +478,14 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
+      const oldProduct = await storage.getProduct(Number(req.params.id));
       const product = await storage.updateProduct(Number(req.params.id), parsed.data);
+      const changes: Record<string, any> = {};
+      if (parsed.data.originalPrice && oldProduct && String(parsed.data.originalPrice) !== String(oldProduct.originalPrice)) changes.originalPrice = { de: oldProduct.originalPrice, para: parsed.data.originalPrice };
+      if (parsed.data.groupPrice && oldProduct && String(parsed.data.groupPrice) !== String(oldProduct.groupPrice)) changes.groupPrice = { de: oldProduct.groupPrice, para: parsed.data.groupPrice };
+      if (parsed.data.active !== undefined && oldProduct && parsed.data.active !== oldProduct.active) changes.active = { de: oldProduct.active, para: parsed.data.active };
+      if (parsed.data.name && oldProduct && parsed.data.name !== oldProduct.name) changes.name = { de: oldProduct.name, para: parsed.data.name };
+      await auditLog(req, userId, "editar", "produto", Number(req.params.id), Object.keys(changes).length > 0 ? changes : { fields: Object.keys(parsed.data) });
       res.json(product);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar produto" });
@@ -422,7 +495,9 @@ export async function registerRoutes(
   app.delete("/api/products/:id", async (req: Request, res: Response) => {
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
+    const product = await storage.getProduct(Number(req.params.id));
     await storage.deleteProduct(Number(req.params.id));
+    await auditLog(req, userId, "excluir", "produto", Number(req.params.id), { name: product?.name });
     res.status(204).send();
   });
 
@@ -529,6 +604,7 @@ export async function registerRoutes(
       }
       const group = await storage.updateGroupStatus(Number(req.params.id), parsed.data.status);
       if (!group) return res.status(404).json({ message: "Grupo nao encontrado" });
+      await auditLog(req, userId, "alterar_status", "grupo", Number(req.params.id), { status: parsed.data.status });
       res.json(group);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar status" });
@@ -677,6 +753,7 @@ export async function registerRoutes(
       }
       const order = await storage.updateOrderStatus(Number(req.params.id), parsed.data.status);
       if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
+      await auditLog(req, userId, "alterar_status", "pedido", Number(req.params.id), { status: parsed.data.status });
       res.json(order);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar pedido" });
@@ -718,6 +795,18 @@ export async function registerRoutes(
       res.json(member);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar status" });
+    }
+  });
+
+  app.get("/api/admin/audit-logs", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const limit = req.query.limit ? Math.min(Number(req.query.limit), 500) : 100;
+      const logs = await storage.getAuditLogs(limit);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar logs" });
     }
   });
 

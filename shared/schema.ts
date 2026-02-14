@@ -143,6 +143,22 @@ export const ordersRelations = relations(orders, ({ one }) => ({
   }),
 }));
 
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  action: text("action").notNull(),
+  entity: text("entity").notNull(),
+  entityId: integer("entity_id"),
+  details: jsonb("details"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });

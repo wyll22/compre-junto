@@ -149,6 +149,9 @@ export interface IStorage {
   getOrdersWithUsers(): Promise<(OrderRow & { userName: string; userEmail: string; userPhone: string | null })[]>;
   updateMemberReserveStatus(memberId: number, reserveStatus: string): Promise<MemberRow | null>;
 
+  createAuditLog(input: { userId: number; userName: string; action: string; entity: string; entityId?: number; details?: any; ipAddress?: string }): Promise<void>;
+  getAuditLogs(limit?: number): Promise<any[]>;
+
   seedProducts(): Promise<void>;
 }
 
@@ -929,6 +932,23 @@ class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Erro ao semear produtos:", error);
     }
+  }
+
+  async createAuditLog(input: { userId: number; userName: string; action: string; entity: string; entityId?: number; details?: any; ipAddress?: string }): Promise<void> {
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, user_name, action, entity, entity_id, details, ip_address)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [input.userId, input.userName, input.action, input.entity, input.entityId ?? null, input.details ? JSON.stringify(input.details) : null, input.ipAddress ?? null],
+    );
+  }
+
+  async getAuditLogs(limit: number = 100): Promise<any[]> {
+    const result = await pool.query(
+      `SELECT id, user_id AS "userId", user_name AS "userName", action, entity, entity_id AS "entityId", details, ip_address AS "ipAddress", created_at AS "createdAt"
+       FROM audit_logs ORDER BY created_at DESC LIMIT $1`,
+      [limit],
+    );
+    return result.rows;
   }
 }
 
