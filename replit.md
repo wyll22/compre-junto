@@ -38,6 +38,17 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
   - ProductForm now uses category/subcategory dropdowns (categoryId/subcategoryId)
   - Legacy text `category` field preserved for backward compatibility (derived from selected category)
   - Products API supports categoryId/subcategoryId filters
+- 2026-02-14: Enhanced customer area & login
+  - Login accepts email OR phone number in single field
+  - Registration includes displayName (apelido) field
+  - Account page rewritten with 5 tabs: Perfil, Endereco, Seguranca, Pedidos, Grupos
+  - Profile: avatar with initials, display name/apelido, phone with BR formatting
+  - Address: ViaCEP API integration for CEP auto-fill, all Brazilian address fields
+  - Security: change password with current password verification
+  - Orders: expandable cards with status icons/badges, item details
+  - Groups: enhanced cards with product images, progress bars, status badges
+  - New fields on users table: displayName, addressCep/Street/Number/Complement/District/City/State
+  - New endpoint: POST /api/auth/password for password change
 - 2026-02-14: Major update with comprehensive features
   - Added Minha Conta page with Meus Grupos, Meus Pedidos, Meus Dados tabs
   - Cart now creates real orders on backend with confirmation screen
