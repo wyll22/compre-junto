@@ -134,85 +134,86 @@ export function ProductCard({ product, showBuyNow = false }: ProductCardProps) {
                   R$ {Number(product.groupPrice).toFixed(2)}
                 </span>
                 <span className="text-[10px] text-primary/80 font-medium">
-                  Preço em grupo
+                  {showBuyNow ? "Preço individual" : "Preço em grupo"}
                 </span>
               </div>
             </div>
 
-            {/* Status grupo */}
-            {isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-8 w-full rounded-lg" />
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {hasOpenGroup ? (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-medium text-muted-foreground">
-                      <span className="flex items-center gap-1 text-orange-600">
-                        <Users className="w-3 h-3" />
-                        Grupo aberto!
-                      </span>
-                      <span className="text-muted-foreground">
+            {/* Status grupo - Somente se NÃO for modo Buy Now */}
+            {!showBuyNow && (
+              isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-2 w-full" />
+                  <Skeleton className="h-8 w-full rounded-lg" />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {hasOpenGroup ? (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-medium text-muted-foreground">
+                        <span className="flex items-center gap-1 text-orange-600">
+                          <Users className="w-3 h-3" />
+                          Grupo aberto!
+                        </span>
+                        <span className="text-muted-foreground">
+                          Mínimo {product.minPeople} pessoas
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-muted-foreground">
+                          {currentPeople}/{product.minPeople} no grupo
+                        </span>
+                        <span className="text-orange-600">
+                          Faltam {peopleLeft} para fechar
+                        </span>
+                      </div>
+
+                      <Progress
+                        value={(currentPeople / product.minPeople) * 100}
+                        className="h-2 bg-orange-100"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-1.5">
+                        <Clock className="w-3 h-3" />
+                        <span>Seja o primeiro a criar um grupo</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
                         Mínimo {product.minPeople} pessoas
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between text-xs font-medium">
-                      <span className="text-muted-foreground">
-                        {currentPeople}/{product.minPeople} no grupo
-                      </span>
-                      <span className="text-orange-600">
+                      </div>
+                      <div className="text-xs text-orange-600 font-medium">
                         Faltam {peopleLeft} para fechar
-                      </span>
+                      </div>
                     </div>
+                  )}
 
-                    {/* ✅ Progress sem indicatorClassName */}
-                    <Progress
-                      value={(currentPeople / product.minPeople) * 100}
-                      className="h-2 bg-orange-100"
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-1.5">
-                      <Clock className="w-3 h-3" />
-                      <span>Seja o primeiro a criar um grupo</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Mínimo {product.minPeople} pessoas
-                    </div>
-                    <div className="text-xs text-orange-600 font-medium">
-                      Faltam {peopleLeft} para fechar
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  onClick={() => setIsJoinDialogOpen(true)}
-                  className={`flex-1 font-bold shadow-md hover:shadow-lg transition-all ${
-                    hasOpenGroup
-                      ? "bg-primary hover:bg-orange-600 text-white"
-                      : "bg-white border-2 border-primary text-primary hover:bg-orange-50"
-                  }`}
-                  size="lg"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Entrar no grupo
-                </Button>
-
-                {showBuyNow && (
                   <Button
-                    onClick={handleAddToCart}
-                    variant="outline"
-                    className="flex-1 font-bold border-2"
+                    onClick={() => setIsJoinDialogOpen(true)}
+                    className={`w-full font-bold shadow-md hover:shadow-lg transition-all ${
+                      hasOpenGroup
+                        ? "bg-primary hover:bg-orange-600 text-white"
+                        : "bg-white border-2 border-primary text-primary hover:bg-orange-50"
+                    }`}
                     size="lg"
                   >
-                    Compre agora
+                    <Users className="w-4 h-4 mr-2" />
+                    Entrar no grupo
                   </Button>
-                )}
-              </div>
+                </div>
+              )
+            )}
+
+            {showBuyNow && (
+              <Button
+                onClick={handleAddToCart}
+                variant="default"
+                className="w-full font-bold shadow-md hover:shadow-lg transition-all bg-primary hover:bg-orange-600 text-white"
+                size="lg"
+              >
+                Comprar agora
+              </Button>
             )}
           </div>
         </div>

@@ -3,14 +3,15 @@ import { ProductCard } from "@/components/ProductCard";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ShoppingBag, Loader2, ShoppingCart } from "lucide-react";
+import { Search, ShoppingBag, Loader2, ShoppingCart, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 
-const CATEGORIES = ["Todos", "Compre agora", "Alimentos", "Bebidas", "Higiene", "Limpeza", "Outros"];
+const CATEGORIES = ["Todos", "Alimentos", "Bebidas", "Higiene", "Limpeza", "Outros"];
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [saleMode, setSaleMode] = useState<"group" | "buyNow">("group");
   const [searchTerm, setSearchTerm] = useState("");
   const [cartCount, setCartCount] = useState(0);
 
@@ -32,7 +33,6 @@ export default function Home() {
 
     updateCartCount();
     window.addEventListener('storage', updateCartCount);
-    // Adiciona listener customizado para quando alterarmos o cart no mesmo window
     window.addEventListener('cart-updated', updateCartCount);
     
     return () => {
@@ -42,8 +42,13 @@ export default function Home() {
   }, []);
   
   const { data: products, isLoading, error } = useProducts({
-    category: selectedCategory === "Compre agora" ? "Todos" : selectedCategory,
+    category: selectedCategory,
     search: searchTerm,
+  });
+
+  const filteredProducts = products?.filter(p => {
+    const mode = (p as any).saleMode || "group";
+    return mode === saleMode;
   });
 
   return (
@@ -92,8 +97,26 @@ export default function Home() {
         </div>
 
         {/* Categories Scroller */}
-        <div className="border-t border-gray-100/50">
+        <div className="border-t border-gray-100/50 bg-gray-50/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-center gap-4 py-4 border-b">
+              <Button 
+                variant={saleMode === "group" ? "default" : "outline"}
+                className="flex-1 max-w-[200px] font-bold rounded-xl"
+                onClick={() => setSaleMode("group")}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Compra em Grupo
+              </Button>
+              <Button 
+                variant={saleMode === "buyNow" ? "default" : "outline"}
+                className="flex-1 max-w-[200px] font-bold rounded-xl"
+                onClick={() => setSaleMode("buyNow")}
+              >
+                <ShoppingBag className="w-4 h-4 mr-2" />
+                Compre agora
+              </Button>
+            </div>
             <div className="flex overflow-x-auto gap-2 py-3 hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
               {CATEGORIES.map((cat) => (
                 <button
@@ -139,7 +162,7 @@ export default function Home() {
               {searchTerm ? `Resultados para "${searchTerm}"` : `${selectedCategory}`}
             </h2>
             <span className="text-sm text-muted-foreground">
-              {products?.length || 0} produtos encontrados
+              {filteredProducts?.length || 0} produtos encontrados
             </span>
           </div>
 
@@ -152,7 +175,7 @@ export default function Home() {
             <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
               <p className="text-red-500 font-medium">Erro ao carregar produtos. Tente novamente.</p>
             </div>
-          ) : products?.length === 0 ? (
+          ) : filteredProducts?.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
               <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-bold text-gray-900">Nenhum produto encontrado</h3>
@@ -164,11 +187,11 @@ export default function Home() {
               className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8"
             >
               <AnimatePresence>
-                {products?.map((product) => (
+                {filteredProducts?.map((product) => (
                   <ProductCard 
                     key={product.id} 
                     product={product} 
-                    showBuyNow={selectedCategory === "Compre agora"} 
+                    showBuyNow={saleMode === "buyNow"} 
                   />
                 ))}
               </AnimatePresence>

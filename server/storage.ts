@@ -12,6 +12,7 @@ type ProductRow = {
   groupPrice: string | number;
   minPeople: number;
   category: string;
+  saleMode: string;
   createdAt?: Date | string | null;
 };
 
@@ -140,6 +141,7 @@ class DatabaseStorage implements IStorage {
         group_price AS "groupPrice",
         min_people AS "minPeople",
         category,
+        sale_mode AS "saleMode",
         created_at AS "createdAt"
       FROM products
       ${where}
@@ -163,6 +165,7 @@ class DatabaseStorage implements IStorage {
         group_price AS "groupPrice",
         min_people AS "minPeople",
         category,
+        sale_mode AS "saleMode",
         created_at AS "createdAt"
       FROM products
       WHERE id = $1
@@ -178,9 +181,9 @@ class DatabaseStorage implements IStorage {
     const result = await pool.query(
       `
       INSERT INTO products
-        (name, description, image_url, original_price, group_price, min_people, category)
+        (name, description, image_url, original_price, group_price, min_people, category, sale_mode)
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7)
+        ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING
         id,
         name,
@@ -190,6 +193,7 @@ class DatabaseStorage implements IStorage {
         group_price AS "groupPrice",
         min_people AS "minPeople",
         category,
+        sale_mode AS "saleMode",
         created_at AS "createdAt"
       `,
       [
@@ -200,6 +204,7 @@ class DatabaseStorage implements IStorage {
         input.groupPrice.toString(),
         Number(input.minPeople),
         input.category,
+        input.saleMode ?? "group",
       ],
     );
 
@@ -221,6 +226,7 @@ class DatabaseStorage implements IStorage {
       groupPrice: "group_price",
       minPeople: "min_people",
       category: "category",
+      saleMode: "sale_mode",
     };
 
     for (const [key, rawValue] of Object.entries(input)) {
@@ -261,6 +267,7 @@ class DatabaseStorage implements IStorage {
         group_price AS "groupPrice",
         min_people AS "minPeople",
         category,
+        sale_mode AS "saleMode",
         created_at AS "createdAt"
       `,
       values,
@@ -598,6 +605,27 @@ class DatabaseStorage implements IStorage {
           groupPrice: "35.5",
           minPeople: 15,
           category: "Limpeza",
+          saleMode: "group",
+        },
+        {
+          name: "Fone de Ouvido Bluetooth JBL",
+          description: "Som potente e bateria de longa duração",
+          imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800",
+          originalPrice: "249.9",
+          groupPrice: "199.9",
+          minPeople: 1,
+          category: "Eletrônicos",
+          saleMode: "buyNow",
+        },
+        {
+          name: "Cafeteira Nespresso Essenza",
+          description: "Café perfeito a qualquer hora",
+          imageUrl: "https://images.unsplash.com/photo-1510972527921-ce03766a1cf1?w=800",
+          originalPrice: "499.9",
+          groupPrice: "389.9",
+          minPeople: 1,
+          category: "Eletro",
+          saleMode: "buyNow",
         },
       ];
 

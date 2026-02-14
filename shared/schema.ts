@@ -19,6 +19,7 @@ export const products = pgTable("products", {
   groupPrice: numeric("group_price").notNull(),
   minPeople: integer("min_people").notNull(),
   category: text("category").notNull(),
+  saleMode: text("sale_mode").notNull().default("group"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
