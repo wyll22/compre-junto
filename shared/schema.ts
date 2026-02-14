@@ -6,12 +6,20 @@ import { relations } from "drizzle-orm";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  displayName: text("display_name").default(""),
   email: text("email").notNull(),
   password: text("password").notNull(),
   phone: text("phone").default(""),
   role: text("role").notNull().default("user"),
   emailVerified: boolean("email_verified").default(false),
   phoneVerified: boolean("phone_verified").default(false),
+  addressCep: text("address_cep").default(""),
+  addressStreet: text("address_street").default(""),
+  addressNumber: text("address_number").default(""),
+  addressComplement: text("address_complement").default(""),
+  addressDistrict: text("address_district").default(""),
+  addressCity: text("address_city").default(""),
+  addressState: text("address_state").default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

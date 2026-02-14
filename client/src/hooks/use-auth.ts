@@ -4,10 +4,19 @@ import { apiRequest } from "@/lib/queryClient";
 export type AuthUser = {
   id: number;
   name: string;
+  displayName: string | null;
   email: string;
   phone: string | null;
   role: string;
   emailVerified: boolean;
+  phoneVerified: boolean;
+  addressCep: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
 };
 
 export function useAuth() {
@@ -31,7 +40,7 @@ export function useAuth() {
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { email: string; password: string }) => {
+    mutationFn: async (data: { identifier: string; password: string }) => {
       const res = await apiRequest("POST", "/api/auth/login", data);
       return await res.json();
     },
@@ -44,7 +53,7 @@ export function useLogin() {
 export function useRegister() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; password: string; phone?: string }) => {
+    mutationFn: async (data: { name: string; email: string; password: string; phone?: string; displayName?: string }) => {
       const res = await apiRequest("POST", "/api/auth/register", data);
       return await res.json();
     },

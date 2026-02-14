@@ -178,7 +178,7 @@ export default function Home() {
 
               {user ? (
                 <div className="flex items-center gap-1">
-                  <span className="text-white/80 text-xs hidden sm:inline mr-1">Ola, {user.name.split(" ")[0]}</span>
+                  <span className="text-white/80 text-xs hidden sm:inline mr-1">Ola, {(user.displayName || user.name).split(" ")[0]}</span>
                   <Link href="/minha-conta">
                     <Button data-testid="button-account" variant="ghost" size="icon" className="text-white">
                       <UserCircle className="w-5 h-5" />

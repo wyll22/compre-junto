@@ -71,11 +71,19 @@ type VideoRow = {
 type UserRow = {
   id: number;
   name: string;
+  displayName: string | null;
   email: string;
   phone: string | null;
   role: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  addressCep: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
   createdAt?: Date | string | null;
 };
 
@@ -121,10 +129,15 @@ export interface IStorage {
   updateVideo(id: number, input: any): Promise<VideoRow | null>;
   deleteVideo(id: number): Promise<void>;
 
-  registerUser(input: { name: string; email: string; password: string; phone?: string }): Promise<UserRow>;
-  loginUser(email: string, password: string): Promise<UserRow | null>;
+  registerUser(input: { name: string; email: string; password: string; phone?: string; displayName?: string }): Promise<UserRow>;
+  loginUser(identifier: string, password: string): Promise<UserRow | null>;
   getUserById(id: number): Promise<UserRow | null>;
-  updateUser(id: number, input: { name?: string; phone?: string }): Promise<UserRow | null>;
+  updateUser(id: number, input: Partial<{
+    name: string; displayName: string; phone: string;
+    addressCep: string; addressStreet: string; addressNumber: string;
+    addressComplement: string; addressDistrict: string; addressCity: string; addressState: string;
+  }>): Promise<UserRow | null>;
+  changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean>;
 
   createOrder(input: { userId: number; items: any; total: string }): Promise<OrderRow>;
   getOrders(userId?: number): Promise<OrderRow[]>;
@@ -210,7 +223,7 @@ const ORDER_SELECT = `
   created_at AS "createdAt"
 `;
 
-const USER_SELECT = `id, name, email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", created_at AS "createdAt"`;
+const USER_SELECT = `id, name, display_name AS "displayName", email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", address_cep AS "addressCep", address_street AS "addressStreet", address_number AS "addressNumber", address_complement AS "addressComplement", address_district AS "addressDistrict", address_city AS "addressCity", address_state AS "addressState", created_at AS "createdAt"`;
 
 class DatabaseStorage implements IStorage {
   async getCategories(parentId?: number | null): Promise<CategoryRow[]> {
@@ -698,35 +711,41 @@ class DatabaseStorage implements IStorage {
     await pool.query(`DELETE FROM videos WHERE id = $1`, [id]);
   }
 
-  async registerUser(input: { name: string; email: string; password: string; phone?: string }): Promise<UserRow> {
+  async registerUser(input: { name: string; email: string; password: string; phone?: string; displayName?: string }): Promise<UserRow> {
     const existing = await pool.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [input.email.toLowerCase()]);
     if (existing.rows.length) throw new Error("Email ja cadastrado");
 
     const hashedPassword = await bcrypt.hash(input.password, 10);
     const result = await pool.query(
-      `INSERT INTO users (name, email, password, phone, role)
-      VALUES ($1, $2, $3, $4, 'user')
+      `INSERT INTO users (name, display_name, email, password, phone, role)
+      VALUES ($1, $2, $3, $4, $5, 'user')
       RETURNING ${USER_SELECT}`,
-      [input.name, input.email.toLowerCase(), hashedPassword, input.phone || ""],
+      [input.name, input.displayName || "", input.email.toLowerCase(), hashedPassword, input.phone || ""],
     );
     return result.rows[0] as UserRow;
   }
 
-  async loginUser(email: string, password: string): Promise<UserRow | null> {
-    const result = await pool.query(
-      `SELECT id, name, email, password, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", created_at AS "createdAt"
-      FROM users WHERE email = $1 LIMIT 1`,
-      [email.toLowerCase()],
-    );
-
+  async loginUser(identifier: string, password: string): Promise<UserRow | null> {
+    const isPhone = /^\d{8,}$/.test(identifier.replace(/\D/g, "")) && !identifier.includes("@");
+    let result;
+    if (isPhone) {
+      const digits = identifier.replace(/\D/g, "");
+      result = await pool.query(
+        `SELECT ${USER_SELECT}, password FROM users WHERE REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = $1`,
+        [digits],
+      );
+    } else {
+      result = await pool.query(
+        `SELECT ${USER_SELECT}, password FROM users WHERE LOWER(email) = LOWER($1)`,
+        [identifier],
+      );
+    }
+    if (result.rows.length === 0) return null;
     const user = result.rows[0] as any;
-    if (!user) return null;
-
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return null;
-
-    const { password: _, ...safeUser } = user;
-    return safeUser as UserRow;
+    const { password: _, ...userWithoutPassword } = user;
+    return userWithoutPassword as UserRow;
   }
 
   async getUserById(id: number): Promise<UserRow | null> {
@@ -737,25 +756,57 @@ class DatabaseStorage implements IStorage {
     return (result.rows[0] as UserRow | undefined) ?? null;
   }
 
-  async updateUser(id: number, input: { name?: string; phone?: string }): Promise<UserRow | null> {
+  async updateUser(id: number, data: Partial<{
+    name: string; displayName: string; phone: string;
+    addressCep: string; addressStreet: string; addressNumber: string;
+    addressComplement: string; addressDistrict: string; addressCity: string; addressState: string;
+  }>): Promise<UserRow | null> {
     const fields: string[] = [];
-    const values: unknown[] = [];
-    if (input.name !== undefined) {
-      values.push(input.name);
-      fields.push(`name = $${values.length}`);
+    const values: any[] = [];
+    let idx = 1;
+
+    const fieldMap: Record<string, string> = {
+      name: "name",
+      displayName: "display_name",
+      phone: "phone",
+      addressCep: "address_cep",
+      addressStreet: "address_street",
+      addressNumber: "address_number",
+      addressComplement: "address_complement",
+      addressDistrict: "address_district",
+      addressCity: "address_city",
+      addressState: "address_state",
+    };
+
+    for (const [key, col] of Object.entries(fieldMap)) {
+      if ((data as any)[key] !== undefined) {
+        fields.push(`${col} = $${idx}`);
+        values.push((data as any)[key]);
+        idx++;
+      }
     }
-    if (input.phone !== undefined) {
-      values.push(input.phone);
-      fields.push(`phone = $${values.length}`);
+
+    if (fields.length === 0) {
+      return this.getUserById(id);
     }
-    if (!fields.length) return this.getUserById(id);
 
     values.push(id);
     const result = await pool.query(
-      `UPDATE users SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING ${USER_SELECT}`,
+      `UPDATE users SET ${fields.join(", ")} WHERE id = $${idx}
+       RETURNING ${USER_SELECT}`,
       values,
     );
     return (result.rows[0] as UserRow | undefined) ?? null;
+  }
+
+  async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean> {
+    const result = await pool.query(`SELECT password FROM users WHERE id = $1`, [userId]);
+    if (result.rows.length === 0) return false;
+    const valid = await bcrypt.compare(currentPassword, result.rows[0].password);
+    if (!valid) return false;
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashed, userId]);
+    return true;
   }
 
   async createOrder(input: { userId: number; items: any; total: string }): Promise<OrderRow> {

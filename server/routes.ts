@@ -56,11 +56,11 @@ export async function registerRoutes(
 
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      const { name, email, password, phone } = req.body;
+      const { name, email, password, phone, displayName } = req.body;
       if (!name || !email || !password) {
         return res.status(400).json({ message: "Nome, email e senha sao obrigatorios" });
       }
-      const user = await storage.registerUser({ name, email, password, phone });
+      const user = await storage.registerUser({ name, email, password, phone, displayName });
       req.session.userId = user.id;
       res.status(201).json(user);
     } catch (err: any) {
@@ -70,13 +70,14 @@ export async function registerRoutes(
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email e senha sao obrigatorios" });
+      const { email, password, identifier } = req.body;
+      const loginId = identifier || email;
+      if (!loginId || !password) {
+        return res.status(400).json({ message: "Email/telefone e senha sao obrigatorios" });
       }
-      const user = await storage.loginUser(email, password);
+      const user = await storage.loginUser(loginId, password);
       if (!user) {
-        return res.status(401).json({ message: "Email ou senha incorretos" });
+        return res.status(401).json({ message: "Email/telefone ou senha incorretos" });
       }
       req.session.userId = user.id;
       res.json(user);
@@ -106,11 +107,36 @@ export async function registerRoutes(
     const userId = requireAuth(req, res);
     if (userId === null) return;
     try {
-      const { name, phone } = req.body;
-      const user = await storage.updateUser(userId, { name, phone });
+      const { name, displayName, phone, addressCep, addressStreet, addressNumber, addressComplement, addressDistrict, addressCity, addressState } = req.body;
+      const user = await storage.updateUser(userId, {
+        name, displayName, phone,
+        addressCep, addressStreet, addressNumber, addressComplement,
+        addressDistrict, addressCity, addressState,
+      });
       res.json(user);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar perfil" });
+    }
+  });
+
+  app.post("/api/auth/password", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Senha atual e nova senha sao obrigatorias" });
+      }
+      if (newPassword.length < 4) {
+        return res.status(400).json({ message: "Nova senha deve ter pelo menos 4 caracteres" });
+      }
+      const success = await storage.changePassword(userId, currentPassword, newPassword);
+      if (!success) {
+        return res.status(400).json({ message: "Senha atual incorreta" });
+      }
+      res.json({ ok: true, message: "Senha alterada com sucesso" });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao alterar senha" });
     }
   });
 
