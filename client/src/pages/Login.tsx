@@ -68,7 +68,7 @@ export default function Login() {
               data-testid="img-login-logo"
               src={logoImg}
               alt="Compra Junto Formosa"
-              className="h-20 w-auto object-contain mx-auto"
+              className="h-24 w-auto object-contain mx-auto"
             />
           <p className="text-muted-foreground text-sm mt-1">
             {isRegister ? "Crie sua conta" : "Entre na sua conta"}

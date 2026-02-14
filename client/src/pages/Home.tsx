@@ -93,7 +93,8 @@ export default function Home() {
                 data-testid="img-brand-logo"
                 src={logoImg}
                 alt="Compra Junto Formosa"
-                className="h-10 md:h-12 w-auto object-contain"
+                className="h-[30px] md:h-[40px] w-auto object-contain rounded-md"
+                style={{ mixBlendMode: "multiply" }}
               />
             </Link>
 
