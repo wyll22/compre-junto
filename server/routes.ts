@@ -6,12 +6,16 @@ import pgSession from "connect-pg-simple";
 import helmet from "helmet";
 import cors from "cors";
 import crypto from "crypto";
+import path from "path";
+import fs from "fs";
 import { pool } from "./db";
 import { z } from "zod";
+import multer from "multer";
 import {
   registerSchema, loginSchema, changePasswordSchema, profileUpdateSchema,
   createProductSchema, createCategorySchema, createBannerSchema, createVideoSchema,
   createOrderSchema, createPickupPointSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
+  insertArticleSchema, insertNavigationLinkSchema,
 } from "@shared/schema";
 
 function stripHtmlTags(str: string): string {
@@ -1116,6 +1120,208 @@ export async function registerRoutes(
       res.json(logs);
     } catch (err: any) {
       res.status(500).json({ message: "Erro ao buscar logs" });
+    }
+  });
+
+  // === Articles (Blog) ===
+  const createArticleSchema = z.object({
+    title: z.string().min(1).max(500),
+    slug: z.string().min(1).max(500),
+    content: z.string().default(""),
+    excerpt: z.string().max(1000).default(""),
+    imageUrl: z.string().max(2000).default(""),
+    published: z.boolean().default(false),
+  });
+
+  app.get("/api/articles", async (req: Request, res: Response) => {
+    try {
+      const publishedOnly = req.query.published === "true";
+      const articles = await storage.getArticles(publishedOnly);
+      res.json(articles);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar artigos" });
+    }
+  });
+
+  app.get("/api/articles/:slug", async (req: Request, res: Response) => {
+    try {
+      const article = await storage.getArticleBySlug(req.params.slug);
+      if (!article) return res.status(404).json({ message: "Artigo nao encontrado" });
+      const isAdmin = req.session?.userId && (await storage.getUserById(req.session.userId))?.role === "admin";
+      if (!article.published && !isAdmin) return res.status(404).json({ message: "Artigo nao encontrado" });
+      res.json(article);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar artigo" });
+    }
+  });
+
+  app.post("/api/articles", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createArticleSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const article = await storage.createArticle({ ...parsed.data, authorId: userId });
+      res.status(201).json(article);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao criar artigo" });
+    }
+  });
+
+  app.put("/api/articles/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createArticleSchema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const article = await storage.updateArticle(Number(req.params.id), parsed.data);
+      if (!article) return res.status(404).json({ message: "Artigo nao encontrado" });
+      res.json(article);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao atualizar artigo" });
+    }
+  });
+
+  app.delete("/api/articles/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      await storage.deleteArticle(Number(req.params.id));
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao excluir artigo" });
+    }
+  });
+
+  // === Media Upload ===
+  const uploadsDir = path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, uploadsDir),
+      filename: (_req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const ext = path.extname(file.originalname);
+        cb(null, uniqueSuffix + ext);
+      },
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+      if (allowed.includes(file.mimetype)) { cb(null, true); }
+      else { cb(new Error("Tipo de arquivo nao permitido. Use JPEG, PNG, GIF, WebP ou SVG.")); }
+    },
+  });
+
+  app.use("/uploads", (req: Request, res: Response, next: NextFunction) => {
+    const express = require("express");
+    express.static(uploadsDir)(req, res, next);
+  });
+
+  app.get("/api/media", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const assets = await storage.getMediaAssets();
+      res.json(assets);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar midia" });
+    }
+  });
+
+  app.post("/api/media/upload", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    upload.single("file")(req, res, async (err: any) => {
+      if (err) return res.status(400).json({ message: err.message || "Erro no upload" });
+      if (!req.file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      try {
+        const url = `/uploads/${req.file.filename}`;
+        const asset = await storage.createMediaAsset({
+          filename: req.file.originalname,
+          url,
+          mimeType: req.file.mimetype,
+          size: req.file.size,
+        });
+        res.status(201).json(asset);
+      } catch (err: any) {
+        res.status(500).json({ message: "Erro ao salvar midia" });
+      }
+    });
+  });
+
+  app.delete("/api/media/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const asset = await storage.deleteMediaAsset(Number(req.params.id));
+      if (!asset) return res.status(404).json({ message: "Midia nao encontrada" });
+      const filePath = path.join(uploadsDir, path.basename(asset.url));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao excluir midia" });
+    }
+  });
+
+  // === Navigation Links ===
+  const createNavLinkSchema = z.object({
+    location: z.enum(["header", "footer"]),
+    label: z.string().min(1).max(200),
+    url: z.string().min(1).max(1000),
+    sortOrder: z.number().int().default(0),
+    active: z.boolean().default(true),
+  });
+
+  app.get("/api/navigation-links", async (req: Request, res: Response) => {
+    try {
+      const location = req.query.location as string | undefined;
+      const activeOnly = req.query.active === "true";
+      const links = await storage.getNavigationLinks(location, activeOnly);
+      res.json(links);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar links" });
+    }
+  });
+
+  app.post("/api/navigation-links", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createNavLinkSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const link = await storage.createNavigationLink(parsed.data);
+      res.status(201).json(link);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao criar link" });
+    }
+  });
+
+  app.put("/api/navigation-links/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createNavLinkSchema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const link = await storage.updateNavigationLink(Number(req.params.id), parsed.data);
+      if (!link) return res.status(404).json({ message: "Link nao encontrado" });
+      res.json(link);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao atualizar link" });
+    }
+  });
+
+  app.delete("/api/navigation-links/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      await storage.deleteNavigationLink(Number(req.params.id));
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao excluir link" });
     }
   });
 

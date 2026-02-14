@@ -200,6 +200,22 @@ export interface IStorage {
   createAuditLog(input: { userId: number; userName: string; action: string; entity: string; entityId?: number; details?: any; ipAddress?: string }): Promise<void>;
   getAuditLogs(limit?: number): Promise<any[]>;
 
+  getArticles(publishedOnly?: boolean): Promise<any[]>;
+  getArticle(id: number): Promise<any | null>;
+  getArticleBySlug(slug: string): Promise<any | null>;
+  createArticle(input: any): Promise<any>;
+  updateArticle(id: number, input: any): Promise<any | null>;
+  deleteArticle(id: number): Promise<void>;
+
+  getMediaAssets(): Promise<any[]>;
+  createMediaAsset(input: { filename: string; url: string; mimeType: string; size: number }): Promise<any>;
+  deleteMediaAsset(id: number): Promise<any | null>;
+
+  getNavigationLinks(location?: string, activeOnly?: boolean): Promise<any[]>;
+  createNavigationLink(input: any): Promise<any>;
+  updateNavigationLink(id: number, input: any): Promise<any | null>;
+  deleteNavigationLink(id: number): Promise<void>;
+
   seedProducts(): Promise<void>;
 }
 
@@ -1258,6 +1274,133 @@ class DatabaseStorage implements IStorage {
       [reserveStatus, memberId]
     );
     return result.rows[0] || null;
+  }
+
+  async getArticles(publishedOnly: boolean = false): Promise<any[]> {
+    const where = publishedOnly ? `WHERE published = true` : ``;
+    const result = await pool.query(
+      `SELECT id, title, slug, content, excerpt, image_url AS "imageUrl", published, author_id AS "authorId", created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM articles ${where} ORDER BY created_at DESC`
+    );
+    return result.rows;
+  }
+
+  async getArticle(id: number): Promise<any | null> {
+    const result = await pool.query(
+      `SELECT id, title, slug, content, excerpt, image_url AS "imageUrl", published, author_id AS "authorId", created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM articles WHERE id = $1`, [id]
+    );
+    return result.rows[0] || null;
+  }
+
+  async getArticleBySlug(slug: string): Promise<any | null> {
+    const result = await pool.query(
+      `SELECT id, title, slug, content, excerpt, image_url AS "imageUrl", published, author_id AS "authorId", created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM articles WHERE slug = $1`, [slug]
+    );
+    return result.rows[0] || null;
+  }
+
+  async createArticle(input: any): Promise<any> {
+    const result = await pool.query(
+      `INSERT INTO articles (title, slug, content, excerpt, image_url, published, author_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, title, slug, content, excerpt, image_url AS "imageUrl", published, author_id AS "authorId", created_at AS "createdAt", updated_at AS "updatedAt"`,
+      [input.title, input.slug, input.content || "", input.excerpt || "", input.imageUrl || "", input.published ?? false, input.authorId ?? null]
+    );
+    return result.rows[0];
+  }
+
+  async updateArticle(id: number, input: any): Promise<any | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    const mapping: Record<string, string> = { title: "title", slug: "slug", content: "content", excerpt: "excerpt", imageUrl: "image_url", published: "published" };
+    for (const [key, col] of Object.entries(mapping)) {
+      if (input[key] !== undefined) { fields.push(`${col} = $${idx}`); values.push(input[key]); idx++; }
+    }
+    if (fields.length === 0) return this.getArticle(id);
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE articles SET ${fields.join(", ")} WHERE id = $${idx}
+       RETURNING id, title, slug, content, excerpt, image_url AS "imageUrl", published, author_id AS "authorId", created_at AS "createdAt", updated_at AS "updatedAt"`,
+      values
+    );
+    return result.rows[0] || null;
+  }
+
+  async deleteArticle(id: number): Promise<void> {
+    await pool.query(`DELETE FROM articles WHERE id = $1`, [id]);
+  }
+
+  async getMediaAssets(): Promise<any[]> {
+    const result = await pool.query(
+      `SELECT id, filename, url, mime_type AS "mimeType", size, created_at AS "createdAt"
+       FROM media_assets ORDER BY created_at DESC`
+    );
+    return result.rows;
+  }
+
+  async createMediaAsset(input: { filename: string; url: string; mimeType: string; size: number }): Promise<any> {
+    const result = await pool.query(
+      `INSERT INTO media_assets (filename, url, mime_type, size) VALUES ($1, $2, $3, $4)
+       RETURNING id, filename, url, mime_type AS "mimeType", size, created_at AS "createdAt"`,
+      [input.filename, input.url, input.mimeType, input.size]
+    );
+    return result.rows[0];
+  }
+
+  async deleteMediaAsset(id: number): Promise<any | null> {
+    const result = await pool.query(
+      `DELETE FROM media_assets WHERE id = $1 RETURNING id, filename, url, mime_type AS "mimeType", size`, [id]
+    );
+    return result.rows[0] || null;
+  }
+
+  async getNavigationLinks(location?: string, activeOnly: boolean = false): Promise<any[]> {
+    let where = "";
+    const params: any[] = [];
+    const conditions: string[] = [];
+    if (location) { conditions.push(`location = $${params.length + 1}`); params.push(location); }
+    if (activeOnly) { conditions.push(`active = true`); }
+    if (conditions.length) where = `WHERE ${conditions.join(" AND ")}`;
+    const result = await pool.query(
+      `SELECT id, location, label, url, sort_order AS "sortOrder", active FROM navigation_links ${where} ORDER BY sort_order ASC, id ASC`,
+      params
+    );
+    return result.rows;
+  }
+
+  async createNavigationLink(input: any): Promise<any> {
+    const result = await pool.query(
+      `INSERT INTO navigation_links (location, label, url, sort_order, active) VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, location, label, url, sort_order AS "sortOrder", active`,
+      [input.location || "footer", input.label, input.url, input.sortOrder ?? 0, input.active ?? true]
+    );
+    return result.rows[0];
+  }
+
+  async updateNavigationLink(id: number, input: any): Promise<any | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    const mapping: Record<string, string> = { location: "location", label: "label", url: "url", sortOrder: "sort_order", active: "active" };
+    for (const [key, col] of Object.entries(mapping)) {
+      if (input[key] !== undefined) { fields.push(`${col} = $${idx}`); values.push(input[key]); idx++; }
+    }
+    if (fields.length === 0) return null;
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE navigation_links SET ${fields.join(", ")} WHERE id = $${idx}
+       RETURNING id, location, label, url, sort_order AS "sortOrder", active`,
+      values
+    );
+    return result.rows[0] || null;
+  }
+
+  async deleteNavigationLink(id: number): Promise<void> {
+    await pool.query(`DELETE FROM navigation_links WHERE id = $1`, [id]);
   }
 
   async seedProducts(): Promise<void> {

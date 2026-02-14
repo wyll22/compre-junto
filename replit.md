@@ -13,6 +13,16 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-14: CMS features (Blog, Media Library, Dynamic Navigation)
+  - Blog/Articles: articles table, full CRUD API, admin "Artigos" tab with title/slug/content/excerpt/image/published
+  - Public blog pages: /blog (list) and /blog/:slug (detail) with SEO-friendly URLs
+  - Media Library: media_assets table, multer-based image upload (5MB max, JPEG/PNG/GIF/WebP/SVG), admin "Midia" tab
+  - Uploaded files served from /uploads/ with copy URL, grid display, delete
+  - Dynamic Navigation: navigation_links table with location (header/footer), admin "Navegacao" tab
+  - Footer loads links from DB with fallback to hardcoded defaults
+  - Visitor tracking: site_visits table, /api/track-visit endpoint, visitor analytics in System tab
+  - API: GET/POST/PUT/DELETE /api/articles, GET/POST/DELETE /api/media, POST /api/media/upload, GET/POST/PUT/DELETE /api/navigation-links
+
 - 2026-02-14: Admin system monitoring tab
   - New "Sistema" tab in admin panel with real-time monitoring
   - Backend /api/admin/system-health endpoint with comprehensive diagnostics
@@ -91,7 +101,7 @@ The project is organized as a monorepo containing three main components:
 - **Database**: PostgreSQL.
 - **ORM/Schema**: Drizzle ORM with `drizzle-zod` for schema generation.
 - **Migrations**: Drizzle Kit.
-- **Core Tables**: `users`, `categories`, `products`, `groups`, `members`, `banners`, `videos`, `orders`, `order_status_history`, `order_settings`, `pickup_points`, `audit_logs`.
+- **Core Tables**: `users`, `categories`, `products`, `groups`, `members`, `banners`, `videos`, `orders`, `order_status_history`, `order_settings`, `pickup_points`, `audit_logs`, `articles`, `media_assets`, `navigation_links`, `site_visits`.
 
 ### Feature Specifications
 - **Dual Sale Modes**: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase).

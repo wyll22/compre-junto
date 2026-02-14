@@ -16,6 +16,7 @@ import TrocasReembolsos from "@/pages/TrocasReembolsos";
 import Entregas from "@/pages/Entregas";
 import Contato from "@/pages/Contato";
 import ProductDetail from "@/pages/ProductDetail";
+import { BlogList, BlogPost } from "@/pages/Blog";
 
 function getVisitorId() {
   let id = localStorage.getItem("cjf_visitor_id");
@@ -59,6 +60,8 @@ function Router() {
       <Route path="/trocas-e-reembolsos" component={TrocasReembolsos} />
       <Route path="/entregas" component={Entregas} />
       <Route path="/contato" component={Contato} />
+      <Route path="/blog" component={BlogList} />
+      <Route path="/blog/:slug" component={BlogPost} />
       <Route component={NotFound} />
     </Switch>
   );

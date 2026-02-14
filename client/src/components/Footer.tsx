@@ -1,7 +1,31 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { companyConfig } from "@/lib/companyConfig";
 
+const DEFAULT_FOOTER_LINKS = [
+  { label: "Termos de Uso", url: "/termos" },
+  { label: "Politica de Privacidade", url: "/privacidade" },
+  { label: "Trocas e Reembolsos", url: "/trocas-e-reembolsos" },
+  { label: "Politica de Entregas", url: "/entregas" },
+  { label: "Blog", url: "/blog" },
+  { label: "Fale Conosco", url: "/contato" },
+];
+
 export function Footer() {
+  const { data: dbLinks } = useQuery<any[]>({
+    queryKey: ["/api/navigation-links", "footer"],
+    queryFn: async () => {
+      const res = await fetch("/api/navigation-links?location=footer&active=true");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const footerLinks = dbLinks && dbLinks.length > 0
+    ? dbLinks.map((l: any) => ({ label: l.label, url: l.url }))
+    : DEFAULT_FOOTER_LINKS;
+
   return (
     <footer className="bg-primary text-primary-foreground mt-auto" data-testid="footer">
       <div className="border-t-4 border-[#D4A62A]" />
@@ -10,11 +34,16 @@ export function Footer() {
           <div className="space-y-3">
             <h3 className="font-display font-bold text-sm uppercase tracking-wider opacity-90">Institucional</h3>
             <nav className="flex flex-col gap-2">
-              <Link href="/termos" className="text-sm opacity-75 underline-offset-2" data-testid="link-footer-termos">Termos de Uso</Link>
-              <Link href="/privacidade" className="text-sm opacity-75 underline-offset-2" data-testid="link-footer-privacidade">Politica de Privacidade</Link>
-              <Link href="/trocas-e-reembolsos" className="text-sm opacity-75 underline-offset-2" data-testid="link-footer-trocas">Trocas e Reembolsos</Link>
-              <Link href="/entregas" className="text-sm opacity-75 underline-offset-2" data-testid="link-footer-entregas">Politica de Entregas</Link>
-              <Link href="/contato" className="text-sm opacity-75 underline-offset-2" data-testid="link-footer-contato">Fale Conosco</Link>
+              {footerLinks.map((link, i) => (
+                <Link
+                  key={i}
+                  href={link.url}
+                  className="text-sm opacity-75 underline-offset-2"
+                  data-testid={`link-footer-${i}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </nav>
           </div>
 

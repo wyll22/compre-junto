@@ -10,7 +10,7 @@ import {
   Plus, Trash2, LayoutDashboard, ExternalLink, Edit, Package, Users, Image, Video, Loader2,
   ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
   Mail, Phone, ChevronDown, ChevronUp, Search, MapPin, AlertTriangle, Settings, ArrowRight, History,
-  Monitor, Globe, Database, Server, Shield, RefreshCcw, CheckCircle2, XCircle,
+  Monitor, Globe, Database, Server, Shield, RefreshCcw, CheckCircle2, XCircle, FileText, Upload, Link2, Copy,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -31,7 +31,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -1182,6 +1182,486 @@ function SystemTab() {
   );
 }
 
+function ArticlesTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: articles, isLoading } = useQuery<any[]>({ queryKey: ["/api/articles"] });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<any>(null);
+  const [slugManual, setSlugManual] = useState(false);
+  const [form, setForm] = useState({ title: "", slug: "", excerpt: "", content: "", imageUrl: "", published: false });
+
+  const generateSlug = (title: string) =>
+    title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/(^-|-$)/g, "");
+
+  const openNew = () => {
+    setEditingArticle(null);
+    setSlugManual(false);
+    setForm({ title: "", slug: "", excerpt: "", content: "", imageUrl: "", published: false });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (article: any) => {
+    setEditingArticle(article);
+    setSlugManual(true);
+    setForm({
+      title: article.title || "",
+      slug: article.slug || "",
+      excerpt: article.excerpt || "",
+      content: article.content || "",
+      imageUrl: article.imageUrl || "",
+      published: article.published === true,
+    });
+    setDialogOpen(true);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editingArticle) {
+        const res = await apiRequest("PUT", `/api/articles/${editingArticle.id}`, data);
+        return await res.json();
+      }
+      const res = await apiRequest("POST", "/api/articles", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      toast({ title: editingArticle ? "Artigo atualizado!" : "Artigo criado!" });
+      setDialogOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/articles/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      toast({ title: "Artigo excluido!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const handleTitleChange = (title: string) => {
+    if (!slugManual) {
+      setForm((f) => ({ ...f, title, slug: generateSlug(title) }));
+    } else {
+      setForm((f) => ({ ...f, title }));
+    }
+  };
+
+  const handleSlugChange = (slug: string) => {
+    setSlugManual(slug !== "");
+    setForm((f) => ({ ...f, slug }));
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+        <h2 className="text-lg font-bold text-foreground">Artigos ({articles?.length || 0})</h2>
+        <Button size="sm" data-testid="button-new-article" onClick={openNew}>
+          <Plus className="w-4 h-4 mr-1" /> Novo Artigo
+        </Button>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Titulo</TableHead>
+            <TableHead>Slug</TableHead>
+            <TableHead>Publicado</TableHead>
+            <TableHead>Data</TableHead>
+            <TableHead>Acoes</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {!articles || articles.length === 0 ? (
+            <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum artigo cadastrado.</TableCell></TableRow>
+          ) : (
+            articles.map((article: any) => (
+              <TableRow key={article.id} data-testid={`row-article-${article.id}`}>
+                <TableCell className="font-medium">{article.title}</TableCell>
+                <TableCell className="text-muted-foreground text-sm">{article.slug}</TableCell>
+                <TableCell>
+                  <Badge variant={article.published ? "default" : "secondary"} className="text-[10px]">
+                    {article.published ? "Sim" : "Nao"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {article.createdAt ? new Date(article.createdAt).toLocaleDateString("pt-BR") : "-"}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" data-testid={`button-edit-article-${article.id}`} onClick={() => openEdit(article)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive" data-testid={`button-delete-article-${article.id}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir artigo?</AlertDialogTitle>
+                          <AlertDialogDescription>O artigo sera removido permanentemente.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteMutation.mutate(article.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => !saveMutation.isPending && !open && setDialogOpen(false)}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingArticle ? "Editar Artigo" : "Novo Artigo"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Titulo</Label>
+              <Input data-testid="input-article-title" value={form.title} onChange={(e) => handleTitleChange(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Slug</Label>
+              <Input data-testid="input-article-slug" value={form.slug} onChange={(e) => handleSlugChange(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Resumo</Label>
+              <Textarea data-testid="input-article-excerpt" value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Conteudo</Label>
+              <Textarea data-testid="input-article-content" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={6} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL da Imagem</Label>
+              <Input data-testid="input-article-image" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
+            </div>
+            <div className="flex items-center gap-2">
+              <input data-testid="input-article-published" type="checkbox" id="article-published" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} className="rounded border-input" />
+              <Label htmlFor="article-published">Publicado</Label>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)} disabled={saveMutation.isPending}>Cancelar</Button>
+              <Button data-testid="button-save-article" type="submit" className="flex-1" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                Salvar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function MediaTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: media, isLoading } = useQuery<any[]>({ queryKey: ["/api/media"] });
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const file = formData.get("file") as File;
+    if (!file || !file.size) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/media/upload", { method: "POST", body: fd, credentials: "include" });
+      if (!res.ok) throw new Error("Upload falhou");
+      queryClient.invalidateQueries({ queryKey: ["/api/media"] });
+      toast({ title: "Upload concluido!" });
+      (e.target as HTMLFormElement).reset();
+    } catch (err: any) {
+      toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/media/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/media"] });
+      toast({ title: "Midia excluida!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const copyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast({ title: "URL copiada!" });
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+        <h2 className="text-lg font-bold text-foreground">Midia ({media?.length || 0})</h2>
+      </div>
+
+      <Card className="mb-4">
+        <CardContent className="p-4">
+          <form onSubmit={handleUpload} className="flex flex-wrap items-center gap-3">
+            <input data-testid="input-media-file" type="file" name="file" accept="image/*" required className="text-sm" />
+            <Button data-testid="button-upload-media" type="submit" size="sm" disabled={uploading}>
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />}
+              Upload
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {!media || media.length === 0 ? (
+        <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhuma midia cadastrada.</CardContent></Card>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {media.map((asset: any) => (
+            <Card key={asset.id} data-testid={`card-media-${asset.id}`}>
+              <CardContent className="p-3 space-y-2">
+                <img src={asset.url} alt={asset.filename} className="w-full h-28 rounded-md object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x112"; }} />
+                <p className="text-xs font-medium truncate">{asset.filename}</p>
+                <p className="text-[11px] text-muted-foreground">{asset.size ? formatSize(asset.size) : ""}</p>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" data-testid={`button-copy-url-${asset.id}`} onClick={() => copyUrl(asset.url)}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-destructive" data-testid={`button-delete-media-${asset.id}`}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir midia?</AlertDialogTitle>
+                        <AlertDialogDescription>A midia sera removida permanentemente.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteMutation.mutate(asset.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function NavigationTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: links, isLoading } = useQuery<any[]>({ queryKey: ["/api/navigation-links"] });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<any>(null);
+  const [form, setForm] = useState({ label: "", url: "", location: "header", sortOrder: "0", active: true });
+
+  const openNew = () => {
+    setEditingLink(null);
+    setForm({ label: "", url: "", location: "header", sortOrder: "0", active: true });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (link: any) => {
+    setEditingLink(link);
+    setForm({
+      label: link.label || "",
+      url: link.url || "",
+      location: link.location || "header",
+      sortOrder: String(link.sortOrder ?? 0),
+      active: link.active !== false,
+    });
+    setDialogOpen(true);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const payload = { ...data, sortOrder: Number(data.sortOrder) };
+      if (editingLink) {
+        const res = await apiRequest("PUT", `/api/navigation-links/${editingLink.id}`, payload);
+        return await res.json();
+      }
+      const res = await apiRequest("POST", "/api/navigation-links", payload);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/navigation-links"] });
+      toast({ title: editingLink ? "Link atualizado!" : "Link criado!" });
+      setDialogOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/navigation-links/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/navigation-links"] });
+      toast({ title: "Link excluido!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+        <h2 className="text-lg font-bold text-foreground">Links de Navegacao ({links?.length || 0})</h2>
+        <Button size="sm" data-testid="button-new-link" onClick={openNew}>
+          <Plus className="w-4 h-4 mr-1" /> Novo Link
+        </Button>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Label</TableHead>
+            <TableHead>URL</TableHead>
+            <TableHead>Local</TableHead>
+            <TableHead>Ordem</TableHead>
+            <TableHead>Ativo</TableHead>
+            <TableHead>Acoes</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {!links || links.length === 0 ? (
+            <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum link cadastrado.</TableCell></TableRow>
+          ) : (
+            links.map((link: any) => (
+              <TableRow key={link.id} data-testid={`row-link-${link.id}`}>
+                <TableCell className="font-medium">{link.label}</TableCell>
+                <TableCell className="text-sm text-muted-foreground truncate max-w-[200px]">{link.url}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="text-[10px]">{link.location}</Badge>
+                </TableCell>
+                <TableCell className="text-sm">{link.sortOrder}</TableCell>
+                <TableCell>
+                  <Badge variant={link.active ? "default" : "secondary"} className="text-[10px]">
+                    {link.active ? "Sim" : "Nao"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" data-testid={`button-edit-link-${link.id}`} onClick={() => openEdit(link)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive" data-testid={`button-delete-link-${link.id}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir link?</AlertDialogTitle>
+                          <AlertDialogDescription>O link sera removido permanentemente.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteMutation.mutate(link.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => !saveMutation.isPending && !open && setDialogOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingLink ? "Editar Link" : "Novo Link"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Label</Label>
+              <Input data-testid="input-link-label" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL</Label>
+              <Input data-testid="input-link-url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Local</Label>
+                <select data-testid="select-link-location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                  <option value="header">Header</option>
+                  <option value="footer">Footer</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Ordem</Label>
+                <Input data-testid="input-link-order" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input data-testid="input-link-active" type="checkbox" id="link-active" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="rounded border-input" />
+              <Label htmlFor="link-active">Ativo</Label>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)} disabled={saveMutation.isPending}>Cancelar</Button>
+              <Button data-testid="button-save-link" type="submit" className="flex-1" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                Salvar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function Admin() {
   const { data: user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -1407,6 +1887,9 @@ export default function Admin() {
     { key: "videos", label: "Videos", icon: Video },
     { key: "pickup", label: "Retirada", icon: MapPin },
     { key: "order-settings", label: "Config. Pedidos", icon: Settings },
+    { key: "articles", label: "Artigos", icon: FileText },
+    { key: "media", label: "Midia", icon: Upload },
+    { key: "navigation", label: "Navegacao", icon: Link2 },
     { key: "system", label: "Sistema", icon: Monitor },
   ];
 
@@ -2152,6 +2635,12 @@ export default function Admin() {
         )}
 
         {tab === "order-settings" && <OrderSettingsTab />}
+
+        {tab === "articles" && <ArticlesTab />}
+
+        {tab === "media" && <MediaTab />}
+
+        {tab === "navigation" && <NavigationTab />}
 
         {tab === "system" && <SystemTab />}
       </div>

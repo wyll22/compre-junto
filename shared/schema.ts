@@ -214,6 +214,37 @@ export const siteVisits = pgTable("site_visits", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const articles = pgTable("articles", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  content: text("content").notNull().default(""),
+  excerpt: text("excerpt").default(""),
+  imageUrl: text("image_url").default(""),
+  published: boolean("published").default(false),
+  authorId: integer("author_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const mediaAssets = pgTable("media_assets", {
+  id: serial("id").primaryKey(),
+  filename: text("filename").notNull(),
+  url: text("url").notNull(),
+  mimeType: text("mime_type").default(""),
+  size: integer("size").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const navigationLinks = pgTable("navigation_links", {
+  id: serial("id").primaryKey(),
+  location: text("location").notNull().default("footer"),
+  label: text("label").notNull(),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  active: boolean("active").default(true),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
@@ -225,6 +256,9 @@ export const insertPickupPointSchema = createInsertSchema(pickupPoints).omit({ i
 export const insertOrderStatusHistorySchema = createInsertSchema(orderStatusHistory).omit({ id: true, createdAt: true });
 export const insertOrderSettingsSchema = createInsertSchema(orderSettings).omit({ id: true, updatedAt: true });
 export const insertSiteVisitSchema = createInsertSchema(siteVisits).omit({ id: true, createdAt: true });
+export const insertArticleSchema = createInsertSchema(articles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMediaAssetSchema = createInsertSchema(mediaAssets).omit({ id: true, createdAt: true });
+export const insertNavigationLinkSchema = createInsertSchema(navigationLinks).omit({ id: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -247,6 +281,12 @@ export type InsertOrderStatusHistory = z.infer<typeof insertOrderStatusHistorySc
 export type OrderSetting = typeof orderSettings.$inferSelect;
 export type SiteVisit = typeof siteVisits.$inferSelect;
 export type InsertSiteVisit = z.infer<typeof insertSiteVisitSchema>;
+export type Article = typeof articles.$inferSelect;
+export type InsertArticle = z.infer<typeof insertArticleSchema>;
+export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type InsertMediaAsset = z.infer<typeof insertMediaAssetSchema>;
+export type NavigationLink = typeof navigationLinks.$inferSelect;
+export type InsertNavigationLink = z.infer<typeof insertNavigationLinkSchema>;
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export type Category = typeof categories.$inferSelect;
