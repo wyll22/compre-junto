@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { JoinGroupDialog } from "./JoinGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { useLocation } from "wouter";
 
 interface ProductCardProps {
   product: Product;
@@ -22,6 +23,35 @@ function isOpenStatus(status: unknown) {
 
 export function ProductCard({ product }: ProductCardProps) {
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const [, setLocation] = useLocation();
+
+  const handleAddToCart = () => {
+    const savedCart = localStorage.getItem("fsa_cart");
+    let cart = [];
+    if (savedCart) {
+      try {
+        cart = JSON.parse(savedCart);
+      } catch (e) {
+        cart = [];
+      }
+    }
+
+    const existingIndex = cart.findIndex((item: any) => item.productId === product.id);
+    if (existingIndex > -1) {
+      cart[existingIndex].qty += 1;
+    } else {
+      cart.push({
+        productId: product.id,
+        name: product.name,
+        imageUrl: product.imageUrl,
+        groupPrice: product.groupPrice,
+        qty: 1
+      });
+    }
+
+    localStorage.setItem("fsa_cart", JSON.stringify(cart));
+    setLocation("/carrinho");
+  };
 
   // ✅ NÃO filtra por status aqui (evita “sumir” grupo por status diferente)
   const { data: groups, isLoading } = useGroups({
@@ -158,7 +188,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
                 <Button
                   onClick={() => setIsJoinDialogOpen(true)}
-                  className={`w-full font-bold shadow-md hover:shadow-lg transition-all ${
+                  className={`flex-1 font-bold shadow-md hover:shadow-lg transition-all ${
                     hasOpenGroup
                       ? "bg-primary hover:bg-orange-600 text-white"
                       : "bg-white border-2 border-primary text-primary hover:bg-orange-50"
@@ -167,6 +197,15 @@ export function ProductCard({ product }: ProductCardProps) {
                 >
                   <Users className="w-4 h-4 mr-2" />
                   Entrar no grupo
+                </Button>
+
+                <Button
+                  onClick={handleAddToCart}
+                  variant="outline"
+                  className="flex-1 font-bold border-2"
+                  size="lg"
+                >
+                  Compre agora
                 </Button>
               </div>
             )}
