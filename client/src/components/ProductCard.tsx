@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 
 interface ProductCardProps {
   product: Product;
+  showBuyNow?: boolean;
 }
 
 function isOpenStatus(status: unknown) {
@@ -21,7 +22,7 @@ function isOpenStatus(status: unknown) {
   return s === "aberto" || s === "open";
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, showBuyNow = false }: ProductCardProps) {
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [, setLocation] = useLocation();
 
@@ -50,6 +51,8 @@ export function ProductCard({ product }: ProductCardProps) {
     }
 
     localStorage.setItem("fsa_cart", JSON.stringify(cart));
+    // Dispara evento customizado para atualizar contador no mesmo window
+    window.dispatchEvent(new Event('cart-updated'));
     setLocation("/carrinho");
   };
 
@@ -199,14 +202,16 @@ export function ProductCard({ product }: ProductCardProps) {
                   Entrar no grupo
                 </Button>
 
-                <Button
-                  onClick={handleAddToCart}
-                  variant="outline"
-                  className="flex-1 font-bold border-2"
-                  size="lg"
-                >
-                  Compre agora
-                </Button>
+                {showBuyNow && (
+                  <Button
+                    onClick={handleAddToCart}
+                    variant="outline"
+                    className="flex-1 font-bold border-2"
+                    size="lg"
+                  >
+                    Compre agora
+                  </Button>
+                )}
               </div>
             )}
           </div>

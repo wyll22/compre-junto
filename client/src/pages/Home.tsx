@@ -1,19 +1,48 @@
 import { useProducts } from "@/hooks/use-products";
 import { ProductCard } from "@/components/ProductCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ShoppingBag, Loader2 } from "lucide-react";
+import { Search, ShoppingBag, Loader2, ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "wouter";
 
-const CATEGORIES = ["Todos", "Alimentos", "Bebidas", "Higiene", "Limpeza", "Outros"];
+const CATEGORIES = ["Todos", "Compre agora", "Alimentos", "Bebidas", "Higiene", "Limpeza", "Outros"];
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [searchTerm, setSearchTerm] = useState("");
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    const updateCartCount = () => {
+      const savedCart = localStorage.getItem("fsa_cart");
+      if (savedCart) {
+        try {
+          const cart = JSON.parse(savedCart);
+          const count = cart.reduce((acc: number, item: any) => acc + item.qty, 0);
+          setCartCount(count);
+        } catch (e) {
+          setCartCount(0);
+        }
+      } else {
+        setCartCount(0);
+      }
+    };
+
+    updateCartCount();
+    window.addEventListener('storage', updateCartCount);
+    // Adiciona listener customizado para quando alterarmos o cart no mesmo window
+    window.addEventListener('cart-updated', updateCartCount);
+    
+    return () => {
+      window.removeEventListener('storage', updateCartCount);
+      window.removeEventListener('cart-updated', updateCartCount);
+    };
+  }, []);
   
   const { data: products, isLoading, error } = useProducts({
-    category: selectedCategory,
+    category: selectedCategory === "Compre agora" ? "Todos" : selectedCategory,
     search: searchTerm,
   });
 
@@ -32,18 +61,32 @@ export default function Home() {
               </h1>
             </div>
 
-            {/* Search Bar */}
-            <div className="relative w-full md:w-96">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+            <div className="flex items-center gap-4">
+              {/* Search Bar */}
+              <div className="relative w-full md:w-96">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="O que você procura hoje?"
+                  className="pl-10 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-primary focus:ring-primary/20 transition-all"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-              <Input
-                type="text"
-                placeholder="O que você procura hoje?"
-                className="pl-10 rounded-xl bg-gray-50 border-gray-200 focus:bg-white focus:border-primary focus:ring-primary/20 transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+
+              {/* Cart Icon */}
+              <Link href="/carrinho">
+                <Button variant="ghost" size="icon" className="relative bg-gray-50 rounded-xl hover:bg-orange-50 hover:text-primary transition-colors">
+                  <ShoppingCart className="w-6 h-6" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                      {cartCount}
+                    </span>
+                  )}
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -122,7 +165,11 @@ export default function Home() {
             >
               <AnimatePresence>
                 {products?.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    showBuyNow={selectedCategory === "Compre agora"} 
+                  />
                 ))}
               </AnimatePresence>
             </motion.div>
