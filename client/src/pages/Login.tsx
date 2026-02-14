@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
+import logoImg from "@assets/logo-compre-junto_1771047701827.png";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -63,7 +64,12 @@ export default function Login() {
               Voltar
             </Button>
           </Link>
-          <h1 className="text-2xl font-display font-bold text-primary">Compra Junto Formosa</h1>
+          <img
+              data-testid="img-login-logo"
+              src={logoImg}
+              alt="Compra Junto Formosa"
+              className="h-20 w-auto object-contain mx-auto"
+            />
           <p className="text-muted-foreground text-sm mt-1">
             {isRegister ? "Crie sua conta" : "Entre na sua conta"}
           </p>
