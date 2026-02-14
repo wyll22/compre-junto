@@ -3,7 +3,9 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +20,267 @@ interface CartItem {
   price: string | number;
   qty: number;
   fulfillmentType?: string;
+}
+
+function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddressSaved: () => void }) {
+  const [editing, setEditing] = useState(!user.addressStreet);
+  const [cep, setCep] = useState(user.addressCep || "");
+  const [street, setStreet] = useState(user.addressStreet || "");
+  const [number, setNumber] = useState(user.addressNumber || "");
+  const [complement, setComplement] = useState(user.addressComplement || "");
+  const [district, setDistrict] = useState(user.addressDistrict || "");
+  const [city, setCity] = useState(user.addressCity || "");
+  const [state, setState] = useState(user.addressState || "");
+  const [cepLoading, setCepLoading] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setCep(user.addressCep || "");
+    setStreet(user.addressStreet || "");
+    setNumber(user.addressNumber || "");
+    setComplement(user.addressComplement || "");
+    setDistrict(user.addressDistrict || "");
+    setCity(user.addressCity || "");
+    setState(user.addressState || "");
+    setEditing(!user.addressStreet);
+  }, [user]);
+
+  const lookupCep = async () => {
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      toast({ title: "CEP invalido", description: "Informe um CEP com 8 digitos.", variant: "destructive" });
+      return;
+    }
+    setCepLoading(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (data.erro) {
+        toast({ title: "CEP nao encontrado", description: "Verifique o CEP e tente novamente.", variant: "destructive" });
+      } else {
+        setStreet(data.logradouro || "");
+        setDistrict(data.bairro || "");
+        setCity(data.localidade || "");
+        setState(data.uf || "");
+        toast({ title: "Endereco preenchido automaticamente!" });
+      }
+    } catch {
+      toast({ title: "Erro ao buscar CEP", description: "Tente novamente.", variant: "destructive" });
+    }
+    setCepLoading(false);
+  };
+
+  const handleCepChange = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    let formatted = digits;
+    if (digits.length > 5) {
+      formatted = digits.slice(0, 5) + "-" + digits.slice(5, 8);
+    }
+    setCep(formatted);
+    if (digits.length === 8) {
+      setTimeout(() => {
+        lookupCepByDigits(digits);
+      }, 100);
+    }
+  };
+
+  const lookupCepByDigits = async (digits: string) => {
+    setCepLoading(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setStreet(data.logradouro || "");
+        setDistrict(data.bairro || "");
+        setCity(data.localidade || "");
+        setState(data.uf || "");
+        toast({ title: "Endereco preenchido automaticamente!" });
+      }
+    } catch {}
+    setCepLoading(false);
+  };
+
+  const saveAddress = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PUT", "/api/auth/profile", {
+        addressCep: cep.replace(/\D/g, ""),
+        addressStreet: street.trim(),
+        addressNumber: number.trim(),
+        addressComplement: complement.trim(),
+        addressDistrict: district.trim(),
+        addressCity: city.trim(),
+        addressState: state.trim(),
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "Endereco salvo!" });
+      setEditing(false);
+      onAddressSaved();
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao salvar", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const canSave = street.trim() && number.trim() && district.trim() && city.trim() && state.trim() && cep.replace(/\D/g, "").length === 8;
+
+  if (!editing && user.addressStreet) {
+    return (
+      <Card className="mt-4">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-primary" />
+              <span className="font-bold text-sm">Endereco de entrega</span>
+            </div>
+            <Button variant="outline" size="sm" data-testid="button-edit-address" onClick={() => setEditing(true)}>
+              <Pencil className="w-3.5 h-3.5 mr-1" /> Alterar
+            </Button>
+          </div>
+          <div className="bg-muted/50 rounded-md p-3 space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              {user.addressStreet}, {user.addressNumber}
+              {user.addressComplement ? ` - ${user.addressComplement}` : ""}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {user.addressDistrict}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {user.addressCity}/{user.addressState} - CEP: {user.addressCep}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="mt-4">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Truck className="w-4 h-4 text-primary" />
+          <span className="font-bold text-sm">
+            {user.addressStreet ? "Alterar endereco de entrega" : "Informe seu endereco de entrega"}
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="cart-cep">CEP</Label>
+            <div className="flex gap-2">
+              <Input
+                data-testid="input-cart-cep"
+                id="cart-cep"
+                value={cep}
+                onChange={(e) => handleCepChange(e.target.value)}
+                placeholder="00000-000"
+                maxLength={9}
+              />
+              <Button
+                data-testid="button-lookup-cep"
+                variant="outline"
+                size="icon"
+                onClick={lookupCep}
+                disabled={cepLoading}
+              >
+                {cepLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Digite o CEP para preencher automaticamente</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="cart-street">Rua / Avenida</Label>
+            <Input
+              data-testid="input-cart-street"
+              id="cart-street"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              placeholder="Ex: Rua das Flores"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cart-number">Numero</Label>
+              <Input
+                data-testid="input-cart-number"
+                id="cart-number"
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                placeholder="123"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cart-complement">Complemento</Label>
+              <Input
+                data-testid="input-cart-complement"
+                id="cart-complement"
+                value={complement}
+                onChange={(e) => setComplement(e.target.value)}
+                placeholder="Apto 4"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="cart-district">Bairro</Label>
+            <Input
+              data-testid="input-cart-district"
+              id="cart-district"
+              value={district}
+              onChange={(e) => setDistrict(e.target.value)}
+              placeholder="Centro"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2 space-y-1.5">
+              <Label htmlFor="cart-city">Cidade</Label>
+              <Input
+                data-testid="input-cart-city"
+                id="cart-city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Formosa"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cart-state">UF</Label>
+              <Input
+                data-testid="input-cart-state"
+                id="cart-state"
+                value={state}
+                onChange={(e) => setState(e.target.value.toUpperCase().slice(0, 2))}
+                placeholder="GO"
+                maxLength={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              data-testid="button-save-address"
+              size="sm"
+              onClick={() => saveAddress.mutate()}
+              disabled={!canSave || saveAddress.isPending}
+            >
+              {saveAddress.isPending && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              Salvar endereco
+            </Button>
+            {user.addressStreet && (
+              <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+                Cancelar
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function Cart() {
@@ -130,7 +393,7 @@ export default function Cart() {
       return;
     }
     if (cartFulfillmentType === "delivery" && user && !user.addressStreet) {
-      toast({ title: "Endereco necessario", description: "Cadastre seu endereco em Minha Conta antes de finalizar.", variant: "destructive" });
+      toast({ title: "Endereco necessario", description: "Preencha seu endereco acima antes de finalizar.", variant: "destructive" });
       return;
     }
     createOrder.mutate();
@@ -369,42 +632,12 @@ export default function Cart() {
       )}
 
       {cartFulfillmentType === "delivery" && user && (
-        <Card className="mt-4">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-primary" />
-                <span className="font-bold text-sm">Endereco de entrega</span>
-              </div>
-              {user.addressStreet && (
-                <Link href="/minha-conta">
-                  <Button variant="outline" size="sm" data-testid="button-change-address">Alterar</Button>
-                </Link>
-              )}
-            </div>
-            {user.addressStreet ? (
-              <div className="bg-muted/50 rounded-md p-3 space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  {user.addressStreet}, {user.addressNumber}
-                  {user.addressComplement ? ` - ${user.addressComplement}` : ""}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {user.addressDistrict}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {user.addressCity}/{user.addressState} - CEP: {user.addressCep}
-                </p>
-              </div>
-            ) : (
-              <div className="bg-muted/50 rounded-md p-3 text-center">
-                <p className="text-sm text-muted-foreground mb-3">Voce ainda nao cadastrou um endereco de entrega.</p>
-                <Link href="/minha-conta">
-                  <Button size="sm" data-testid="button-add-address">Cadastrar endereco</Button>
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <DeliveryAddressSection
+          user={user}
+          onAddressSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+          }}
+        />
       )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 z-50">
