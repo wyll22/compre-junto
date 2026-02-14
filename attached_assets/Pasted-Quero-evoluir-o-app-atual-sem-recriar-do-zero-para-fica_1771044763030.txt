@@ -1,0 +1,92 @@
+Quero evoluir o app atual (sem recriar do zero) para ficar no padrão “Compra Junto Formosa”, com UX parecida com app de atacado (referência: Facily), mantendo o que já funciona.
+
+OBJETIVO
+- Separar completamente os fluxos “Compra em Grupo” e “Compre Agora”.
+- Login obrigatório para entrar em grupo e para finalizar pedido.
+- Admin com controle total de produtos, grupos, estoque, banners e vídeos.
+- Visual profissional mobile-first com paleta da marca.
+
+REGRAS PRINCIPAIS
+1) Modos de compra separados no topo:
+   - Aba 1: Compra em Grupo
+   - Aba 2: Compre Agora
+   Regras:
+   - Produtos do tipo “grupo” só aparecem em Compra em Grupo.
+   - Produtos do tipo “agora” só aparecem em Compre Agora.
+   - Nunca mostrar botão “Entrar no grupo” no modo Compre Agora.
+   - Nunca mostrar botão “Compre agora” no modo Compra em Grupo.
+
+2) Compra em Grupo:
+   - Card com preço normal + preço grupo + progresso (ex.: 327/1000) + faltam X.
+   - Botão: “Entrar no grupo”.
+   - Entrar no grupo exige login.
+   - Ao atingir meta, grupo fecha automaticamente.
+   - Admin pode reabrir novo grupo do mesmo produto se ainda houver estoque.
+
+3) Compre Agora:
+   - Preço individual (diferente do preço de grupo).
+   - Botão: “Adicionar ao carrinho” / “Compre agora”.
+   - Carrinho com +, -, remover, subtotal, total.
+   - Usuário pode montar carrinho sem login.
+   - Finalizar pedido exige login.
+
+4) Login/autenticação:
+   - Cadastro/login com sessão persistente.
+   - Bloquear e redirecionar para login quando necessário.
+   - Preparar estrutura para validação por e-mail/SMS/WhatsApp (flag para fase futura).
+
+5) Admin (painel):
+   - CRUD de produtos.
+   - Campo obrigatório: tipo do produto (“grupo” ou “agora”).
+   - Campos: categoria, preço normal, preço grupo, preço agora, estoque, mínimo participantes, taxa de reserva, status ativo/inativo.
+   - Gestão de grupos: abrir/fechar/reabrir.
+   - Gestão de banners (desktop/mobile, ordem, ativo).
+   - Gestão de vídeos (link embed e posição na home).
+
+6) Categorias (menu estilo app de atacado):
+   - Todos
+   - Básico
+   - Bebida
+   - Higiene pessoal
+   - Industrializado
+   - Lavanderia
+   - Limpeza
+   - Matinais
+   - Perfumaria
+   - Temperos/condimentos
+   - Pet Shop
+   - Hortifruti
+   - Frios e Laticínios
+   - Padaria
+   - Outros
+
+7) Home:
+   - Header com logo “Compra Junto Formosa”, busca e ícone carrinho.
+   - Alternador de modo (Grupo / Agora).
+   - Menu/categorias.
+   - Carrossel de banners.
+   - Bloco opcional de vídeo.
+   - Lista de produtos respeitando modo + categoria.
+
+8) Identidade visual:
+   - Nome: Compra Junto Formosa.
+   - Aplicar logo no topo, login e favicon.
+   - Paleta:
+     - Verde principal #0B6B3A
+     - Verde escuro #07512C
+     - Amarelo destaque #D4A62A
+     - Fundo #F7F5EF
+     - Texto #1F2937
+   - Padronizar botões, badges, cards, espaçamentos e tipografia.
+
+9) Qualidade:
+   - Não quebrar rotas atuais.
+   - Garantir npm run check sem erros.
+   - Melhorar imagens (fallback e proporção correta).
+   - Responsivo mobile e desktop.
+
+ENTREGA (sem relatório longo):
+- Implementar tudo e devolver:
+  1) o que foi feito (resumo curto),
+  2) 5 passos de teste manual,
+  3) confirmação de que npm run check passou.
