@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Footer } from "@/components/Footer";
+import { NotificationBell } from "@/components/NotificationBell";
 
 type CategoryItem = {
   id: number;
@@ -160,7 +161,8 @@ export default function Home() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <NotificationBell />
               <Link href="/carrinho">
                 <Button
                   data-testid="button-cart"

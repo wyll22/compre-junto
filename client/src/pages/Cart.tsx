@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil, Smartphone, CreditCard } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -451,6 +451,34 @@ export default function Cart() {
               </CardContent>
             </Card>
           )}
+
+          <Card className="mb-4 max-w-sm w-full">
+            <CardContent className="p-4 text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="w-4 h-4 text-primary" />
+                <span className="font-bold text-sm">Como pagar</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <Smartphone className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">PIX</p>
+                    <p className="text-xs text-muted-foreground">Enviaremos a chave PIX por WhatsApp para pagamento imediato.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Na retirada/entrega</p>
+                    <p className="text-xs text-muted-foreground">Pague com dinheiro, cartao ou PIX no momento do recebimento.</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-3 pt-2 border-t border-border">
+                Entraremos em contato pelo WhatsApp para combinar o pagamento.
+              </p>
+            </CardContent>
+          </Card>
 
           <div className="flex flex-wrap gap-3 justify-center">
             <Link href="/minha-conta">

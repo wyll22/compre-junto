@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { JoinGroupDialog } from "./JoinGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 interface ProductCardProps {
   product: any;
@@ -110,17 +110,19 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
           </div>
         )}
 
-        <div className="aspect-square w-full overflow-hidden bg-muted relative rounded-t-md">
-          <img
-            src={product.imageUrl || "https://via.placeholder.com/400x400?text=Sem+Imagem"}
-            alt={product.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x400?text=Sem+Imagem";
-            }}
-          />
-        </div>
+        <Link href={`/produto/${product.id}`} className="block">
+          <div className="aspect-square w-full overflow-hidden bg-muted relative rounded-t-md cursor-pointer">
+            <img
+              src={product.imageUrl || "https://via.placeholder.com/400x400?text=Sem+Imagem"}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+              loading="lazy"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x400?text=Sem+Imagem";
+              }}
+            />
+          </div>
+        </Link>
 
         <div className="p-3 flex-1 flex flex-col">
           <div className="flex items-center gap-1 mb-0.5">
@@ -136,9 +138,11 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
             </Badge>
           </div>
 
-          <h3 className="font-display font-semibold text-sm leading-tight mb-2 line-clamp-2 min-h-[2.5rem] text-foreground">
-            {product.name}
-          </h3>
+          <Link href={`/produto/${product.id}`} className="block">
+            <h3 className="font-display font-semibold text-sm leading-tight mb-2 line-clamp-2 min-h-[2.5rem] text-foreground hover:text-primary transition-colors cursor-pointer">
+              {product.name}
+            </h3>
+          </Link>
 
           <div className="mt-auto space-y-2">
             <div>

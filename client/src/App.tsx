@@ -14,6 +14,7 @@ import Termos from "@/pages/Termos";
 import TrocasReembolsos from "@/pages/TrocasReembolsos";
 import Entregas from "@/pages/Entregas";
 import Contato from "@/pages/Contato";
+import ProductDetail from "@/pages/ProductDetail";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/carrinho" component={Cart} />
       <Route path="/login" component={Login} />
+      <Route path="/produto/:id" component={ProductDetail} />
       <Route path="/minha-conta" component={Account} />
       <Route path="/privacidade" component={Privacidade} />
       <Route path="/termos" component={Termos} />

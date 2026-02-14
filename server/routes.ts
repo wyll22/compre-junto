@@ -317,6 +317,49 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Informe o email cadastrado" });
+      }
+      const ip = getClientIp(req);
+      const resetKey = `reset:${ip}`;
+      const rateCheck = checkRateLimit(resetKey, 5);
+      if (!rateCheck.allowed) {
+        return res.status(429).json({ message: rateCheck.message });
+      }
+      recordAttempt(resetKey);
+
+      const result = await storage.createPasswordResetToken(email.trim());
+      if (result) {
+        console.log(`[PASSWORD RESET] Token para ${email}: ${result.token}`);
+      }
+      res.json({ message: "Se o email estiver cadastrado, voce recebera instrucoes para redefinir sua senha." });
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao processar solicitacao" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { token, password } = req.body;
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ message: "Token invalido" });
+      }
+      if (!password || typeof password !== "string" || password.length < 8) {
+        return res.status(400).json({ message: "Senha deve ter pelo menos 8 caracteres" });
+      }
+      const success = await storage.resetPasswordByToken(token, password);
+      if (!success) {
+        return res.status(400).json({ message: "Token invalido ou expirado. Solicite uma nova redefinicao." });
+      }
+      res.json({ message: "Senha redefinida com sucesso! Faca login com sua nova senha." });
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao redefinir senha" });
+    }
+  });
+
   app.post("/api/auth/logout", (req: Request, res: Response) => {
     req.session.destroy((err) => {
       res.clearCookie("connect.sid");
@@ -333,6 +376,28 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Usuario nao encontrado" });
     }
     res.json(user);
+  });
+
+  app.get("/api/notifications", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    const notifications = await storage.getNotifications(userId);
+    res.json(notifications);
+  });
+
+  app.get("/api/notifications/unread-count", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    const count = await storage.getUnreadNotificationCount(userId);
+    res.json({ count });
+  });
+
+  app.post("/api/notifications/mark-read", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    const { ids } = req.body;
+    await storage.markNotificationsRead(userId, Array.isArray(ids) ? ids : undefined);
+    res.json({ ok: true });
   });
 
   app.put("/api/auth/profile", async (req: Request, res: Response) => {

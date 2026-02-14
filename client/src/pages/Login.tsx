@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLogin, useRegister } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Mail, Phone, Lock, User2, Smile } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Phone, Lock, User2, Smile, KeyRound, CheckCircle2 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { parseApiError } from "@/lib/error-utils";
 import { Footer } from "@/components/Footer";
+import { apiRequest } from "@/lib/queryClient";
 
 function formatPhoneBR(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -19,14 +20,20 @@ function formatPhoneBR(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+type ViewMode = "login" | "register" | "forgot" | "reset";
+
 export default function Login() {
-  const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [, setLocation] = useLocation();
   const search = useSearch();
   const { toast } = useToast();
@@ -34,13 +41,21 @@ export default function Login() {
   const login = useLogin();
   const register = useRegister();
 
-  const redirect = new URLSearchParams(search).get("redirect") || "/";
+  const params = new URLSearchParams(search);
+  const redirect = params.get("redirect") || "/";
+  const resetToken = params.get("reset") || "";
+
+  const [viewMode, setViewMode] = useState<ViewMode>(resetToken ? "reset" : "login");
+
+  useEffect(() => {
+    if (resetToken) setViewMode("reset");
+  }, [resetToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      if (isRegister) {
+      if (viewMode === "register") {
         if (!name.trim()) {
           toast({ title: "Erro", description: "Informe seu nome completo", variant: "destructive" });
           return;
@@ -75,7 +90,43 @@ export default function Login() {
     }
   };
 
-  const loading = login.isPending || register.isPending;
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      toast({ title: "Erro", description: "Informe seu email cadastrado", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiRequest("POST", "/api/auth/forgot-password", { email: forgotEmail.trim() });
+      setForgotSent(true);
+      toast({ title: "Solicitacao enviada", description: "Se o email estiver cadastrado, voce recebera instrucoes." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast({ title: "Erro", description: "Senha deve ter pelo menos 8 caracteres", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiRequest("POST", "/api/auth/reset-password", { token: resetToken, password: newPassword });
+      setResetSuccess(true);
+      toast({ title: "Senha redefinida!", description: "Faca login com sua nova senha." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const loading = login.isPending || register.isPending || submitting;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -90,99 +141,116 @@ export default function Login() {
           </Link>
           <BrandLogo size="large" />
           <p className="text-muted-foreground text-sm mt-2">
-            {isRegister ? "Crie sua conta e comece a economizar" : "Acesse sua conta"}
+            {viewMode === "register" && "Crie sua conta e comece a economizar"}
+            {viewMode === "login" && "Acesse sua conta"}
+            {viewMode === "forgot" && "Recupere o acesso a sua conta"}
+            {viewMode === "reset" && "Defina sua nova senha"}
           </p>
         </div>
 
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">{isRegister ? "Criar Conta" : "Entrar"}</CardTitle>
+            <CardTitle className="text-lg">
+              {viewMode === "register" && "Criar Conta"}
+              {viewMode === "login" && "Entrar"}
+              {viewMode === "forgot" && "Esqueci minha senha"}
+              {viewMode === "reset" && "Nova senha"}
+            </CardTitle>
             <CardDescription>
-              {isRegister
-                ? "Preencha seus dados para comecar"
-                : "Use seu email ou numero de celular"}
+              {viewMode === "register" && "Preencha seus dados para comecar"}
+              {viewMode === "login" && "Use seu email ou numero de celular"}
+              {viewMode === "forgot" && "Informe o email cadastrado para receber instrucoes"}
+              {viewMode === "reset" && "Escolha uma nova senha para sua conta"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {isRegister ? (
-                <>
+            {viewMode === "forgot" ? (
+              forgotSent ? (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="w-10 h-10 text-primary mx-auto mb-3" />
+                  <p className="text-sm text-foreground font-medium mb-1">Solicitacao enviada!</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Se o email <strong>{forgotEmail}</strong> estiver cadastrado, voce recebera um link para redefinir sua senha.
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Nao recebeu? Verifique sua caixa de spam ou entre em contato pelo WhatsApp.
+                  </p>
+                  <Button
+                    data-testid="button-back-to-login"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setViewMode("login"); setForgotSent(false); setForgotEmail(""); }}
+                  >
+                    Voltar para login
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="reg-name">Nome completo *</Label>
-                    <div className="relative">
-                      <User2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="input-register-name"
-                        id="reg-name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Maria da Silva"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-display">Como quer ser chamado(a)?</Label>
-                    <div className="relative">
-                      <Smile className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="input-register-display-name"
-                        id="reg-display"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="Ex: Mari, Dona Maria..."
-                        className="pl-10"
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Opcional. Esse apelido aparece no app.</p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-email">Email *</Label>
+                    <Label htmlFor="forgot-email">Email cadastrado</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        data-testid="input-register-email"
-                        id="reg-email"
+                        data-testid="input-forgot-email"
+                        id="forgot-email"
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
                         placeholder="seu@email.com"
                         className="pl-10"
                         required
                       />
                     </div>
                   </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-phone">Celular / WhatsApp</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="input-register-phone"
-                        id="reg-phone"
-                        value={phone}
-                        onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
-                        placeholder="(61) 99999-9999"
-                        className="pl-10"
-                        inputMode="tel"
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Voce podera fazer login com o celular tambem.</p>
+                  <Button
+                    data-testid="button-forgot-submit"
+                    type="submit"
+                    className="w-full"
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                    Enviar instrucoes
+                  </Button>
+                  <div className="text-center">
+                    <button
+                      data-testid="button-back-to-login-from-forgot"
+                      type="button"
+                      onClick={() => setViewMode("login")}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Voltar para login
+                    </button>
                   </div>
-
+                </form>
+              )
+            ) : viewMode === "reset" ? (
+              resetSuccess ? (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="w-10 h-10 text-primary mx-auto mb-3" />
+                  <p className="text-sm text-foreground font-medium mb-1">Senha redefinida!</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Sua senha foi alterada com sucesso. Faca login com a nova senha.
+                  </p>
+                  <Button
+                    data-testid="button-go-to-login"
+                    size="sm"
+                    onClick={() => { setViewMode("login"); setLocation("/login"); }}
+                  >
+                    Fazer login
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="reg-password">Senha *</Label>
+                    <Label htmlFor="new-password">Nova senha</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        data-testid="input-register-password"
-                        id="reg-password"
+                        data-testid="input-new-password"
+                        id="new-password"
                         type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Minimo 8 caracteres"
                         className="pl-10"
                         required
@@ -190,69 +258,181 @@ export default function Login() {
                       />
                     </div>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="login-id">Email ou celular</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="input-identifier"
-                        id="login-id"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="seu@email.com ou (61) 99999-9999"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
+                  <Button
+                    data-testid="button-reset-submit"
+                    type="submit"
+                    className="w-full"
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                    Redefinir senha
+                  </Button>
+                </form>
+              )
+            ) : (
+              <>
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  {viewMode === "register" ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-name">Nome completo *</Label>
+                        <div className="relative">
+                          <User2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-register-name"
+                            id="reg-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Maria da Silva"
+                            className="pl-10"
+                            required
+                          />
+                        </div>
+                      </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="login-password">Senha</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="input-password"
-                        id="login-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Sua senha"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-display">Como quer ser chamado(a)?</Label>
+                        <div className="relative">
+                          <Smile className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-register-display-name"
+                            id="reg-display"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            placeholder="Ex: Mari, Dona Maria..."
+                            className="pl-10"
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Opcional. Esse apelido aparece no app.</p>
+                      </div>
 
-              <Button
-                data-testid="button-submit-auth"
-                type="submit"
-                className="w-full"
-                disabled={loading}
-              >
-                {loading && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
-                {isRegister ? "Criar minha conta" : "Entrar"}
-              </Button>
-            </form>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-email">Email *</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-register-email"
+                            id="reg-email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="seu@email.com"
+                            className="pl-10"
+                            required
+                          />
+                        </div>
+                      </div>
 
-            <div className="mt-4 text-center">
-              <button
-                data-testid="button-toggle-auth-mode"
-                type="button"
-                onClick={() => setIsRegister(!isRegister)}
-                className="text-sm text-primary hover:underline"
-              >
-                {isRegister ? "Ja tem conta? Faca login" : "Nao tem conta? Cadastre-se"}
-              </button>
-            </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-phone">Celular / WhatsApp</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-register-phone"
+                            id="reg-phone"
+                            value={phone}
+                            onChange={(e) => setPhone(formatPhoneBR(e.target.value))}
+                            placeholder="(61) 99999-9999"
+                            className="pl-10"
+                            inputMode="tel"
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Voce podera fazer login com o celular tambem.</p>
+                      </div>
 
-            <div className="mt-3 p-2 bg-muted rounded-md text-[11px] text-muted-foreground">
-              <strong>Admin:</strong> admin@comprajuntoformosa.com / admin123
-            </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-password">Senha *</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-register-password"
+                            id="reg-password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Minimo 8 caracteres"
+                            className="pl-10"
+                            required
+                            minLength={8}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="login-id">Email ou celular</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-identifier"
+                            id="login-id"
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder="seu@email.com ou (61) 99999-9999"
+                            className="pl-10"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="login-password">Senha</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-password"
+                            id="login-password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Sua senha"
+                            className="pl-10"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <button
+                          data-testid="button-forgot-password"
+                          type="button"
+                          onClick={() => setViewMode("forgot")}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Esqueci minha senha
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  <Button
+                    data-testid="button-submit-auth"
+                    type="submit"
+                    className="w-full"
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                    {viewMode === "register" ? "Criar minha conta" : "Entrar"}
+                  </Button>
+                </form>
+
+                <div className="mt-4 text-center">
+                  <button
+                    data-testid="button-toggle-auth-mode"
+                    type="button"
+                    onClick={() => setViewMode(viewMode === "register" ? "login" : "register")}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {viewMode === "register" ? "Ja tem conta? Faca login" : "Nao tem conta? Cadastre-se"}
+                  </button>
+                </div>
+
+                <div className="mt-3 p-2 bg-muted rounded-md text-[11px] text-muted-foreground">
+                  <strong>Admin:</strong> admin@comprajuntoformosa.com / admin123
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

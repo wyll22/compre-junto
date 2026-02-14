@@ -166,6 +166,9 @@ export interface IStorage {
     addressComplement: string; addressDistrict: string; addressCity: string; addressState: string;
   }>): Promise<UserRow | null>;
   changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean>;
+  resetPasswordByToken(token: string, newPassword: string): Promise<boolean>;
+  createPasswordResetToken(email: string): Promise<{ token: string; userName: string } | null>;
+  getUserByEmail(email: string): Promise<UserRow | null>;
 
   createOrder(input: { userId: number; items: any; total: string; fulfillmentType: string; pickupPointId?: number | null }): Promise<OrderRow>;
   getOrders(userId?: number): Promise<OrderRow[]>;
@@ -177,6 +180,11 @@ export interface IStorage {
 
   getOrderSettings(): Promise<Record<string, any>>;
   updateOrderSettings(settings: Record<string, any>): Promise<void>;
+
+  createNotification(userId: number, title: string, message: string, type: string, referenceId?: number): Promise<void>;
+  getNotifications(userId: number): Promise<any[]>;
+  markNotificationsRead(userId: number, ids?: number[]): Promise<void>;
+  getUnreadNotificationCount(userId: number): Promise<number>;
 
   getPickupPoints(activeOnly?: boolean): Promise<PickupPointRow[]>;
   getPickupPoint(id: number): Promise<PickupPointRow | null>;
@@ -887,14 +895,81 @@ class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async createOrder(input: { userId: number; items: any; total: string; fulfillmentType: string; pickupPointId?: number | null }): Promise<OrderRow> {
+  async getUserByEmail(email: string): Promise<UserRow | null> {
     const result = await pool.query(
-      `INSERT INTO orders (user_id, items, total, status, fulfillment_type, pickup_point_id)
-      VALUES ($1, $2::jsonb, $3, 'recebido', $4, $5)
-      RETURNING ${ORDER_SELECT}`,
-      [input.userId, JSON.stringify(input.items), input.total, input.fulfillmentType, input.pickupPointId ?? null],
+      `SELECT ${USER_SELECT} FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+      [email],
     );
-    return result.rows[0] as OrderRow;
+    return (result.rows[0] as UserRow | undefined) ?? null;
+  }
+
+  async createPasswordResetToken(email: string): Promise<{ token: string; userName: string } | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user) return null;
+    const crypto = await import("crypto");
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await pool.query(
+      `INSERT INTO password_resets (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [user.id, token, expiresAt],
+    );
+    return { token, userName: user.name };
+  }
+
+  async resetPasswordByToken(token: string, newPassword: string): Promise<boolean> {
+    const result = await pool.query(
+      `SELECT id, user_id FROM password_resets WHERE token = $1 AND used = false AND expires_at > NOW() LIMIT 1`,
+      [token],
+    );
+    if (result.rows.length === 0) return false;
+    const resetRow = result.rows[0] as any;
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashed, resetRow.user_id]);
+    await pool.query(`UPDATE password_resets SET used = true WHERE id = $1`, [resetRow.id]);
+    return true;
+  }
+
+  async createOrder(input: { userId: number; items: any; total: string; fulfillmentType: string; pickupPointId?: number | null }): Promise<OrderRow> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const items = Array.isArray(input.items) ? input.items : [];
+      for (const item of items) {
+        if (item.productId) {
+          const qty = Number(item.qty) || 1;
+          const stockCheck = await client.query(
+            `SELECT stock FROM products WHERE id = $1 FOR UPDATE`,
+            [item.productId],
+          );
+          if (stockCheck.rows.length > 0) {
+            const currentStock = Number(stockCheck.rows[0].stock);
+            if (currentStock < qty) {
+              throw new Error(`Estoque insuficiente para "${item.name}". Disponivel: ${currentStock}`);
+            }
+            await client.query(
+              `UPDATE products SET stock = stock - $1 WHERE id = $2`,
+              [qty, item.productId],
+            );
+          }
+        }
+      }
+
+      const result = await client.query(
+        `INSERT INTO orders (user_id, items, total, status, fulfillment_type, pickup_point_id)
+        VALUES ($1, $2::jsonb, $3, 'recebido', $4, $5)
+        RETURNING ${ORDER_SELECT}`,
+        [input.userId, JSON.stringify(input.items), input.total, input.fulfillmentType, input.pickupPointId ?? null],
+      );
+
+      await client.query("COMMIT");
+      return result.rows[0] as OrderRow;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async getOrders(userId?: number): Promise<OrderRow[]> {
@@ -958,6 +1033,27 @@ class DatabaseStorage implements IStorage {
       );
 
       await client.query("COMMIT");
+
+      const statusLabels: Record<string, string> = {
+        recebido: "Recebido",
+        em_separacao: "Em separacao",
+        pronto_retirada: "Pronto para retirada",
+        retirado: "Retirado",
+        nao_retirado: "Nao retirado no prazo",
+        cancelado: "Cancelado",
+      };
+      const orderUserId = Number(order.userId);
+      const statusLabel = statusLabels[newStatus] || newStatus;
+      try {
+        await this.createNotification(
+          orderUserId,
+          `Pedido #${orderId} atualizado`,
+          `Seu pedido mudou para: ${statusLabel}.${reason ? " Motivo: " + reason : ""}`,
+          "order_status",
+          orderId,
+        );
+      } catch (_) {}
+
       return updated.rows[0] as OrderRow;
     } catch (error) {
       await client.query("ROLLBACK");
@@ -1015,6 +1111,44 @@ class DatabaseStorage implements IStorage {
         [key, JSON.stringify(value)],
       );
     }
+  }
+
+  async createNotification(userId: number, title: string, message: string, type: string, referenceId?: number): Promise<void> {
+    await pool.query(
+      `INSERT INTO notifications (user_id, title, message, type, reference_id) VALUES ($1, $2, $3, $4, $5)`,
+      [userId, title, message, type, referenceId ?? null],
+    );
+  }
+
+  async getNotifications(userId: number): Promise<any[]> {
+    const result = await pool.query(
+      `SELECT id, title, message, type, reference_id AS "referenceId", read, created_at AS "createdAt"
+       FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      [userId],
+    );
+    return result.rows;
+  }
+
+  async markNotificationsRead(userId: number, ids?: number[]): Promise<void> {
+    if (ids && ids.length > 0) {
+      await pool.query(
+        `UPDATE notifications SET read = true WHERE user_id = $1 AND id = ANY($2::int[])`,
+        [userId, ids],
+      );
+    } else {
+      await pool.query(
+        `UPDATE notifications SET read = true WHERE user_id = $1`,
+        [userId],
+      );
+    }
+  }
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const result = await pool.query(
+      `SELECT COUNT(*) AS count FROM notifications WHERE user_id = $1 AND read = false`,
+      [userId],
+    );
+    return Number(result.rows[0]?.count || 0);
   }
 
   async getPickupPoints(activeOnly?: boolean): Promise<PickupPointRow[]> {
