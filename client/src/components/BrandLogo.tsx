@@ -1,4 +1,4 @@
-import logoImg from "@assets/logo-cropped.png";
+import logoImg from "@assets/logo-outline.png";
 
 interface BrandLogoProps {
   size?: "header" | "large";
