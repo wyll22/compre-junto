@@ -122,31 +122,40 @@
 }
 
 .brand-logo {
-  height: var(--logo-h);
-  width: auto;
   object-fit: contain;
   image-rendering: auto;
   filter: none !important;
   opacity: 1 !important;
   display: block;
+  flex-shrink: 0;
 }
 
 .brand-logo--header {
-  --logo-h: 32px;
-  min-width: 88px;
+  width: 96px;
+  min-width: 96px;
+  height: auto;
 }
 
 @media (min-width: 768px) {
   .brand-logo--header {
-    --logo-h: 44px;
-    min-width: 120px;
+    width: 140px;
+    min-width: 140px;
   }
 }
 
 .brand-logo--auth {
-  --logo-h: 96px;
+  width: 140px;
+  min-width: 140px;
+  height: auto;
   margin-left: auto;
   margin-right: auto;
+}
+
+@media (min-width: 768px) {
+  .brand-logo--auth {
+    width: 180px;
+    min-width: 180px;
+  }
 }
 
 .dark .brand-logo {
