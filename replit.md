@@ -29,6 +29,12 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-14: Legal pages and footer
+  - Created 5 legal pages: /privacidade, /termos, /trocas-e-reembolsos, /entregas, /contato
+  - Content in PT-BR covering LGPD, CDC, platform rules, group buying terms, delivery policy, FAQ
+  - Company config file: client/src/lib/companyConfig.ts with editable placeholders (nomeFantasia, razaoSocial, cnpj, cidadeUf, whatsappSuporte, emailSuporte, endereco, horarioAtendimento)
+  - Footer component with 3 columns: Institucional links, Contato info, Company data
+  - Footer added to Home, Cart, Login, Account, and all legal pages
 - 2026-02-14: Hierarchical category system
   - Replaced flat 19-category list with hierarchical system (categories table with parentId)
   - 9 top-level categories with ~43 subcategories, all managed via database
@@ -101,7 +107,7 @@ The project uses a single repository with three main directories:
 - **Forms**: React Hook Form with Zod validation
 - **Cart**: Client-side only, stored in localStorage (`fsa_cart` key)
 
-Pages: Home (`/`), Login (`/login`), Cart (`/carrinho`), Minha Conta (`/minha-conta`), Admin (`/admin`), 404
+Pages: Home (`/`), Login (`/login`), Cart (`/carrinho`), Minha Conta (`/minha-conta`), Admin (`/admin`), Privacidade (`/privacidade`), Termos (`/termos`), Trocas e Reembolsos (`/trocas-e-reembolsos`), Entregas (`/entregas`), Contato (`/contato`), 404
 
 Path aliases:
 - `@/*` → `client/src/*`

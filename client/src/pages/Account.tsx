@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { parseApiError } from "@/lib/error-utils";
+import { Footer } from "@/components/Footer";
 
 type AccountTab = "profile" | "address" | "security" | "orders" | "groups";
 
@@ -750,7 +751,7 @@ export default function Account() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="brand-gradient">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -816,6 +817,8 @@ export default function Account() {
           {tab === "groups" && <GroupsTab />}
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Footer } from "@/components/Footer";
 
 type CategoryItem = {
   id: number;
@@ -137,7 +138,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="brand-gradient sticky top-0 z-30 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -379,7 +380,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 w-full">
         {activeBanners.length > 0 && (
           <div className="mb-6 relative rounded-md overflow-hidden" data-testid="banner-carousel">
             <div className="relative aspect-[3/1] sm:aspect-[4/1] bg-muted">
@@ -486,6 +487,8 @@ export default function Home() {
           </section>
         )}
       </main>
+
+      <Footer />
     </div>
   );
 }

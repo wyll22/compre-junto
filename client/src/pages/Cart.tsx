@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
+import { Footer } from "@/components/Footer";
 
 interface CartItem {
   productId: number;
@@ -94,53 +95,60 @@ export default function Cart() {
 
   if (orderSuccess) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
-        <div className="bg-primary/10 p-6 rounded-full mb-4">
-          <CheckCircle className="w-12 h-12 text-primary" />
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
+          <div className="bg-primary/10 p-6 rounded-full mb-4">
+            <CheckCircle className="w-12 h-12 text-primary" />
+          </div>
+          <h2 data-testid="text-order-success" className="text-2xl font-bold mb-2 text-foreground">
+            Pedido #{orderSuccess} recebido!
+          </h2>
+          <p className="text-muted-foreground mb-6 text-sm max-w-sm">
+            Seu pedido foi registrado com sucesso. Em breve entraremos em contato para confirmar os detalhes.
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Link href="/minha-conta">
+              <Button data-testid="button-view-orders" variant="outline">
+                Ver meus pedidos
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button data-testid="button-back-to-store">
+                Voltar para a Loja
+              </Button>
+            </Link>
+          </div>
         </div>
-        <h2 data-testid="text-order-success" className="text-2xl font-bold mb-2 text-foreground">
-          Pedido #{orderSuccess} recebido!
-        </h2>
-        <p className="text-muted-foreground mb-6 text-sm max-w-sm">
-          Seu pedido foi registrado com sucesso. Em breve entraremos em contato para confirmar os detalhes.
-        </p>
-        <div className="flex flex-wrap gap-3 justify-center">
-          <Link href="/minha-conta">
-            <Button data-testid="button-view-orders" variant="outline">
-              Ver meus pedidos
-            </Button>
-          </Link>
-          <Link href="/">
-            <Button data-testid="button-back-to-store">
-              Voltar para a Loja
-            </Button>
-          </Link>
-        </div>
+        <Footer />
       </div>
     );
   }
 
   if (cart.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
-        <div className="bg-primary/10 p-6 rounded-full mb-4">
-          <ShoppingBag className="w-12 h-12 text-primary" />
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
+          <div className="bg-primary/10 p-6 rounded-full mb-4">
+            <ShoppingBag className="w-12 h-12 text-primary" />
+          </div>
+          <h2 data-testid="text-empty-cart" className="text-2xl font-bold mb-2 text-foreground">
+            Seu carrinho esta vazio
+          </h2>
+          <p className="text-muted-foreground mb-6 text-sm">Que tal adicionar alguns produtos?</p>
+          <Link href="/">
+            <Button data-testid="button-back-to-store" size="lg" className="font-bold">
+              Voltar para a Loja
+            </Button>
+          </Link>
         </div>
-        <h2 data-testid="text-empty-cart" className="text-2xl font-bold mb-2 text-foreground">
-          Seu carrinho esta vazio
-        </h2>
-        <p className="text-muted-foreground mb-6 text-sm">Que tal adicionar alguns produtos?</p>
-        <Link href="/">
-          <Button data-testid="button-back-to-store" size="lg" className="font-bold">
-            Voltar para a Loja
-          </Button>
-        </Link>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 pb-32">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 max-w-4xl mx-auto p-4 pb-32 w-full">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/">
           <Button variant="ghost" size="icon" data-testid="button-back">
@@ -227,6 +235,8 @@ export default function Cart() {
           {user ? "Finalizar Pedido" : "Fazer login para finalizar"}
         </Button>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

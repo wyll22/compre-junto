@@ -3,26 +3,26 @@ import { companyConfig } from "@/lib/companyConfig";
 
 export function Footer() {
   return (
-    <footer className="bg-primary text-primary-foreground mt-auto">
+    <footer className="bg-primary text-primary-foreground mt-auto" data-testid="footer">
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="space-y-2">
             <h3 className="font-display font-bold text-sm uppercase tracking-wider opacity-80">Institucional</h3>
             <nav className="flex flex-col gap-1.5">
               <Link href="/termos">
-                <a className="text-sm opacity-80 hover:opacity-100 transition-opacity" data-testid="link-footer-termos">Termos de Uso</a>
+                <a className="text-sm opacity-80 underline-offset-2" data-testid="link-footer-termos">Termos de Uso</a>
               </Link>
               <Link href="/privacidade">
-                <a className="text-sm opacity-80 hover:opacity-100 transition-opacity" data-testid="link-footer-privacidade">Politica de Privacidade</a>
+                <a className="text-sm opacity-80 underline-offset-2" data-testid="link-footer-privacidade">Politica de Privacidade</a>
               </Link>
               <Link href="/trocas-e-reembolsos">
-                <a className="text-sm opacity-80 hover:opacity-100 transition-opacity" data-testid="link-footer-trocas">Trocas e Reembolsos</a>
+                <a className="text-sm opacity-80 underline-offset-2" data-testid="link-footer-trocas">Trocas e Reembolsos</a>
               </Link>
               <Link href="/entregas">
-                <a className="text-sm opacity-80 hover:opacity-100 transition-opacity" data-testid="link-footer-entregas">Politica de Entregas</a>
+                <a className="text-sm opacity-80 underline-offset-2" data-testid="link-footer-entregas">Politica de Entregas</a>
               </Link>
               <Link href="/contato">
-                <a className="text-sm opacity-80 hover:opacity-100 transition-opacity" data-testid="link-footer-contato">Fale Conosco</a>
+                <a className="text-sm opacity-80 underline-offset-2" data-testid="link-footer-contato">Fale Conosco</a>
               </Link>
             </nav>
           </div>

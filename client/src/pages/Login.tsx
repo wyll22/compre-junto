@@ -9,6 +9,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { parseApiError } from "@/lib/error-utils";
+import { Footer } from "@/components/Footer";
 
 function formatPhoneBR(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -77,7 +78,8 @@ export default function Login() {
   const loading = login.isPending || register.isPending;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
           <Link href="/">
@@ -254,6 +256,8 @@ export default function Login() {
           </CardContent>
         </Card>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

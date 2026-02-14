@@ -14,7 +14,7 @@ export default function Contato() {
             <ArrowLeft className="w-5 h-5" />
           </a>
         </Link>
-        <BrandLogo size="sm" />
+        <BrandLogo size="header" />
       </header>
 
       <main className="flex-1 max-w-3xl mx-auto px-4 py-8 w-full">
