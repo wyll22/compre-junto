@@ -128,20 +128,17 @@
   opacity: 1 !important;
   display: block;
   flex-shrink: 0;
+  background: transparent;
 }
 
 .brand-logo--header {
-  height: 44px;
+  height: 34px;
   width: auto;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 6px;
-  padding: 4px 8px;
 }
 
 @media (min-width: 768px) {
   .brand-logo--header {
-    height: 56px;
-    padding: 4px 10px;
+    height: 42px;
   }
 }
 

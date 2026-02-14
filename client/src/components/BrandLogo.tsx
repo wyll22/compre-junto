@@ -1,4 +1,4 @@
-import logoImg from "@assets/49ECF8D6-8EFD-4DE3-B65C-335066A661D2_1771048499776.png";
+import logoImg from "@assets/logo-transparent.png";
 
 type LogoVariant = "header" | "auth";
 
