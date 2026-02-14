@@ -287,6 +287,7 @@ export const createProductSchema = z.object({
   active: z.boolean().optional().default(true),
   categoryId: z.coerce.number().int().nullable().optional(),
   subcategoryId: z.coerce.number().int().nullable().optional(),
+  saleEndsAt: z.string().nullable().optional(),
 });
 
 export const createCategorySchema = z.object({
