@@ -427,7 +427,7 @@ export async function registerRoutes(
     if (userId === null) return;
     const user = await storage.getUserById(userId);
     if (user?.role === "admin" && req.query.all === "true") {
-      const orders = await storage.getOrders();
+      const orders = await storage.getOrdersWithUsers();
       return res.json(orders);
     }
     const orders = await storage.getOrders(userId);
@@ -452,6 +452,44 @@ export async function registerRoutes(
       res.json(order);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar pedido" });
+    }
+  });
+
+  app.get("/api/admin/stats", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar estatisticas" });
+    }
+  });
+
+  app.get("/api/admin/users", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar usuarios" });
+    }
+  });
+
+  app.patch("/api/members/:id/reserve-status", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const { reserveStatus } = req.body;
+      if (!["pendente", "pago", "nenhuma"].includes(reserveStatus)) {
+        return res.status(400).json({ message: "Status invalido" });
+      }
+      const member = await storage.updateMemberReserveStatus(Number(req.params.id), reserveStatus);
+      if (!member) return res.status(404).json({ message: "Membro nao encontrado" });
+      res.json(member);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao atualizar status" });
     }
   });
 

@@ -144,6 +144,11 @@ export interface IStorage {
   getOrder(id: number): Promise<OrderRow | null>;
   updateOrderStatus(id: number, status: string): Promise<OrderRow | null>;
 
+  getAdminStats(): Promise<{ totalProducts: number; totalOrders: number; totalUsers: number; totalGroups: number; totalRevenue: number; openGroups: number; pendingOrders: number }>;
+  getAllUsers(): Promise<UserRow[]>;
+  getOrdersWithUsers(): Promise<(OrderRow & { userName: string; userEmail: string; userPhone: string | null })[]>;
+  updateMemberReserveStatus(memberId: number, reserveStatus: string): Promise<MemberRow | null>;
+
   seedProducts(): Promise<void>;
 }
 
@@ -843,6 +848,53 @@ class DatabaseStorage implements IStorage {
       [status, id],
     );
     return (result.rows[0] as OrderRow | undefined) ?? null;
+  }
+
+  async getAdminStats() {
+    const productsResult = await pool.query(`SELECT COUNT(*) as count FROM products WHERE active = true`);
+    const ordersResult = await pool.query(`SELECT COUNT(*) as count FROM orders`);
+    const usersResult = await pool.query(`SELECT COUNT(*) as count FROM users WHERE role = 'user'`);
+    const groupsResult = await pool.query(`SELECT COUNT(*) as count FROM groups`);
+    const openGroupsResult = await pool.query(`SELECT COUNT(*) as count FROM groups WHERE status = 'aberto'`);
+    const pendingOrdersResult = await pool.query(`SELECT COUNT(*) as count FROM orders WHERE status IN ('recebido', 'processando')`);
+    const revenueResult = await pool.query(`SELECT COALESCE(SUM(CAST(total AS NUMERIC)), 0) as total FROM orders WHERE status != 'cancelado'`);
+
+    return {
+      totalProducts: parseInt(productsResult.rows[0].count),
+      totalOrders: parseInt(ordersResult.rows[0].count),
+      totalUsers: parseInt(usersResult.rows[0].count),
+      totalGroups: parseInt(groupsResult.rows[0].count),
+      openGroups: parseInt(openGroupsResult.rows[0].count),
+      pendingOrders: parseInt(pendingOrdersResult.rows[0].count),
+      totalRevenue: parseFloat(revenueResult.rows[0].total),
+    };
+  }
+
+  async getAllUsers(): Promise<UserRow[]> {
+    const result = await pool.query(
+      `SELECT ${USER_SELECT} FROM users ORDER BY created_at DESC`
+    );
+    return result.rows;
+  }
+
+  async getOrdersWithUsers() {
+    const result = await pool.query(
+      `SELECT o.id, o.user_id AS "userId", o.items, o.total, o.status, o.created_at AS "createdAt",
+              u.name AS "userName", u.email AS "userEmail", u.phone AS "userPhone"
+       FROM orders o
+       LEFT JOIN users u ON o.user_id = u.id
+       ORDER BY o.created_at DESC`
+    );
+    return result.rows;
+  }
+
+  async updateMemberReserveStatus(memberId: number, reserveStatus: string): Promise<MemberRow | null> {
+    const result = await pool.query(
+      `UPDATE members SET reserve_status = $1 WHERE id = $2
+       RETURNING id, group_id AS "groupId", user_id AS "userId", name, phone, reserve_status AS "reserveStatus", created_at AS "createdAt"`,
+      [reserveStatus, memberId]
+    );
+    return result.rows[0] || null;
   }
 
   async seedProducts(): Promise<void> {

@@ -49,6 +49,15 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
   - Groups: enhanced cards with product images, progress bars, status badges
   - New fields on users table: displayName, addressCep/Street/Number/Complement/District/City/State
   - New endpoint: POST /api/auth/password for password change
+- 2026-02-14: Complete admin panel overhaul
+  - NEW Dashboard tab: stat cards (produtos ativos, pedidos, clientes, grupos, receita total, grupos abertos, pedidos pendentes)
+  - NEW Clientes tab: user listing with search, detail dialog showing full profile + address
+  - Enhanced Orders tab: now shows customer name/email/phone, search bar
+  - Enhanced Groups tab: progress bars, reserve fee management per member (pendente/pago)
+  - Enhanced Categories tab: top-level category editing (name + active toggle), collapsible subcategory lists, delete confirmations, create new top-level categories
+  - Enhanced Banners/Videos: delete confirmation dialogs
+  - New endpoints: GET /api/admin/stats, GET /api/admin/users, PATCH /api/members/:id/reserve-status
+  - Orders admin now joins with user data (getOrdersWithUsers)
 - 2026-02-14: Major update with comprehensive features
   - Added Minha Conta page with Meus Grupos, Meus Pedidos, Meus Dados tabs
   - Cart now creates real orders on backend with confirmation screen

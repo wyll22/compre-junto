@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Plus, Trash2, LayoutDashboard, ExternalLink, Edit, Package, Users, Image, Video, Loader2, ClipboardList, Eye,
+  Plus, Trash2, LayoutDashboard, ExternalLink, Edit, Package, Users, Image, Video, Loader2,
+  ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
+  Mail, Phone, ChevronDown, ChevronUp, Search,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -26,8 +28,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "products" | "groups" | "banners" | "videos" | "orders" | "categories";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -35,6 +38,7 @@ const SALE_MODES = [
 ];
 
 const ORDER_STATUSES = ["recebido", "processando", "enviado", "entregue", "cancelado"];
+const RESERVE_STATUSES = ["pendente", "pago", "nenhuma"];
 
 function ProductForm({
   isOpen,
@@ -244,8 +248,11 @@ function BannerForm({ isOpen, onClose, editBanner }: { isOpen: boolean; onClose:
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
-      toast({ title: "Sucesso", description: "Banner salvo!" });
+      toast({ title: "Banner salvo!" });
       onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
 
@@ -254,12 +261,12 @@ function BannerForm({ isOpen, onClose, editBanner }: { isOpen: boolean; onClose:
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{editBanner ? "Editar Banner" : "Novo Banner"}</DialogTitle></DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate({ ...form, sortOrder: Number(form.sortOrder) }); }} className="space-y-3">
-          <div className="space-y-1.5"><Label>Titulo</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-          <div className="space-y-1.5"><Label>URL da Imagem (Desktop)</Label><Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} required /></div>
-          <div className="space-y-1.5"><Label>URL da Imagem (Mobile)</Label><Input value={form.mobileImageUrl} onChange={(e) => setForm({ ...form, mobileImageUrl: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label>Titulo</Label><Input data-testid="input-banner-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label>URL da Imagem (Desktop)</Label><Input data-testid="input-banner-image" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} required /></div>
+          <div className="space-y-1.5"><Label>URL da Imagem (Mobile)</Label><Input data-testid="input-banner-mobile-image" value={form.mobileImageUrl} onChange={(e) => setForm({ ...form, mobileImageUrl: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Link</Label><Input value={form.linkUrl} onChange={(e) => setForm({ ...form, linkUrl: e.target.value })} /></div>
-            <div className="space-y-1.5"><Label>Ordem</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Link</Label><Input data-testid="input-banner-link" value={form.linkUrl} onChange={(e) => setForm({ ...form, linkUrl: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Ordem</Label><Input data-testid="input-banner-order" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></div>
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="banner-active" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="rounded" />
@@ -267,7 +274,10 @@ function BannerForm({ isOpen, onClose, editBanner }: { isOpen: boolean; onClose:
           </div>
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="flex-1" disabled={mutation.isPending}>Salvar</Button>
+            <Button data-testid="button-save-banner" type="submit" className="flex-1" disabled={mutation.isPending}>
+              {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+              Salvar
+            </Button>
           </div>
         </form>
       </DialogContent>
@@ -299,8 +309,11 @@ function VideoForm({ isOpen, onClose, editVideo }: { isOpen: boolean; onClose: (
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
-      toast({ title: "Sucesso", description: "Video salvo!" });
+      toast({ title: "Video salvo!" });
       onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
 
@@ -309,16 +322,19 @@ function VideoForm({ isOpen, onClose, editVideo }: { isOpen: boolean; onClose: (
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{editVideo ? "Editar Video" : "Novo Video"}</DialogTitle></DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate({ ...form, sortOrder: Number(form.sortOrder) }); }} className="space-y-3">
-          <div className="space-y-1.5"><Label>Titulo</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-          <div className="space-y-1.5"><Label>URL do Video (embed)</Label><Input value={form.embedUrl} onChange={(e) => setForm({ ...form, embedUrl: e.target.value })} required placeholder="https://youtube.com/embed/..." /></div>
-          <div className="space-y-1.5"><Label>Ordem</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label>Titulo</Label><Input data-testid="input-video-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label>URL do Video (embed)</Label><Input data-testid="input-video-url" value={form.embedUrl} onChange={(e) => setForm({ ...form, embedUrl: e.target.value })} required placeholder="https://youtube.com/embed/..." /></div>
+          <div className="space-y-1.5"><Label>Ordem</Label><Input data-testid="input-video-order" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="video-active" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="rounded" />
             <Label htmlFor="video-active">Ativo</Label>
           </div>
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="flex-1" disabled={mutation.isPending}>Salvar</Button>
+            <Button data-testid="button-save-video" type="submit" className="flex-1" disabled={mutation.isPending}>
+              {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+              Salvar
+            </Button>
           </div>
         </form>
       </DialogContent>
@@ -326,18 +342,20 @@ function VideoForm({ isOpen, onClose, editVideo }: { isOpen: boolean; onClose: (
   );
 }
 
-function SubcategoryForm({ parentId, editSubcategory, onSave, onCancel, isPending }: {
-  parentId: number;
-  editSubcategory: any;
+function CategoryForm({ editCategory, onSave, onCancel, isPending, isTopLevel }: {
+  editCategory: any;
   onSave: (data: any) => void;
   onCancel: () => void;
   isPending: boolean;
+  isTopLevel?: boolean;
 }) {
-  const [name, setName] = useState(editSubcategory?.name || "");
+  const [name, setName] = useState(editCategory?.name || "");
+  const [active, setActive] = useState(editCategory?.active !== false);
 
   useEffect(() => {
-    setName(editSubcategory?.name || "");
-  }, [editSubcategory]);
+    setName(editCategory?.name || "");
+    setActive(editCategory?.active !== false);
+  }, [editCategory]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,21 +363,25 @@ function SubcategoryForm({ parentId, editSubcategory, onSave, onCancel, isPendin
     onSave({
       name,
       slug,
-      parentId,
-      sortOrder: editSubcategory?.sortOrder ?? 0,
-      active: true,
+      parentId: isTopLevel ? null : editCategory?.parentId,
+      sortOrder: editCategory?.sortOrder ?? 0,
+      active,
     });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="space-y-1.5">
-        <Label>Nome da Subcategoria</Label>
-        <Input data-testid="input-subcategory-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Label>{isTopLevel ? "Nome da Categoria" : "Nome da Subcategoria"}</Label>
+        <Input data-testid="input-category-name" value={name} onChange={(e) => setName(e.target.value)} required />
+      </div>
+      <div className="flex items-center gap-2">
+        <input type="checkbox" id="cat-active" checked={active} onChange={(e) => setActive(e.target.checked)} className="rounded" />
+        <Label htmlFor="cat-active">Ativa</Label>
       </div>
       <div className="flex gap-2">
         <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={isPending}>Cancelar</Button>
-        <Button data-testid="button-save-subcategory" type="submit" className="flex-1" disabled={isPending || !name.trim()}>
+        <Button data-testid="button-save-category" type="submit" className="flex-1" disabled={isPending || !name.trim()}>
           {isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
           Salvar
         </Button>
@@ -368,10 +390,214 @@ function SubcategoryForm({ parentId, editSubcategory, onSave, onCancel, isPendin
   );
 }
 
+function StatCard({ title, value, icon: Icon, color }: { title: string; value: string | number; icon: any; color: string }) {
+  return (
+    <Card data-testid={`stat-${title.toLowerCase().replace(/\s+/g, "-")}`}>
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0 ${color}`}>
+          <Icon className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{title}</p>
+          <p className="text-lg font-bold text-foreground">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DashboardTab() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["/api/admin/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/stats", { credentials: "include" });
+      return await res.json();
+    },
+  });
+
+  if (isLoading || !stats) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold text-foreground">Painel de Controle</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <StatCard title="Produtos Ativos" value={stats.totalProducts} icon={Package} color="bg-primary" />
+        <StatCard title="Total Pedidos" value={stats.totalOrders} icon={ClipboardList} color="bg-blue-600" />
+        <StatCard title="Clientes" value={stats.totalUsers} icon={Users} color="bg-purple-600" />
+        <StatCard title="Total Grupos" value={stats.totalGroups} icon={UserCircle} color="bg-orange-600" />
+        <StatCard title="Grupos Abertos" value={stats.openGroups} icon={TrendingUp} color="bg-emerald-600" />
+        <StatCard title="Pedidos Pendentes" value={stats.pendingOrders} icon={Clock} color="bg-yellow-600" />
+        <StatCard title="Receita Total" value={`R$ ${Number(stats.totalRevenue || 0).toFixed(2)}`} icon={DollarSign} color="bg-green-700" />
+      </div>
+    </div>
+  );
+}
+
+function ClientsTab() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewingUser, setViewingUser] = useState<any>(null);
+
+  const { data: allUsers, isLoading } = useQuery({
+    queryKey: ["/api/admin/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users", { credentials: "include" });
+      return await res.json();
+    },
+  });
+
+  const users = ((allUsers ?? []) as any[]).filter((u: any) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      u.name?.toLowerCase().includes(term) ||
+      u.email?.toLowerCase().includes(term) ||
+      u.phone?.includes(term) ||
+      u.displayName?.toLowerCase().includes(term)
+    );
+  });
+
+  return (
+    <>
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+        <h2 className="text-lg font-bold text-foreground">Clientes ({users.length})</h2>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            data-testid="input-search-clients"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por nome, email, telefone..."
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Cadastro</TableHead>
+                  <TableHead className="text-right">Detalhes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></TableCell></TableRow>
+                ) : users.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum cliente encontrado.</TableCell></TableRow>
+                ) : (
+                  users.map((u: any) => (
+                    <TableRow key={u.id} data-testid={`row-user-${u.id}`}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-sm">{u.name}</p>
+                          {u.displayName && <p className="text-xs text-muted-foreground">{u.displayName}</p>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{u.email}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{u.phone || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={u.role === "admin" ? "default" : "secondary"} className="text-[10px]">
+                          {u.role === "admin" ? "Admin" : "Cliente"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString("pt-BR") : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" data-testid={`button-view-user-${u.id}`} onClick={() => setViewingUser(u)}>
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={viewingUser !== null} onOpenChange={(open) => !open && setViewingUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Cliente</DialogTitle>
+          </DialogHeader>
+          {viewingUser && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
+                  {(viewingUser.displayName || viewingUser.name || "?").charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-bold">{viewingUser.name}</h3>
+                  {viewingUser.displayName && (
+                    <p className="text-sm text-muted-foreground">Apelido: {viewingUser.displayName}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  <span>{viewingUser.email}</span>
+                </div>
+                {viewingUser.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                    <span>{viewingUser.phone}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <UserCircle className="w-4 h-4 text-muted-foreground" />
+                  <Badge variant={viewingUser.role === "admin" ? "default" : "secondary"} className="text-[10px]">
+                    {viewingUser.role === "admin" ? "Administrador" : "Cliente"}
+                  </Badge>
+                </div>
+              </div>
+
+              {(viewingUser.addressStreet || viewingUser.addressCity) && (
+                <div className="p-3 bg-muted rounded-md text-sm space-y-1">
+                  <p className="font-medium text-xs text-muted-foreground mb-1">Endereco</p>
+                  {viewingUser.addressStreet && (
+                    <p>{viewingUser.addressStreet}{viewingUser.addressNumber ? `, ${viewingUser.addressNumber}` : ""}</p>
+                  )}
+                  {viewingUser.addressComplement && <p>{viewingUser.addressComplement}</p>}
+                  {viewingUser.addressDistrict && <p>{viewingUser.addressDistrict}</p>}
+                  {viewingUser.addressCity && (
+                    <p>{viewingUser.addressCity}{viewingUser.addressState ? ` - ${viewingUser.addressState}` : ""}</p>
+                  )}
+                  {viewingUser.addressCep && <p>CEP: {viewingUser.addressCep}</p>}
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Cadastrado em: {viewingUser.createdAt ? new Date(viewingUser.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "N/A"}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function Admin() {
   const { data: user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const [tab, setTab] = useState<AdminTab>("products");
+  const [tab, setTab] = useState<AdminTab>("dashboard");
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [bannerFormOpen, setBannerFormOpen] = useState(false);
@@ -379,9 +605,12 @@ export default function Admin() {
   const [videoFormOpen, setVideoFormOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
   const [viewingGroupMembers, setViewingGroupMembers] = useState<number | null>(null);
-  const [subcategoryFormOpen, setSubcategoryFormOpen] = useState(false);
-  const [editingSubcategory, setEditingSubcategory] = useState<any>(null);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [editingCategoryIsTopLevel, setEditingCategoryIsTopLevel] = useState(false);
   const [selectedParentCat, setSelectedParentCat] = useState<number | null>(null);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -454,7 +683,10 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "Subcategoria criada!" });
+      toast({ title: "Categoria criada!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
 
@@ -465,7 +697,10 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "Subcategoria atualizada!" });
+      toast({ title: "Categoria atualizada!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
 
@@ -475,7 +710,10 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "Subcategoria removida!" });
+      toast({ title: "Categoria removida!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
 
@@ -487,6 +725,26 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({ title: "Status atualizado!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const updateMemberReserve = useMutation({
+    mutationFn: async ({ memberId, reserveStatus }: { memberId: number; reserveStatus: string }) => {
+      const res = await apiRequest("PATCH", `/api/members/${memberId}/reserve-status`, { reserveStatus });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
+      if (viewingGroupMembers !== null) {
+        queryClient.invalidateQueries({ queryKey: ["/api/groups", viewingGroupMembers, "members"] });
+      }
+      toast({ title: "Status da taxa atualizado!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
 
@@ -502,11 +760,25 @@ export default function Admin() {
 
   if (!user || user.role !== "admin") return null;
 
+  const filteredOrders = orderSearch
+    ? ((allOrders ?? []) as any[]).filter((o: any) => {
+        const term = orderSearch.toLowerCase();
+        return (
+          String(o.id).includes(term) ||
+          o.userName?.toLowerCase().includes(term) ||
+          o.userEmail?.toLowerCase().includes(term) ||
+          o.status?.toLowerCase().includes(term)
+        );
+      })
+    : ((allOrders ?? []) as any[]);
+
   const tabs: { key: AdminTab; label: string; icon: any }[] = [
+    { key: "dashboard", label: "Painel", icon: LayoutDashboard },
     { key: "products", label: "Produtos", icon: Package },
-    { key: "groups", label: "Grupos", icon: Users },
     { key: "orders", label: "Pedidos", icon: ClipboardList },
-    { key: "categories", label: "Categorias", icon: LayoutDashboard },
+    { key: "groups", label: "Grupos", icon: Users },
+    { key: "clients", label: "Clientes", icon: UserCircle },
+    { key: "categories", label: "Categorias", icon: FolderTree },
     { key: "banners", label: "Banners", icon: Image },
     { key: "videos", label: "Videos", icon: Video },
   ];
@@ -528,14 +800,16 @@ export default function Admin() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex gap-1 mb-4 overflow-x-auto">
+        <div className="flex gap-1 mb-4 overflow-x-auto pb-1 hide-scrollbar">
           {tabs.map((t) => (
-            <Button key={t.key} data-testid={`tab-${t.key}`} variant={tab === t.key ? "default" : "outline"} size="sm" onClick={() => setTab(t.key)}>
+            <Button key={t.key} data-testid={`tab-${t.key}`} variant={tab === t.key ? "default" : "outline"} size="sm" onClick={() => setTab(t.key)} className="flex-shrink-0">
               <t.icon className="w-4 h-4 mr-1.5" />
               {t.label}
             </Button>
           ))}
         </div>
+
+        {tab === "dashboard" && <DashboardTab />}
 
         {tab === "products" && (
           <>
@@ -571,7 +845,7 @@ export default function Admin() {
                         <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground text-sm">Nenhum produto cadastrado.</TableCell></TableRow>
                       ) : (
                         (products as any[]).map((product: any) => (
-                          <TableRow key={product.id}>
+                          <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
                             <TableCell>
                               <img src={product.imageUrl || "https://via.placeholder.com/48"} alt={product.name} className="w-10 h-10 rounded-md object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/48"; }} />
                             </TableCell>
@@ -636,7 +910,7 @@ export default function Admin() {
                         <TableHead>ID</TableHead>
                         <TableHead>Produto</TableHead>
                         <TableHead>Participantes</TableHead>
-                        <TableHead>Meta</TableHead>
+                        <TableHead>Progresso</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Acoes</TableHead>
                       </TableRow>
@@ -645,29 +919,42 @@ export default function Admin() {
                       {!allGroups || (allGroups as any[]).length === 0 ? (
                         <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum grupo criado.</TableCell></TableRow>
                       ) : (
-                        (allGroups as any[]).map((group: any) => (
-                          <TableRow key={group.id}>
-                            <TableCell className="text-sm">{group.id}</TableCell>
-                            <TableCell className="text-sm">{group.productName || `#${group.productId}`}</TableCell>
-                            <TableCell className="text-sm font-medium">{group.currentPeople}/{group.minPeople}</TableCell>
-                            <TableCell className="text-sm">{group.minPeople}</TableCell>
-                            <TableCell>
-                              <Badge variant={group.status === "aberto" ? "default" : "secondary"} className="text-[10px]">{group.status}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button variant="ghost" size="icon" data-testid={`button-view-members-${group.id}`} onClick={() => setViewingGroupMembers(group.id)}>
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                {group.status === "aberto" ? (
-                                  <Button variant="outline" size="sm" onClick={() => updateGroupStatus.mutate({ id: group.id, status: "fechado" })}>Fechar</Button>
-                                ) : (
-                                  <Button variant="outline" size="sm" onClick={() => updateGroupStatus.mutate({ id: group.id, status: "aberto" })}>Reabrir</Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        (allGroups as any[]).map((group: any) => {
+                          const progress = group.minPeople > 0 ? Math.round((group.currentPeople / group.minPeople) * 100) : 0;
+                          return (
+                            <TableRow key={group.id} data-testid={`row-group-${group.id}`}>
+                              <TableCell className="text-sm font-medium">#{group.id}</TableCell>
+                              <TableCell className="text-sm">{group.productName || `Produto #${group.productId}`}</TableCell>
+                              <TableCell className="text-sm font-medium">{group.currentPeople}/{group.minPeople}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 bg-muted rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${progress >= 100 ? "bg-green-500" : "bg-primary"}`}
+                                      style={{ width: `${Math.min(100, progress)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">{progress}%</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={group.status === "aberto" ? "default" : "secondary"} className="text-[10px]">{group.status === "aberto" ? "Aberto" : "Fechado"}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button variant="ghost" size="icon" data-testid={`button-view-members-${group.id}`} onClick={() => setViewingGroupMembers(group.id)}>
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                  {group.status === "aberto" ? (
+                                    <Button variant="outline" size="sm" data-testid={`button-close-group-${group.id}`} onClick={() => updateGroupStatus.mutate({ id: group.id, status: "fechado" })}>Fechar</Button>
+                                  ) : (
+                                    <Button variant="outline" size="sm" data-testid={`button-reopen-group-${group.id}`} onClick={() => updateGroupStatus.mutate({ id: group.id, status: "aberto" })}>Reabrir</Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -683,16 +970,23 @@ export default function Admin() {
                 {groupMembers && (groupMembers as any[]).length > 0 ? (
                   <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                     {(groupMembers as any[]).map((m: any) => (
-                      <div key={m.id} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                        <div>
-                          <p className="font-medium">{m.name}</p>
+                      <div key={m.id} className="flex items-center justify-between gap-2 p-3 bg-muted rounded-md" data-testid={`member-${m.id}`}>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{m.name}</p>
                           <p className="text-xs text-muted-foreground">{m.phone}</p>
                         </div>
-                        {m.reserveStatus && m.reserveStatus !== "nenhuma" && (
-                          <Badge variant={m.reserveStatus === "pago" ? "default" : "outline"} className="text-[10px]">
-                            Taxa: {m.reserveStatus}
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <select
+                            data-testid={`select-reserve-${m.id}`}
+                            value={m.reserveStatus || "nenhuma"}
+                            onChange={(e) => updateMemberReserve.mutate({ memberId: m.id, reserveStatus: e.target.value })}
+                            className="text-xs border border-input rounded-md px-2 py-1 bg-background"
+                          >
+                            {RESERVE_STATUSES.map((s) => (
+                              <option key={s} value={s}>{s === "pendente" ? "Pendente" : s === "pago" ? "Pago" : "N/A"}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -706,7 +1000,20 @@ export default function Admin() {
 
         {tab === "orders" && (
           <>
-            <h2 className="text-lg font-bold text-foreground mb-4">Gestao de Pedidos</h2>
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <h2 className="text-lg font-bold text-foreground">Gestao de Pedidos ({filteredOrders.length})</h2>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  data-testid="input-search-orders"
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  placeholder="Buscar por ID, cliente, status..."
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -714,6 +1021,7 @@ export default function Admin() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Pedido</TableHead>
+                        <TableHead>Cliente</TableHead>
                         <TableHead>Itens</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead>Status</TableHead>
@@ -723,15 +1031,22 @@ export default function Admin() {
                     </TableHeader>
                     <TableBody>
                       {ordersLoading ? (
-                        <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></TableCell></TableRow>
-                      ) : !allOrders || (allOrders as any[]).length === 0 ? (
-                        <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido recebido.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></TableCell></TableRow>
+                      ) : filteredOrders.length === 0 ? (
+                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido encontrado.</TableCell></TableRow>
                       ) : (
-                        (allOrders as any[]).map((order: any) => {
+                        filteredOrders.map((order: any) => {
                           const items = Array.isArray(order.items) ? order.items : [];
                           return (
-                            <TableRow key={order.id}>
+                            <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
                               <TableCell className="text-sm font-medium">#{order.id}</TableCell>
+                              <TableCell>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium truncate">{order.userName || "N/A"}</p>
+                                  <p className="text-[11px] text-muted-foreground truncate">{order.userEmail || ""}</p>
+                                  {order.userPhone && <p className="text-[11px] text-muted-foreground">{order.userPhone}</p>}
+                                </div>
+                              </TableCell>
                               <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
                                 {items.map((i: any) => `${i.name} x${i.qty}`).join(", ")}
                               </TableCell>
@@ -741,7 +1056,7 @@ export default function Admin() {
                                   {order.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                                 {order.createdAt ? new Date(order.createdAt).toLocaleDateString("pt-BR") : "-"}
                               </TableCell>
                               <TableCell className="text-right">
@@ -752,7 +1067,7 @@ export default function Admin() {
                                   className="text-xs border border-input rounded-md px-2 py-1 bg-background"
                                 >
                                   {ORDER_STATUSES.map((s) => (
-                                    <option key={s} value={s}>{s}</option>
+                                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                                   ))}
                                 </select>
                               </TableCell>
@@ -768,61 +1083,137 @@ export default function Admin() {
           </>
         )}
 
+        {tab === "clients" && <ClientsTab />}
+
         {tab === "categories" && (
           <>
-            <h2 className="text-lg font-bold text-foreground mb-4">Gestao de Categorias</h2>
-            <div className="space-y-4">
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <h2 className="text-lg font-bold text-foreground">Gestao de Categorias</h2>
+              <Button size="sm" data-testid="button-new-top-category" onClick={() => {
+                setEditingCategory(null);
+                setEditingCategoryIsTopLevel(true);
+                setSelectedParentCat(null);
+                setCategoryFormOpen(true);
+              }}>
+                <Plus className="w-4 h-4 mr-1" /> Nova Categoria
+              </Button>
+            </div>
+
+            <div className="space-y-3">
               {topLevelCategories.map((cat: any) => {
                 const subs = getSubcategories(cat.id);
+                const isExpanded = expandedCategories.has(cat.id);
+
                 return (
-                  <Card key={cat.id}>
+                  <Card key={cat.id} data-testid={`card-category-${cat.id}`}>
                     <CardHeader className="flex flex-row items-center justify-between gap-2 py-3 px-4">
-                      <CardTitle className="text-sm font-bold">{cat.name}</CardTitle>
-                      <Button size="sm" variant="outline" data-testid={`button-add-sub-${cat.id}`} onClick={() => { setSelectedParentCat(cat.id); setEditingSubcategory(null); setSubcategoryFormOpen(true); }}>
-                        <Plus className="w-3 h-3 mr-1" /> Subcategoria
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          data-testid={`button-toggle-category-${cat.id}`}
+                          onClick={() => {
+                            const next = new Set(expandedCategories);
+                            if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
+                            setExpandedCategories(next);
+                          }}
+                          className="p-0.5"
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                        </button>
+                        <CardTitle className="text-sm font-bold">{cat.name}</CardTitle>
+                        <Badge variant={cat.active ? "default" : "secondary"} className="text-[10px]">
+                          {cat.active ? "Ativa" : "Inativa"}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">({subs.length} sub)</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" data-testid={`button-edit-top-cat-${cat.id}`} onClick={() => {
+                          setEditingCategory(cat);
+                          setEditingCategoryIsTopLevel(true);
+                          setSelectedParentCat(null);
+                          setCategoryFormOpen(true);
+                        }}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" data-testid={`button-add-sub-${cat.id}`} onClick={() => {
+                          setSelectedParentCat(cat.id);
+                          setEditingCategory(null);
+                          setEditingCategoryIsTopLevel(false);
+                          setCategoryFormOpen(true);
+                        }}>
+                          <Plus className="w-3 h-3 mr-1" /> Sub
+                        </Button>
+                      </div>
                     </CardHeader>
-                    <CardContent className="px-4 pb-3">
-                      {subs.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Nenhuma subcategoria cadastrada.</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {subs.map((sub: any) => (
-                            <div key={sub.id} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
-                              <span className="text-xs font-medium">{sub.name}</span>
-                              <button data-testid={`button-edit-sub-${sub.id}`} onClick={() => { setSelectedParentCat(cat.id); setEditingSubcategory(sub); setSubcategoryFormOpen(true); }} className="text-muted-foreground hover-elevate p-0.5 rounded">
-                                <Edit className="w-3 h-3" />
-                              </button>
-                              <button data-testid={`button-delete-sub-${sub.id}`} onClick={() => deleteCategoryMutation.mutate(sub.id)} className="text-destructive p-0.5 rounded">
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
+                    {isExpanded && (
+                      <CardContent className="px-4 pb-3 pt-0">
+                        {subs.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Nenhuma subcategoria cadastrada.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {subs.map((sub: any) => (
+                              <div key={sub.id} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1" data-testid={`sub-${sub.id}`}>
+                                <span className={`text-xs font-medium ${!sub.active ? "line-through text-muted-foreground" : ""}`}>{sub.name}</span>
+                                {!sub.active && <Badge variant="secondary" className="text-[8px] px-1">off</Badge>}
+                                <button data-testid={`button-edit-sub-${sub.id}`} onClick={() => {
+                                  setSelectedParentCat(cat.id);
+                                  setEditingCategory(sub);
+                                  setEditingCategoryIsTopLevel(false);
+                                  setCategoryFormOpen(true);
+                                }} className="text-muted-foreground p-0.5 rounded">
+                                  <Edit className="w-3 h-3" />
+                                </button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <button data-testid={`button-delete-sub-${sub.id}`} className="text-destructive p-0.5 rounded">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Excluir subcategoria?</AlertDialogTitle>
+                                      <AlertDialogDescription>A subcategoria "{sub.name}" sera removida permanentemente.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteCategoryMutation.mutate(sub.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    )}
                   </Card>
                 );
               })}
             </div>
 
-            <Dialog open={subcategoryFormOpen} onOpenChange={(open) => !open && setSubcategoryFormOpen(false)}>
+            <Dialog open={categoryFormOpen} onOpenChange={(open) => !open && setCategoryFormOpen(false)}>
               <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
-                  <DialogTitle>{editingSubcategory ? "Editar Subcategoria" : "Nova Subcategoria"}</DialogTitle>
+                  <DialogTitle>
+                    {editingCategory
+                      ? (editingCategoryIsTopLevel ? "Editar Categoria" : "Editar Subcategoria")
+                      : (editingCategoryIsTopLevel ? "Nova Categoria" : "Nova Subcategoria")}
+                  </DialogTitle>
                 </DialogHeader>
-                <SubcategoryForm
-                  parentId={selectedParentCat!}
-                  editSubcategory={editingSubcategory}
+                <CategoryForm
+                  editCategory={editingCategory ? { ...editingCategory, parentId: editingCategoryIsTopLevel ? null : selectedParentCat } : { parentId: editingCategoryIsTopLevel ? null : selectedParentCat }}
+                  isTopLevel={editingCategoryIsTopLevel}
                   onSave={(data) => {
-                    if (editingSubcategory) {
-                      updateCategory.mutate({ id: editingSubcategory.id, data });
+                    if (!editingCategoryIsTopLevel && selectedParentCat) {
+                      data.parentId = selectedParentCat;
+                    }
+                    if (editingCategory) {
+                      updateCategory.mutate({ id: editingCategory.id, data });
                     } else {
                       createCategory.mutate(data);
                     }
-                    setSubcategoryFormOpen(false);
+                    setCategoryFormOpen(false);
                   }}
-                  onCancel={() => setSubcategoryFormOpen(false)}
+                  onCancel={() => setCategoryFormOpen(false)}
                   isPending={createCategory.isPending || updateCategory.isPending}
                 />
               </DialogContent>
@@ -833,8 +1224,8 @@ export default function Admin() {
         {tab === "banners" && (
           <>
             <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-              <h2 className="text-lg font-bold text-foreground">Banners</h2>
-              <Button size="sm" onClick={() => { setEditingBanner(null); setBannerFormOpen(true); }}>
+              <h2 className="text-lg font-bold text-foreground">Banners ({(banners as any[])?.length || 0})</h2>
+              <Button size="sm" data-testid="button-new-banner" onClick={() => { setEditingBanner(null); setBannerFormOpen(true); }}>
                 <Plus className="w-4 h-4 mr-1" /> Novo Banner
               </Button>
             </div>
@@ -844,17 +1235,32 @@ export default function Admin() {
                 <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhum banner cadastrado.</CardContent></Card>
               ) : (
                 (banners as any[]).map((banner: any) => (
-                  <Card key={banner.id}>
+                  <Card key={banner.id} data-testid={`card-banner-${banner.id}`}>
                     <CardContent className="p-3 flex items-center gap-3">
                       <img src={banner.imageUrl} alt={banner.title} className="w-24 h-14 rounded-md object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/96x56"; }} />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{banner.title || "(Sem titulo)"}</p>
                         <p className="text-xs text-muted-foreground">Ordem: {banner.sortOrder}</p>
+                        {banner.linkUrl && <p className="text-[11px] text-muted-foreground truncate">{banner.linkUrl}</p>}
                       </div>
                       <Badge variant={banner.active ? "default" : "secondary"} className="text-[10px]">{banner.active ? "Ativo" : "Inativo"}</Badge>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditingBanner(banner); setBannerFormOpen(true); }}><Edit className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteBanner.mutate(banner.id)}><Trash2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" data-testid={`button-edit-banner-${banner.id}`} onClick={() => { setEditingBanner(banner); setBannerFormOpen(true); }}><Edit className="w-4 h-4" /></Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir banner?</AlertDialogTitle>
+                              <AlertDialogDescription>O banner sera removido permanentemente.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteBanner.mutate(banner.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </CardContent>
                   </Card>
@@ -869,8 +1275,8 @@ export default function Admin() {
         {tab === "videos" && (
           <>
             <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-              <h2 className="text-lg font-bold text-foreground">Videos</h2>
-              <Button size="sm" onClick={() => { setEditingVideo(null); setVideoFormOpen(true); }}>
+              <h2 className="text-lg font-bold text-foreground">Videos ({(videos as any[])?.length || 0})</h2>
+              <Button size="sm" data-testid="button-new-video" onClick={() => { setEditingVideo(null); setVideoFormOpen(true); }}>
                 <Plus className="w-4 h-4 mr-1" /> Novo Video
               </Button>
             </div>
@@ -880,16 +1286,33 @@ export default function Admin() {
                 <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhum video cadastrado.</CardContent></Card>
               ) : (
                 (videos as any[]).map((video: any) => (
-                  <Card key={video.id}>
+                  <Card key={video.id} data-testid={`card-video-${video.id}`}>
                     <CardContent className="p-3 flex items-center gap-3">
-                      <div className="flex-1">
+                      <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                        <Video className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{video.title || "(Sem titulo)"}</p>
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{video.embedUrl}</p>
+                        <p className="text-xs text-muted-foreground truncate">{video.embedUrl}</p>
                       </div>
                       <Badge variant={video.active ? "default" : "secondary"} className="text-[10px]">{video.active ? "Ativo" : "Inativo"}</Badge>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditingVideo(video); setVideoFormOpen(true); }}><Edit className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteVideo.mutate(video.id)}><Trash2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" data-testid={`button-edit-video-${video.id}`} onClick={() => { setEditingVideo(video); setVideoFormOpen(true); }}><Edit className="w-4 h-4" /></Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir video?</AlertDialogTitle>
+                              <AlertDialogDescription>O video sera removido permanentemente.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteVideo.mutate(video.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </CardContent>
                   </Card>
