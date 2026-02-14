@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-export function useProducts(params?: { category?: string; search?: string; saleMode?: string }) {
+export function useProducts(params?: { category?: string; search?: string; saleMode?: string; categoryId?: number; subcategoryId?: number }) {
   return useQuery({
     queryKey: ["/api/products", params],
     queryFn: async () => {
@@ -10,13 +10,18 @@ export function useProducts(params?: { category?: string; search?: string; saleM
       if (params?.category && params.category !== "Todos") {
         url.searchParams.append("category", params.category);
       }
+      if (params?.categoryId) {
+        url.searchParams.append("categoryId", String(params.categoryId));
+      }
+      if (params?.subcategoryId) {
+        url.searchParams.append("subcategoryId", String(params.subcategoryId));
+      }
       if (params?.search) {
         url.searchParams.append("search", params.search);
       }
       if (params?.saleMode) {
         url.searchParams.append("saleMode", params.saleMode);
       }
-
       const res = await fetch(url.toString(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch products");
       return await res.json();

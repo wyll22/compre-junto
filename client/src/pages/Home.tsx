@@ -1,26 +1,59 @@
 import { useProducts } from "@/hooks/use-products";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { ProductCard } from "@/components/ProductCard";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronLeft, ChevronRight, UserCircle } from "lucide-react";
+import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronRight, UserCircle, Grid3X3, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { CATEGORIES } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+
+type CategoryItem = {
+  id: number;
+  name: string;
+  slug: string;
+  parentId: number | null;
+  sortOrder: number;
+  active: boolean;
+};
 
 export default function Home() {
-  const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<number | null>(null);
   const [saleMode, setSaleMode] = useState<"grupo" | "agora">("grupo");
   const [searchTerm, setSearchTerm] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [bannerIdx, setBannerIdx] = useState(0);
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   const { data: user } = useAuth();
   const logout = useLogout();
+
+  const { data: topCategories } = useQuery<CategoryItem[]>({
+    queryKey: ["/api/categories", "top"],
+    queryFn: async () => {
+      const res = await fetch("/api/categories?parentId=null");
+      if (!res.ok) return [];
+      return await res.json();
+    },
+  });
+
+  const { data: subcategories } = useQuery<CategoryItem[]>({
+    queryKey: ["/api/categories", "sub", selectedCategoryId],
+    queryFn: async () => {
+      if (!selectedCategoryId) return [];
+      const res = await fetch(`/api/categories?parentId=${selectedCategoryId}`);
+      if (!res.ok) return [];
+      return await res.json();
+    },
+    enabled: selectedCategoryId !== null,
+  });
 
   const { data: banners } = useQuery({
     queryKey: ["/api/banners", "active"],
@@ -42,6 +75,21 @@ export default function Home() {
 
   const activeBanners = (banners ?? []) as any[];
   const activeVideos = (videos ?? []) as any[];
+  const cats = (topCategories ?? []) as CategoryItem[];
+  const subs = (subcategories ?? []) as CategoryItem[];
+
+  const MOBILE_VISIBLE_COUNT = 5;
+  const ofertasCat = cats.find((c) => c.slug === "ofertas");
+  const nonOfertasCats = cats.filter((c) => c.slug !== "ofertas");
+  const visibleCats = [
+    ...nonOfertasCats.slice(0, ofertasCat ? MOBILE_VISIBLE_COUNT - 1 : MOBILE_VISIBLE_COUNT),
+    ...(ofertasCat ? [ofertasCat] : []),
+  ];
+  const hasMoreCats = cats.length > visibleCats.length;
+
+  const selectedCategoryName = selectedCategoryId
+    ? cats.find((c) => c.id === selectedCategoryId)?.name ?? "Categoria"
+    : "Todos";
 
   useEffect(() => {
     if (activeBanners.length <= 1) return;
@@ -66,11 +114,9 @@ export default function Home() {
         setCartCount(0);
       }
     };
-
     updateCartCount();
     window.addEventListener("storage", updateCartCount);
     window.addEventListener("cart-updated", updateCartCount);
-
     return () => {
       window.removeEventListener("storage", updateCartCount);
       window.removeEventListener("cart-updated", updateCartCount);
@@ -78,10 +124,17 @@ export default function Home() {
   }, []);
 
   const { data: products, isLoading, error } = useProducts({
-    category: selectedCategory,
     search: searchTerm,
-    saleMode: saleMode,
+    saleMode,
+    categoryId: selectedCategoryId ?? undefined,
+    subcategoryId: selectedSubcategoryId ?? undefined,
   });
+
+  const handleSelectCategory = (catId: number | null) => {
+    setSelectedCategoryId(catId);
+    setSelectedSubcategoryId(null);
+    setShowAllCategories(false);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -126,40 +179,22 @@ export default function Home() {
               {user ? (
                 <div className="flex items-center gap-1">
                   <Link href="/minha-conta">
-                    <Button
-                      data-testid="button-account"
-                      variant="ghost"
-                      size="icon"
-                      className="text-white"
-                    >
+                    <Button data-testid="button-account" variant="ghost" size="icon" className="text-white">
                       <UserCircle className="w-5 h-5" />
                     </Button>
                   </Link>
-                  <Button
-                    data-testid="button-logout"
-                    variant="ghost"
-                    size="icon"
-                    className="text-white"
-                    onClick={() => logout.mutate()}
-                  >
+                  <Button data-testid="button-logout" variant="ghost" size="icon" className="text-white" onClick={() => logout.mutate()}>
                     <LogOut className="w-4 h-4" />
                   </Button>
                   {user.role === "admin" && (
                     <Link href="/admin">
-                      <Badge className="bg-[#D4A62A] text-[#1F2937] text-[10px] cursor-pointer">
-                        Admin
-                      </Badge>
+                      <Badge className="bg-[#D4A62A] text-[#1F2937] text-[10px] cursor-pointer">Admin</Badge>
                     </Link>
                   )}
                 </div>
               ) : (
                 <Link href="/login">
-                  <Button
-                    data-testid="button-login"
-                    variant="ghost"
-                    size="icon"
-                    className="text-white"
-                  >
+                  <Button data-testid="button-login" variant="ghost" size="icon" className="text-white">
                     <User className="w-5 h-5" />
                   </Button>
                 </Link>
@@ -217,25 +252,131 @@ export default function Home() {
 
         <div className="bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex overflow-x-auto gap-2 py-3 hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-              {CATEGORIES.map((cat) => (
+            <div className="flex items-center gap-2 py-3">
+              <button
+                data-testid="button-category-todos"
+                onClick={() => handleSelectCategory(null)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  selectedCategoryId === null
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card text-foreground/70 border border-border"
+                }`}
+              >
+                Todos
+              </button>
+
+              <div className="hidden sm:flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                {cats.map((cat) => (
+                  <button
+                    key={cat.id}
+                    data-testid={`button-category-${cat.slug}`}
+                    onClick={() => handleSelectCategory(cat.id)}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      selectedCategoryId === cat.id
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-card text-foreground/70 border border-border"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex sm:hidden items-center gap-2 overflow-x-auto hide-scrollbar flex-1">
+                {visibleCats.map((cat) => (
+                  <button
+                    key={cat.id}
+                    data-testid={`button-category-${cat.slug}`}
+                    onClick={() => handleSelectCategory(cat.id)}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      selectedCategoryId === cat.id
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-card text-foreground/70 border border-border"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+                {hasMoreCats && (
+                  <button
+                    data-testid="button-ver-mais-categorias"
+                    onClick={() => setShowAllCategories(true)}
+                    className="whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium bg-card text-foreground/70 border border-border flex items-center gap-1"
+                  >
+                    Ver mais
+                    <Grid3X3 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {selectedCategoryId && subs.length > 0 && (
+              <div className="flex items-center gap-2 pb-3 overflow-x-auto hide-scrollbar">
                 <button
-                  key={cat}
-                  data-testid={`button-category-${cat}`}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    selectedCategory === cat
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-card text-foreground/70 border border-border"
+                  data-testid="button-subcategory-all"
+                  onClick={() => setSelectedSubcategoryId(null)}
+                  className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    selectedSubcategoryId === null
+                      ? "bg-[#D4A62A] text-[#1F2937] shadow-sm"
+                      : "bg-card text-foreground/60 border border-border"
                   }`}
                 >
-                  {cat}
+                  Todas
                 </button>
-              ))}
-            </div>
+                {subs.map((sub) => (
+                  <button
+                    key={sub.id}
+                    data-testid={`button-subcategory-${sub.slug}`}
+                    onClick={() => setSelectedSubcategoryId(sub.id)}
+                    className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                      selectedSubcategoryId === sub.id
+                        ? "bg-[#D4A62A] text-[#1F2937] shadow-sm"
+                        : "bg-card text-foreground/60 border border-border"
+                    }`}
+                  >
+                    {sub.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </header>
+
+      <Dialog open={showAllCategories} onOpenChange={setShowAllCategories}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Categorias</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              data-testid="button-modal-category-todos"
+              onClick={() => handleSelectCategory(null)}
+              className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
+                selectedCategoryId === null
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-foreground/70 border border-border hover-elevate"
+              }`}
+            >
+              Todos
+            </button>
+            {cats.map((cat) => (
+              <button
+                key={cat.id}
+                data-testid={`button-modal-category-${cat.slug}`}
+                onClick={() => handleSelectCategory(cat.id)}
+                className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
+                  selectedCategoryId === cat.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-foreground/70 border border-border hover-elevate"
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeBanners.length > 0 && (
@@ -248,47 +389,25 @@ export default function Home() {
                 >
                   {banner.linkUrl ? (
                     <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-                      <img
-                        src={banner.imageUrl}
-                        alt={banner.title || "Banner"}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
+                      <img src={banner.imageUrl} alt={banner.title || "Banner"} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </a>
                   ) : (
-                    <img
-                      src={banner.imageUrl}
-                      alt={banner.title || "Banner"}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
+                    <img src={banner.imageUrl} alt={banner.title || "Banner"} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   )}
                 </div>
               ))}
             </div>
             {activeBanners.length > 1 && (
               <>
-                <button
-                  onClick={() => setBannerIdx((prev) => (prev - 1 + activeBanners.length) % activeBanners.length)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1"
-                  data-testid="button-banner-prev"
-                >
-                  <ChevronLeft className="w-5 h-5" />
+                <button onClick={() => setBannerIdx((prev) => (prev - 1 + activeBanners.length) % activeBanners.length)} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1" data-testid="button-banner-prev">
+                  <ChevronRight className="w-5 h-5 rotate-180" />
                 </button>
-                <button
-                  onClick={() => setBannerIdx((prev) => (prev + 1) % activeBanners.length)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1"
-                  data-testid="button-banner-next"
-                >
+                <button onClick={() => setBannerIdx((prev) => (prev + 1) % activeBanners.length)} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1" data-testid="button-banner-next">
                   <ChevronRight className="w-5 h-5" />
                 </button>
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
                   {activeBanners.map((_: any, i: number) => (
-                    <button
-                      key={i}
-                      onClick={() => setBannerIdx(i)}
-                      className={`w-2 h-2 rounded-full transition-all ${i === bannerIdx ? "bg-white scale-125" : "bg-white/50"}`}
-                    />
+                    <button key={i} onClick={() => setBannerIdx(i)} className={`w-2 h-2 rounded-full transition-all ${i === bannerIdx ? "bg-white scale-125" : "bg-white/50"}`} />
                   ))}
                 </div>
               </>
@@ -313,7 +432,7 @@ export default function Home() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xl font-display font-bold text-foreground">
-              {searchTerm ? `Resultados para "${searchTerm}"` : selectedCategory}
+              {searchTerm ? `Resultados para "${searchTerm}"` : selectedCategoryName}
             </h2>
             <span className="text-xs text-muted-foreground">
               {products?.length || 0} produtos
@@ -336,17 +455,10 @@ export default function Home() {
               <p className="text-muted-foreground text-sm">Tente buscar por outro termo ou categoria.</p>
             </div>
           ) : (
-            <motion.div
-              layout
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
-            >
+            <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               <AnimatePresence>
                 {products?.map((product: any) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    saleMode={saleMode}
-                  />
+                  <ProductCard key={product.id} product={product} saleMode={saleMode} />
                 ))}
               </AnimatePresence>
             </motion.div>
@@ -355,20 +467,12 @@ export default function Home() {
 
         {activeVideos.length > 0 && (
           <section className="mt-10">
-            <h2 className="text-xl font-display font-bold text-foreground mb-4">
-              Videos
-            </h2>
+            <h2 className="text-xl font-display font-bold text-foreground mb-4">Videos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeVideos.map((video: any) => (
                 <div key={video.id} className="rounded-md overflow-hidden bg-card border border-border" data-testid={`video-${video.id}`}>
                   <div className="aspect-video">
-                    <iframe
-                      src={video.embedUrl}
-                      title={video.title || "Video"}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                    <iframe src={video.embedUrl} title={video.title || "Video"} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
                   </div>
                   {video.title && (
                     <div className="p-2">

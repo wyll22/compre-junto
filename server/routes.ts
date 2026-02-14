@@ -114,11 +114,61 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/categories", async (req: Request, res: Response) => {
+    const parentId = req.query.parentId;
+    let result;
+    if (parentId === "null" || parentId === "0") {
+      result = await storage.getCategories(null);
+    } else if (parentId) {
+      result = await storage.getCategories(Number(parentId));
+    } else {
+      result = await storage.getCategories();
+    }
+    res.json(result);
+  });
+
+  app.get("/api/categories/:id", async (req: Request, res: Response) => {
+    const cat = await storage.getCategory(Number(req.params.id));
+    if (!cat) return res.status(404).json({ message: "Categoria nao encontrada" });
+    res.json(cat);
+  });
+
+  app.post("/api/categories", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const cat = await storage.createCategory(req.body);
+      res.status(201).json(cat);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao criar categoria" });
+    }
+  });
+
+  app.put("/api/categories/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const cat = await storage.updateCategory(Number(req.params.id), req.body);
+      res.json(cat);
+    } catch (err: any) {
+      res.status(400).json({ message: "Erro ao atualizar categoria" });
+    }
+  });
+
+  app.delete("/api/categories/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    await storage.deleteCategory(Number(req.params.id));
+    res.status(204).send();
+  });
+
   app.get("/api/products", async (req: Request, res: Response) => {
     const category = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;
     const saleMode = req.query.saleMode as string | undefined;
-    const products = await storage.getProducts(category, search, saleMode);
+    const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
+    const subcategoryId = req.query.subcategoryId ? Number(req.query.subcategoryId) : undefined;
+    const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId);
     res.json(products);
   });
 
@@ -127,6 +177,7 @@ export async function registerRoutes(
       `SELECT id, name, description, image_url AS "imageUrl", original_price AS "originalPrice",
               group_price AS "groupPrice", now_price AS "nowPrice", min_people AS "minPeople",
               stock, reserve_fee AS "reserveFee", category, sale_mode AS "saleMode",
+              category_id AS "categoryId", subcategory_id AS "subcategoryId",
               active, created_at AS "createdAt"
        FROM products ORDER BY id DESC`,
     );
@@ -379,6 +430,7 @@ export async function registerRoutes(
   });
 
   storage.seedProducts().catch(console.error);
+  storage.seedCategories().catch(console.error);
 
   return httpServer;
 }

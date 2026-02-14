@@ -6,7 +6,9 @@ Compra Junto Formosa is a group buying web application for a local community in 
 
 Key features:
 - Dual sale modes: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase)
-- 19 product categories (Basico, Bebida, Higiene pessoal, Industrializado, Lavanderia, Limpeza, Matinais, Perfumaria, Temperos/condimentos, Pet Shop, Hortifruti, Frios e Laticinios, Padaria, Ferramentas, Botinas/EPIs, Roupas, Calcados, Agro, Outros)
+- Hierarchical category system: 9 top-level categories (Mercado, Bebidas, Casa & Limpeza, Higiene & Beleza, Pet Shop, Agro & Jardim, Ferramentas, Moda & Calcados, Ofertas) with ~43 subcategories managed via database
+- Mobile: 5 category chips visible (4 regular + pinned "Ofertas") + "Ver mais" modal for all categories
+- Subcategories appear inline when a category is selected
 - User authentication with register/login/logout (session-based with connect-pg-simple)
 - Group buying: users create or join groups for products to unlock group prices
 - Auto-close groups when min people reached + auto-create new group if stock allows
@@ -27,8 +29,16 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-14: Hierarchical category system
+  - Replaced flat 19-category list with hierarchical system (categories table with parentId)
+  - 9 top-level categories with ~43 subcategories, all managed via database
+  - Home page: category chips from API, mobile shows 4 + pinned Ofertas + "Ver mais" modal
+  - Subcategories appear inline when category is selected
+  - Admin: new "Categorias" tab for subcategory CRUD
+  - ProductForm now uses category/subcategory dropdowns (categoryId/subcategoryId)
+  - Legacy text `category` field preserved for backward compatibility (derived from selected category)
+  - Products API supports categoryId/subcategoryId filters
 - 2026-02-14: Major update with comprehensive features
-  - Expanded to 19 product categories
   - Added Minha Conta page with Meus Grupos, Meus Pedidos, Meus Dados tabs
   - Cart now creates real orders on backend with confirmation screen
   - Admin panel now includes Orders tab with status management
@@ -84,7 +94,8 @@ Path aliases:
 
 **Tables:**
 - `users` — id, name, email (unique), password (bcrypt hash), phone, role (user/admin), emailVerified, phoneVerified, createdAt
-- `products` — id, name, description, imageUrl, originalPrice, groupPrice, nowPrice, minPeople, stock, reserveFee, category, saleMode (grupo/agora), active, createdAt
+- `categories` — id, name, slug, parentId (self-ref, null for top-level), sortOrder, active
+- `products` — id, name, description, imageUrl, originalPrice, groupPrice, nowPrice, minPeople, stock, reserveFee, category (legacy text), categoryId (FK to categories), subcategoryId (FK to categories), saleMode (grupo/agora), active, createdAt
 - `groups` — id, productId, currentPeople, minPeople, status (aberto/fechado), createdAt
 - `members` — id, groupId, userId, name, phone, reserveStatus (pendente/pago/nenhuma), createdAt
 - `banners` — id, title, imageUrl, mobileImageUrl, linkUrl, sortOrder, active, createdAt
@@ -92,7 +103,11 @@ Path aliases:
 - `orders` — id, userId, items (jsonb), total, status (recebido/processando/enviado/entregue/cancelado), createdAt
 
 ### API Routes
-- `GET /api/products` — list active products (optional category/search/saleMode filters)
+- `GET /api/categories` — list categories (optional parentId filter)
+- `POST /api/categories` — create category (admin)
+- `PUT /api/categories/:id` — update category (admin)
+- `DELETE /api/categories/:id` — delete category (admin)
+- `GET /api/products` — list active products (optional category/search/saleMode/categoryId/subcategoryId filters)
 - `GET /api/products/all` — list ALL products including inactive (admin)
 - `GET /api/products/:id` — get single product
 - `POST /api/products` — create product (admin)

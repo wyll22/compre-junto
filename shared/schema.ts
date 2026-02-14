@@ -15,6 +15,15 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const categories = pgTable("categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  parentId: integer("parent_id"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -29,6 +38,8 @@ export const products = pgTable("products", {
   category: text("category").notNull(),
   saleMode: text("sale_mode").notNull().default("grupo"),
   active: boolean("active").notNull().default(true),
+  categoryId: integer("category_id"),
+  subcategoryId: integer("subcategory_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -79,6 +90,15 @@ export const orders = pgTable("orders", {
   status: text("status").notNull().default("recebido"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  parent: one(categories, {
+    fields: [categories.parentId],
+    references: [categories.id],
+    relationName: "parentChild",
+  }),
+  children: many(categories, { relationName: "parentChild" }),
+}));
 
 export const usersRelations = relations(users, ({ many }) => ({
   memberships: many(members),
@@ -138,25 +158,6 @@ export type InsertVideo = z.infer<typeof insertVideoSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 
-export const CATEGORIES = [
-  "Todos",
-  "Basico",
-  "Bebida",
-  "Higiene pessoal",
-  "Industrializado",
-  "Lavanderia",
-  "Limpeza",
-  "Matinais",
-  "Perfumaria",
-  "Temperos/condimentos",
-  "Pet Shop",
-  "Hortifruti",
-  "Frios e Laticinios",
-  "Padaria",
-  "Ferramentas",
-  "Botinas/EPIs",
-  "Roupas",
-  "Calcados",
-  "Agro",
-  "Outros",
-] as const;
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = z.infer<typeof insertCategorySchema>;

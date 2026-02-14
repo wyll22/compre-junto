@@ -23,19 +23,16 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORIES } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-type AdminTab = "products" | "groups" | "banners" | "videos" | "orders";
+type AdminTab = "products" | "groups" | "banners" | "videos" | "orders" | "categories";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
   { value: "agora", label: "Compre Agora" },
 ];
-
-const PRODUCT_CATEGORIES = CATEGORIES.filter((c) => c !== "Todos");
 
 const ORDER_STATUSES = ["recebido", "processando", "enviado", "entregue", "cancelado"];
 
@@ -50,6 +47,15 @@ function ProductForm({
 }) {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const { data: allCategoriesData } = useQuery({
+    queryKey: ["/api/categories"],
+    queryFn: async () => {
+      const res = await fetch("/api/categories", { credentials: "include" });
+      return await res.json();
+    },
+  });
+  const allCats = (allCategoriesData ?? []) as any[];
+  const topCats = allCats.filter((c: any) => c.parentId === null);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -60,10 +66,12 @@ function ProductForm({
     minPeople: "10",
     stock: "100",
     reserveFee: "0",
-    category: "Outros",
+    categoryId: "",
+    subcategoryId: "",
     saleMode: "grupo",
     active: true,
   });
+  const subCats = form.categoryId ? allCats.filter((c: any) => c.parentId === Number(form.categoryId)) : [];
 
   useEffect(() => {
     if (editProduct) {
@@ -77,7 +85,8 @@ function ProductForm({
         minPeople: String(editProduct.minPeople || 10),
         stock: String(editProduct.stock || 100),
         reserveFee: String(editProduct.reserveFee || 0),
-        category: editProduct.category || "Outros",
+        categoryId: editProduct.categoryId ? String(editProduct.categoryId) : "",
+        subcategoryId: editProduct.subcategoryId ? String(editProduct.subcategoryId) : "",
         saleMode: editProduct.saleMode || "grupo",
         active: editProduct.active !== false,
       });
@@ -85,7 +94,7 @@ function ProductForm({
       setForm({
         name: "", description: "", imageUrl: "", originalPrice: "", groupPrice: "",
         nowPrice: "", minPeople: "10", stock: "100", reserveFee: "0",
-        category: "Outros", saleMode: "grupo", active: true,
+        categoryId: "", subcategoryId: "", saleMode: "grupo", active: true,
       });
     }
   }, [editProduct, isOpen]);
@@ -94,12 +103,16 @@ function ProductForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const selectedCat = topCats.find((c: any) => c.id === Number(form.categoryId));
     const payload = {
       ...form,
       nowPrice: form.nowPrice || null,
       minPeople: Number(form.minPeople),
       stock: Number(form.stock),
       reserveFee: form.reserveFee || "0",
+      category: selectedCat?.name || "Outros",
+      categoryId: form.categoryId ? Number(form.categoryId) : null,
+      subcategoryId: form.subcategoryId ? Number(form.subcategoryId) : null,
     };
 
     if (editProduct) {
@@ -128,7 +141,7 @@ function ProductForm({
             <Textarea data-testid="input-product-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Tipo de Venda</Label>
               <select data-testid="select-sale-mode" value={form.saleMode} onChange={(e) => setForm({ ...form, saleMode: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
@@ -137,8 +150,16 @@ function ProductForm({
             </div>
             <div className="space-y-1.5">
               <Label>Categoria</Label>
-              <select data-testid="select-category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                {PRODUCT_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+              <select data-testid="select-category" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value, subcategoryId: "" })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                <option value="">Selecionar...</option>
+                {topCats.map((c: any) => (<option key={c.id} value={String(c.id)}>{c.name}</option>))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Subcategoria</Label>
+              <select data-testid="select-subcategory" value={form.subcategoryId} onChange={(e) => setForm({ ...form, subcategoryId: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                <option value="">Nenhuma</option>
+                {subCats.map((c: any) => (<option key={c.id} value={String(c.id)}>{c.name}</option>))}
               </select>
             </div>
           </div>
@@ -305,6 +326,48 @@ function VideoForm({ isOpen, onClose, editVideo }: { isOpen: boolean; onClose: (
   );
 }
 
+function SubcategoryForm({ parentId, editSubcategory, onSave, onCancel, isPending }: {
+  parentId: number;
+  editSubcategory: any;
+  onSave: (data: any) => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const [name, setName] = useState(editSubcategory?.name || "");
+
+  useEffect(() => {
+    setName(editSubcategory?.name || "");
+  }, [editSubcategory]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    onSave({
+      name,
+      slug,
+      parentId,
+      sortOrder: editSubcategory?.sortOrder ?? 0,
+      active: true,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Nome da Subcategoria</Label>
+        <Input data-testid="input-subcategory-name" value={name} onChange={(e) => setName(e.target.value)} required />
+      </div>
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={isPending}>Cancelar</Button>
+        <Button data-testid="button-save-subcategory" type="submit" className="flex-1" disabled={isPending || !name.trim()}>
+          {isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+          Salvar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function Admin() {
   const { data: user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -316,6 +379,9 @@ export default function Admin() {
   const [videoFormOpen, setVideoFormOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
   const [viewingGroupMembers, setViewingGroupMembers] = useState<number | null>(null);
+  const [subcategoryFormOpen, setSubcategoryFormOpen] = useState(false);
+  const [editingSubcategory, setEditingSubcategory] = useState<any>(null);
+  const [selectedParentCat, setSelectedParentCat] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -370,6 +436,49 @@ export default function Admin() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/videos"] }),
   });
 
+  const { data: allCategories } = useQuery({
+    queryKey: ["/api/categories"],
+    queryFn: async () => {
+      const res = await fetch("/api/categories", { credentials: "include" });
+      return await res.json();
+    },
+  });
+
+  const topLevelCategories = ((allCategories ?? []) as any[]).filter((c: any) => c.parentId === null);
+  const getSubcategories = (parentId: number) => ((allCategories ?? []) as any[]).filter((c: any) => c.parentId === parentId);
+
+  const createCategory = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/categories", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({ title: "Subcategoria criada!" });
+    },
+  });
+
+  const updateCategory = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PUT", `/api/categories/${id}`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({ title: "Subcategoria atualizada!" });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({ title: "Subcategoria removida!" });
+    },
+  });
+
   const updateOrderStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const res = await apiRequest("PATCH", `/api/orders/${id}/status`, { status });
@@ -397,6 +506,7 @@ export default function Admin() {
     { key: "products", label: "Produtos", icon: Package },
     { key: "groups", label: "Grupos", icon: Users },
     { key: "orders", label: "Pedidos", icon: ClipboardList },
+    { key: "categories", label: "Categorias", icon: LayoutDashboard },
     { key: "banners", label: "Banners", icon: Image },
     { key: "videos", label: "Videos", icon: Video },
   ];
@@ -655,6 +765,68 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
+          </>
+        )}
+
+        {tab === "categories" && (
+          <>
+            <h2 className="text-lg font-bold text-foreground mb-4">Gestao de Categorias</h2>
+            <div className="space-y-4">
+              {topLevelCategories.map((cat: any) => {
+                const subs = getSubcategories(cat.id);
+                return (
+                  <Card key={cat.id}>
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 py-3 px-4">
+                      <CardTitle className="text-sm font-bold">{cat.name}</CardTitle>
+                      <Button size="sm" variant="outline" data-testid={`button-add-sub-${cat.id}`} onClick={() => { setSelectedParentCat(cat.id); setEditingSubcategory(null); setSubcategoryFormOpen(true); }}>
+                        <Plus className="w-3 h-3 mr-1" /> Subcategoria
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3">
+                      {subs.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Nenhuma subcategoria cadastrada.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {subs.map((sub: any) => (
+                            <div key={sub.id} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
+                              <span className="text-xs font-medium">{sub.name}</span>
+                              <button data-testid={`button-edit-sub-${sub.id}`} onClick={() => { setSelectedParentCat(cat.id); setEditingSubcategory(sub); setSubcategoryFormOpen(true); }} className="text-muted-foreground hover-elevate p-0.5 rounded">
+                                <Edit className="w-3 h-3" />
+                              </button>
+                              <button data-testid={`button-delete-sub-${sub.id}`} onClick={() => deleteCategoryMutation.mutate(sub.id)} className="text-destructive p-0.5 rounded">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <Dialog open={subcategoryFormOpen} onOpenChange={(open) => !open && setSubcategoryFormOpen(false)}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>{editingSubcategory ? "Editar Subcategoria" : "Nova Subcategoria"}</DialogTitle>
+                </DialogHeader>
+                <SubcategoryForm
+                  parentId={selectedParentCat!}
+                  editSubcategory={editingSubcategory}
+                  onSave={(data) => {
+                    if (editingSubcategory) {
+                      updateCategory.mutate({ id: editingSubcategory.id, data });
+                    } else {
+                      createCategory.mutate(data);
+                    }
+                    setSubcategoryFormOpen(false);
+                  }}
+                  onCancel={() => setSubcategoryFormOpen(false)}
+                  isPending={createCategory.isPending || updateCategory.isPending}
+                />
+              </DialogContent>
+            </Dialog>
           </>
         )}
 

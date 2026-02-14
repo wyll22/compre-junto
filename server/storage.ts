@@ -1,6 +1,15 @@
 import { pool } from "./db";
 import bcrypt from "bcryptjs";
 
+type CategoryRow = {
+  id: number;
+  name: string;
+  slug: string;
+  parentId: number | null;
+  sortOrder: number;
+  active: boolean;
+};
+
 type ProductRow = {
   id: number;
   name: string;
@@ -15,6 +24,8 @@ type ProductRow = {
   category: string;
   saleMode: string;
   active: boolean;
+  categoryId: number | null;
+  subcategoryId: number | null;
   createdAt?: Date | string | null;
 };
 
@@ -78,7 +89,14 @@ type OrderRow = {
 };
 
 export interface IStorage {
-  getProducts(category?: string, search?: string, saleMode?: string): Promise<ProductRow[]>;
+  getCategories(parentId?: number | null): Promise<CategoryRow[]>;
+  getCategory(id: number): Promise<CategoryRow | null>;
+  createCategory(input: { name: string; slug: string; parentId?: number | null; sortOrder?: number; active?: boolean }): Promise<CategoryRow>;
+  updateCategory(id: number, input: any): Promise<CategoryRow | null>;
+  deleteCategory(id: number): Promise<void>;
+  seedCategories(): Promise<void>;
+
+  getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number): Promise<ProductRow[]>;
   getProduct(id: number): Promise<ProductRow | null>;
   createProduct(input: any): Promise<ProductRow>;
   updateProduct(id: number, input: any): Promise<ProductRow | null>;
@@ -116,6 +134,15 @@ export interface IStorage {
   seedProducts(): Promise<void>;
 }
 
+const CATEGORY_SELECT = `
+  id,
+  name,
+  slug,
+  parent_id AS "parentId",
+  sort_order AS "sortOrder",
+  active
+`;
+
 const PRODUCT_SELECT = `
   id,
   name,
@@ -130,6 +157,8 @@ const PRODUCT_SELECT = `
   category,
   sale_mode AS "saleMode",
   active,
+  category_id AS "categoryId",
+  subcategory_id AS "subcategoryId",
   created_at AS "createdAt"
 `;
 
@@ -184,7 +213,120 @@ const ORDER_SELECT = `
 const USER_SELECT = `id, name, email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", created_at AS "createdAt"`;
 
 class DatabaseStorage implements IStorage {
-  async getProducts(category?: string, search?: string, saleMode?: string): Promise<ProductRow[]> {
+  async getCategories(parentId?: number | null): Promise<CategoryRow[]> {
+    if (parentId === null) {
+      const result = await pool.query(
+        `SELECT ${CATEGORY_SELECT} FROM categories WHERE parent_id IS NULL ORDER BY sort_order ASC, id ASC`
+      );
+      return result.rows as CategoryRow[];
+    }
+    if (parentId !== undefined) {
+      const result = await pool.query(
+        `SELECT ${CATEGORY_SELECT} FROM categories WHERE parent_id = $1 ORDER BY sort_order ASC, id ASC`,
+        [parentId]
+      );
+      return result.rows as CategoryRow[];
+    }
+    const result = await pool.query(
+      `SELECT ${CATEGORY_SELECT} FROM categories ORDER BY sort_order ASC, id ASC`
+    );
+    return result.rows as CategoryRow[];
+  }
+
+  async getCategory(id: number): Promise<CategoryRow | null> {
+    const result = await pool.query(
+      `SELECT ${CATEGORY_SELECT} FROM categories WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+    return (result.rows[0] as CategoryRow | undefined) ?? null;
+  }
+
+  async createCategory(input: { name: string; slug: string; parentId?: number | null; sortOrder?: number; active?: boolean }): Promise<CategoryRow> {
+    const result = await pool.query(
+      `INSERT INTO categories (name, slug, parent_id, sort_order, active)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING ${CATEGORY_SELECT}`,
+      [input.name, input.slug, input.parentId ?? null, input.sortOrder ?? 0, input.active !== undefined ? input.active : true]
+    );
+    return result.rows[0] as CategoryRow;
+  }
+
+  async updateCategory(id: number, input: any): Promise<CategoryRow | null> {
+    const map: Record<string, string> = {
+      name: "name", slug: "slug", parentId: "parent_id", sortOrder: "sort_order", active: "active",
+    };
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, rawValue] of Object.entries(input)) {
+      if (rawValue === undefined) continue;
+      const dbField = map[key];
+      if (!dbField) continue;
+      values.push(rawValue);
+      fields.push(`${dbField} = $${values.length}`);
+    }
+    if (!fields.length) return this.getCategory(id);
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE categories SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING ${CATEGORY_SELECT}`,
+      values
+    );
+    return (result.rows[0] as CategoryRow | undefined) ?? null;
+  }
+
+  async deleteCategory(id: number): Promise<void> {
+    await pool.query(`DELETE FROM categories WHERE id = $1`, [id]);
+  }
+
+  async seedCategories(): Promise<void> {
+    try {
+      const countRes = await pool.query(`SELECT COUNT(*)::int AS total FROM categories`);
+      if (countRes.rows[0]?.total > 0) return;
+
+      const topLevel = [
+        { name: "Mercado", slug: "mercado", sortOrder: 1 },
+        { name: "Bebidas", slug: "bebidas", sortOrder: 2 },
+        { name: "Casa & Limpeza", slug: "casa-limpeza", sortOrder: 3 },
+        { name: "Higiene & Beleza", slug: "higiene-beleza", sortOrder: 4 },
+        { name: "Pet Shop", slug: "pet-shop", sortOrder: 5 },
+        { name: "Agro & Jardim", slug: "agro-jardim", sortOrder: 6 },
+        { name: "Ferramentas", slug: "ferramentas", sortOrder: 7 },
+        { name: "Moda & Calcados", slug: "moda-calcados", sortOrder: 8 },
+        { name: "Ofertas", slug: "ofertas", sortOrder: 9 },
+      ];
+
+      const subcats: Record<string, string[]> = {
+        "mercado": ["Basicos", "Matinais", "Industrializados", "Temperos e Condimentos", "Padaria", "Frios e Laticinios", "Hortifruti"],
+        "bebidas": ["Refrigerantes", "Sucos", "Aguas", "Energeticos"],
+        "casa-limpeza": ["Limpeza pesada", "Limpeza diaria", "Lavanderia", "Utensilios domesticos", "Descartaveis"],
+        "higiene-beleza": ["Higiene pessoal", "Perfumaria", "Cuidados com cabelo", "Cuidados com pele", "Infantil"],
+        "pet-shop": ["Racoes", "Petiscos", "Higiene pet", "Acessorios"],
+        "agro-jardim": ["Jardinagem", "Insumos", "Acessorios agro", "Irrigacao basica"],
+        "ferramentas": ["Eletricas", "Manuais", "Acessorios", "EPIs", "Organizacao"],
+        "moda-calcados": ["Botinas", "Calcados", "Roupas", "Acessorios", "Uniformes"],
+        "ofertas": ["Queima de estoque", "Combo", "Leve mais por menos", "Ultimas unidades"],
+      };
+
+      for (const cat of topLevel) {
+        const res = await pool.query(
+          `INSERT INTO categories (name, slug, parent_id, sort_order, active) VALUES ($1, $2, NULL, $3, true) RETURNING id`,
+          [cat.name, cat.slug, cat.sortOrder]
+        );
+        const parentId = res.rows[0].id;
+        const subs = subcats[cat.slug] || [];
+        for (let i = 0; i < subs.length; i++) {
+          const subSlug = subs[i].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          await pool.query(
+            `INSERT INTO categories (name, slug, parent_id, sort_order, active) VALUES ($1, $2, $3, $4, true)`,
+            [subs[i], subSlug, parentId, i + 1]
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Error seeding categories:", err);
+    }
+  }
+
+  async getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number): Promise<ProductRow[]> {
     const values: unknown[] = [];
     const conditions: string[] = ["active = true"];
 
@@ -201,6 +343,15 @@ class DatabaseStorage implements IStorage {
     if (saleMode) {
       values.push(saleMode);
       conditions.push(`sale_mode = $${values.length}`);
+    }
+
+    if (categoryId) {
+      values.push(categoryId);
+      conditions.push(`category_id = $${values.length}`);
+    }
+    if (subcategoryId) {
+      values.push(subcategoryId);
+      conditions.push(`subcategory_id = $${values.length}`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -222,8 +373,8 @@ class DatabaseStorage implements IStorage {
   async createProduct(input: any): Promise<ProductRow> {
     const result = await pool.query(
       `INSERT INTO products
-        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, active, category_id, subcategory_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING ${PRODUCT_SELECT}`,
       [
         input.name,
@@ -238,6 +389,8 @@ class DatabaseStorage implements IStorage {
         input.category || "Outros",
         input.saleMode || "grupo",
         input.active !== undefined ? input.active : true,
+        input.categoryId || null,
+        input.subcategoryId || null,
       ],
     );
     return result.rows[0] as ProductRow;
@@ -257,6 +410,8 @@ class DatabaseStorage implements IStorage {
       category: "category",
       saleMode: "sale_mode",
       active: "active",
+      categoryId: "category_id",
+      subcategoryId: "subcategory_id",
     };
 
     const fields: string[] = [];
