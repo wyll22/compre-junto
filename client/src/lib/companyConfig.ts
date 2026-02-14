@@ -1,0 +1,11 @@
+export const companyConfig = {
+  nomeFantasia: "Compra Junto Formosa",
+  razaoSocial: "Compra Junto Formosa Comercio Digital Ltda",
+  cnpj: "00.000.000/0001-00",
+  cidadeUf: "Formosa - GO",
+  whatsappSuporte: "(61) 99999-0000",
+  emailSuporte: "contato@comprajuntoformosa.com",
+  endereco: "Rua Exemplo, 123 - Centro, Formosa - GO, CEP 73800-000",
+  horarioAtendimento: "Segunda a Sexta, 8h as 18h",
+  site: "www.comprajuntoformosa.com",
+};
