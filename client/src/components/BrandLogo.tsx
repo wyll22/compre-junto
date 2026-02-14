@@ -21,14 +21,14 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
     ? "min-w-[120px] lg:min-w-[140px] flex items-center"
     : "flex items-center justify-center";
 
-  const bgClass = size === "header" ? "bg-white rounded-md inline-flex" : "";
+  const bgClass = size === "header" ? "bg-white rounded inline-flex p-0.5" : "";
 
   return (
     <div className={`${containerClass} ${className}`} data-testid="brand-logo">
       <div className={bgClass}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 4760 6460"
+        viewBox="270 0 3990 6460"
         preserveAspectRatio="xMidYMid meet"
         className={sizeClass}
         style={{ imageRendering: "auto" as const, objectFit: "contain" as const, filter: "none", opacity: 1, mixBlendMode: "normal" as const, transform: "none" }}
