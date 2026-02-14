@@ -10,6 +10,7 @@ import {
   ArrowLeft, Users, ShoppingBag, UserCircle, Loader2, Package,
   LogOut, MapPin, Shield, ChevronDown, ChevronUp, Phone, Mail,
   Lock, Save, Smile, CheckCircle2, Clock, Truck, XCircle, Search,
+  AlertTriangle, ArrowRight, History, PackageCheck, Timer,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
@@ -23,9 +24,10 @@ type AccountTab = "profile" | "address" | "security" | "orders" | "groups";
 
 const STATUS_LABELS: Record<string, string> = {
   recebido: "Recebido",
-  processando: "Processando",
-  enviado: "Enviado",
-  entregue: "Entregue",
+  em_separacao: "Em Separacao",
+  pronto_retirada: "Pronto p/ Retirada",
+  retirado: "Retirado",
+  nao_retirado: "Nao Retirado",
   cancelado: "Cancelado",
   aberto: "Aberto",
   fechado: "Fechado",
@@ -36,22 +38,37 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_ICONS: Record<string, any> = {
   recebido: CheckCircle2,
-  processando: Clock,
-  enviado: Truck,
-  entregue: CheckCircle2,
+  em_separacao: Package,
+  pronto_retirada: PackageCheck,
+  retirado: CheckCircle2,
+  nao_retirado: AlertTriangle,
   cancelado: XCircle,
 };
+
+const ORDER_STATUS_COLORS: Record<string, string> = {
+  recebido: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  em_separacao: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  pronto_retirada: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  retirado: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  nao_retirado: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  cancelado: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+};
+
+const ORDER_FLOW = ["recebido", "em_separacao", "pronto_retirada", "retirado"];
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "aberto":
-    case "processando":
+    case "recebido":
+    case "em_separacao":
       return "default";
     case "fechado":
-    case "entregue":
+    case "retirado":
+    case "pronto_retirada":
     case "pago":
       return "secondary";
     case "cancelado":
+    case "nao_retirado":
       return "destructive";
     default:
       return "outline";
@@ -520,6 +537,94 @@ function SecurityTab() {
   );
 }
 
+function PickupCountdown({ deadline }: { deadline: string }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const deadlineDate = new Date(deadline);
+  const diff = deadlineDate.getTime() - now.getTime();
+  const isOverdue = diff <= 0;
+
+  if (isOverdue) {
+    return (
+      <div className="mt-2 p-2 rounded-md bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs">
+        <div className="flex items-center gap-1 font-medium">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Prazo de retirada expirado
+        </div>
+      </div>
+    );
+  }
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const isUrgent = hours < 12;
+
+  return (
+    <div className={`mt-2 p-2 rounded-md text-xs ${isUrgent ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"}`}>
+      <div className="flex items-center gap-1 font-medium">
+        <Timer className="w-3.5 h-3.5" />
+        Retire em {hours}h {minutes}min
+      </div>
+      <p className="mt-0.5">Ate {deadlineDate.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
+    </div>
+  );
+}
+
+function OrderHistory({ orderId }: { orderId: number }) {
+  const [showHistory, setShowHistory] = useState(false);
+  const { data: history, isLoading } = useQuery({
+    queryKey: ["/api/orders", orderId, "history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/orders/${orderId}/history`, { credentials: "include" });
+      if (!res.ok) return [];
+      return await res.json();
+    },
+    enabled: showHistory,
+  });
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border">
+      <Button
+        variant="ghost"
+        size="sm"
+        data-testid={`button-history-${orderId}`}
+        onClick={() => setShowHistory(!showHistory)}
+        className="text-xs text-muted-foreground px-0"
+      >
+        <History className="w-3 h-3 mr-1" />
+        {showHistory ? "Ocultar historico" : "Ver historico"}
+        {showHistory ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
+      </Button>
+      {showHistory && (
+        <div className="mt-2 space-y-2">
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          ) : !history || history.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Sem historico de alteracoes.</p>
+          ) : (
+            (history as any[]).map((h: any) => (
+              <div key={h.id} className="flex items-start gap-2 text-xs">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                <div>
+                  <span className="font-medium">{STATUS_LABELS[h.toStatus] || h.toStatus}</span>
+                  <span className="text-muted-foreground ml-1">
+                    {h.createdAt ? new Date(h.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                  </span>
+                  {h.reason && <p className="text-muted-foreground">{h.reason}</p>}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OrdersTab() {
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
 
@@ -595,7 +700,51 @@ function OrdersTab() {
 
               {isExpanded && (
                 <div className="px-4 pb-4 border-t border-border">
-                  <div className="pt-3 space-y-2">
+                  <div className="pt-3 mb-3">
+                    <div className="flex items-center gap-1 overflow-x-auto pb-1">
+                      {ORDER_FLOW.map((step, idx) => {
+                        const isTerminal = order.status === "nao_retirado" || order.status === "cancelado";
+                        const progressIdx = isTerminal ? ORDER_FLOW.indexOf("pronto_retirada") : ORDER_FLOW.indexOf(order.status);
+                        const isCompleted = progressIdx >= 0 ? idx <= progressIdx : false;
+                        const isCurrent = step === order.status;
+                        const StepIcon = STATUS_ICONS[step] || Clock;
+                        return (
+                          <div key={step} className="flex items-center gap-1">
+                            <div className={`flex flex-col items-center min-w-[56px]`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                                isCurrent ? "bg-primary text-primary-foreground" :
+                                isCompleted ? "bg-primary/20 text-primary" :
+                                "bg-muted text-muted-foreground"
+                              }`}>
+                                <StepIcon className="w-3.5 h-3.5" />
+                              </div>
+                              <span className={`text-[9px] mt-0.5 text-center leading-tight ${isCurrent ? "font-bold text-primary" : "text-muted-foreground"}`}>
+                                {STATUS_LABELS[step]?.split(" ")[0] || step}
+                              </span>
+                            </div>
+                            {idx < ORDER_FLOW.length - 1 && (
+                              <div className={`w-4 h-0.5 mt-[-12px] ${isCompleted && idx < progressIdx ? "bg-primary" : "bg-muted"}`} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {order.status === "pronto_retirada" && order.pickupDeadline && (
+                      <PickupCountdown deadline={order.pickupDeadline} />
+                    )}
+
+                    {(order.status === "nao_retirado" || order.status === "cancelado") && (
+                      <div className={`mt-2 p-2 rounded-md text-xs ${ORDER_STATUS_COLORS[order.status]}`}>
+                        <div className="flex items-center gap-1 font-medium">
+                          {order.status === "nao_retirado" ? <AlertTriangle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                          {STATUS_LABELS[order.status]}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
                     {items.map((item: any, idx: number) => (
                       <div key={idx} className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
@@ -620,6 +769,8 @@ function OrdersTab() {
                     <span className="text-sm text-muted-foreground">Total</span>
                     <span className="text-base font-bold text-primary">R$ {Number(order.total).toFixed(2)}</span>
                   </div>
+
+                  <OrderHistory orderId={order.id} />
                 </div>
               )}
             </CardContent>

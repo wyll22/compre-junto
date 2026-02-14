@@ -13,6 +13,17 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-14: Pickup-focused order status workflow
+  - New status flow: recebido → em_separacao → pronto_retirada → retirado (with nao_retirado/cancelado branches)
+  - order_status_history table tracks all status transitions with user, timestamp, and reason
+  - order_settings table for configurable pickup window (default 72h) and tolerance (24h)
+  - pickup_deadline auto-calculated when order moves to pronto_retirada
+  - Admin: enhanced orders tab with status filter, overdue alerts, quick action buttons, order detail dialog with history
+  - Admin: Order Settings tab for configuring pickup deadlines and admin override
+  - Customer: status progress timeline in order details, pickup countdown timer, expandable status history
+  - API: GET /api/orders/:id/history, GET/PUT /api/admin/order-settings, GET /api/admin/orders/overdue
+  - Status transitions validated with configurable admin override option
+
 - 2026-02-14: Dual fulfillment logistics (pickup/delivery)
   - Added fulfillmentType field (pickup/delivery) to products and orders tables
   - pickup_points table for collection locations with full CRUD
@@ -59,7 +70,7 @@ The project is organized as a monorepo containing three main components:
 - **Database**: PostgreSQL.
 - **ORM/Schema**: Drizzle ORM with `drizzle-zod` for schema generation.
 - **Migrations**: Drizzle Kit.
-- **Core Tables**: `users`, `categories`, `products`, `groups`, `members`, `banners`, `videos`, `orders`, `pickup_points`, `audit_logs`.
+- **Core Tables**: `users`, `categories`, `products`, `groups`, `members`, `banners`, `videos`, `orders`, `order_status_history`, `order_settings`, `pickup_points`, `audit_logs`.
 
 ### Feature Specifications
 - **Dual Sale Modes**: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase).

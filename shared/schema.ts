@@ -111,7 +111,27 @@ export const orders = pgTable("orders", {
   status: text("status").notNull().default("recebido"),
   fulfillmentType: text("fulfillment_type").notNull().default("pickup"),
   pickupPointId: integer("pickup_point_id"),
+  statusChangedAt: timestamp("status_changed_at").defaultNow(),
+  pickupDeadline: timestamp("pickup_deadline"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const orderStatusHistory = pgTable("order_status_history", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status").notNull(),
+  changedByUserId: integer("changed_by_user_id"),
+  changedByName: text("changed_by_name").default(""),
+  reason: text("reason").default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const orderSettings = pgTable("order_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -151,10 +171,18 @@ export const membersRelations = relations(members, ({ one }) => ({
   }),
 }));
 
-export const ordersRelations = relations(orders, ({ one }) => ({
+export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, {
     fields: [orders.userId],
     references: [users.id],
+  }),
+  statusHistory: many(orderStatusHistory),
+}));
+
+export const orderStatusHistoryRelations = relations(orderStatusHistory, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderStatusHistory.orderId],
+    references: [orders.id],
   }),
 }));
 
@@ -180,8 +208,10 @@ export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, cre
 export const insertMemberSchema = createInsertSchema(members).omit({ id: true, createdAt: true });
 export const insertBannerSchema = createInsertSchema(banners).omit({ id: true, createdAt: true });
 export const insertVideoSchema = createInsertSchema(videos).omit({ id: true, createdAt: true });
-export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, statusChangedAt: true, pickupDeadline: true });
 export const insertPickupPointSchema = createInsertSchema(pickupPoints).omit({ id: true, createdAt: true });
+export const insertOrderStatusHistorySchema = createInsertSchema(orderStatusHistory).omit({ id: true, createdAt: true });
+export const insertOrderSettingsSchema = createInsertSchema(orderSettings).omit({ id: true, updatedAt: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -199,6 +229,9 @@ export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type PickupPoint = typeof pickupPoints.$inferSelect;
 export type InsertPickupPoint = z.infer<typeof insertPickupPointSchema>;
+export type OrderStatusHistory = typeof orderStatusHistory.$inferSelect;
+export type InsertOrderStatusHistory = z.infer<typeof insertOrderStatusHistorySchema>;
+export type OrderSetting = typeof orderSettings.$inferSelect;
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export type Category = typeof categories.$inferSelect;
@@ -295,8 +328,79 @@ export const createPickupPointSchema = z.object({
   sortOrder: z.coerce.number().int().min(0).optional().default(0),
 });
 
+export const ORDER_STATUSES = ["recebido", "em_separacao", "pronto_retirada", "retirado", "nao_retirado", "cancelado"] as const;
+export type OrderStatusType = typeof ORDER_STATUSES[number];
+
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  recebido: "Recebido",
+  em_separacao: "Em separacao",
+  pronto_retirada: "Pronto para retirada",
+  retirado: "Retirado",
+  nao_retirado: "Nao retirado no prazo",
+  cancelado: "Cancelado",
+};
+
+export const DEFAULT_STATUS_TRANSITIONS: Record<string, string[]> = {
+  recebido: ["em_separacao", "cancelado"],
+  em_separacao: ["pronto_retirada", "cancelado"],
+  pronto_retirada: ["retirado", "nao_retirado", "cancelado"],
+  retirado: [],
+  nao_retirado: ["cancelado"],
+  cancelado: [],
+};
+
+export const OLD_TO_NEW_STATUS_MAP: Record<string, string> = {
+  recebido: "recebido",
+  processando: "em_separacao",
+  enviado: "pronto_retirada",
+  entregue: "retirado",
+  cancelado: "cancelado",
+};
+
+export const DEFAULT_ORDER_SETTINGS = {
+  statusLabels: ORDER_STATUS_LABELS,
+  statusTransitions: DEFAULT_STATUS_TRANSITIONS,
+  adminOverride: true,
+  pickupWindowHours: 72,
+  toleranceHours: 24,
+  autoMarkOverdue: true,
+  autoCancelAfterOverdue: false,
+  autoCancelDelayHours: 48,
+  overdueStockPolicy: "hold" as "hold" | "release",
+  notifications: {
+    recebido: { email: false, whatsapp: false, sms: false },
+    em_separacao: { email: false, whatsapp: false, sms: false },
+    pronto_retirada: { email: false, whatsapp: false, sms: false },
+    retirado: { email: false, whatsapp: false, sms: false },
+    nao_retirado: { email: false, whatsapp: false, sms: false },
+    cancelado: { email: false, whatsapp: false, sms: false },
+  },
+};
+
 export const statusSchema = z.object({
   status: z.string().min(1).max(50),
+});
+
+export const orderStatusChangeSchema = z.object({
+  status: z.enum(ORDER_STATUSES),
+  reason: z.string().max(500).optional().default(""),
+});
+
+export const orderSettingsUpdateSchema = z.object({
+  statusLabels: z.record(z.string()).optional(),
+  statusTransitions: z.record(z.array(z.string())).optional(),
+  adminOverride: z.boolean().optional(),
+  pickupWindowHours: z.number().min(1).max(720).optional(),
+  toleranceHours: z.number().min(0).max(168).optional(),
+  autoMarkOverdue: z.boolean().optional(),
+  autoCancelAfterOverdue: z.boolean().optional(),
+  autoCancelDelayHours: z.number().min(1).max(720).optional(),
+  overdueStockPolicy: z.enum(["hold", "release"]).optional(),
+  notifications: z.record(z.object({
+    email: z.boolean(),
+    whatsapp: z.boolean(),
+    sms: z.boolean(),
+  })).optional(),
 });
 
 export const reserveStatusSchema = z.object({

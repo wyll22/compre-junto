@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Trash2, LayoutDashboard, ExternalLink, Edit, Package, Users, Image, Video, Loader2,
   ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
-  Mail, Phone, ChevronDown, ChevronUp, Search, MapPin,
+  Mail, Phone, ChevronDown, ChevronUp, Search, MapPin, AlertTriangle, Settings, ArrowRight, History,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -30,14 +30,41 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
   { value: "agora", label: "Compre Agora" },
 ];
 
-const ORDER_STATUSES = ["recebido", "processando", "enviado", "entregue", "cancelado"];
+const ORDER_STATUSES = ["recebido", "em_separacao", "pronto_retirada", "retirado", "nao_retirado", "cancelado"] as const;
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  recebido: "Recebido",
+  em_separacao: "Em Separacao",
+  pronto_retirada: "Pronto p/ Retirada",
+  retirado: "Retirado",
+  nao_retirado: "Nao Retirado",
+  cancelado: "Cancelado",
+};
+
+const ORDER_STATUS_COLORS: Record<string, string> = {
+  recebido: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  em_separacao: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  pronto_retirada: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  retirado: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  nao_retirado: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  cancelado: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+};
+
+const DEFAULT_TRANSITIONS: Record<string, string[]> = {
+  recebido: ["em_separacao", "cancelado"],
+  em_separacao: ["pronto_retirada", "cancelado"],
+  pronto_retirada: ["retirado", "nao_retirado", "cancelado"],
+  retirado: [],
+  nao_retirado: ["cancelado"],
+  cancelado: [],
+};
 const RESERVE_STATUSES = ["pendente", "pago", "nenhuma"];
 
 function ProductForm({
@@ -606,6 +633,251 @@ function ClientsTab() {
   );
 }
 
+function OrderDetailPanel({ order, onStatusChange }: { order: any; onStatusChange: (status: string, reason: string) => void }) {
+  const [reason, setReason] = useState("");
+  const { data: history } = useQuery({
+    queryKey: ["/api/orders", order.id, "history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/orders/${order.id}/history`, { credentials: "include" });
+      return await res.json();
+    },
+  });
+
+  const items = Array.isArray(order.items) ? order.items : [];
+  const nextStatuses = DEFAULT_TRANSITIONS[order.status] || [];
+  const isOverdue = order.status === "pronto_retirada" && order.pickupDeadline && new Date(order.pickupDeadline) < new Date();
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-muted-foreground text-xs">Cliente</p>
+          <p className="font-medium">{order.userName || "N/A"}</p>
+          <p className="text-xs text-muted-foreground">{order.userEmail}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-xs">Total</p>
+          <p className="font-bold text-primary">R$ {Number(order.total).toFixed(2)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-xs">Status Atual</p>
+          <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${ORDER_STATUS_COLORS[order.status] || ""}`}>
+            {isOverdue && <AlertTriangle className="w-3 h-3" />}
+            {ORDER_STATUS_LABELS[order.status] || order.status}
+          </span>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-xs">Tipo</p>
+          <p className="text-sm">{order.fulfillmentType === "pickup" ? "Retirada" : "Entrega"}</p>
+        </div>
+        {order.pickupDeadline && (
+          <div className="col-span-2">
+            <p className="text-muted-foreground text-xs">Prazo de Retirada</p>
+            <p className={`text-sm font-medium ${isOverdue ? "text-red-600 dark:text-red-400" : ""}`}>
+              {new Date(order.pickupDeadline).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              {isOverdue && " (ATRASADO)"}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <p className="text-xs font-medium text-muted-foreground mb-1">Itens</p>
+        <div className="space-y-1">
+          {items.map((item: any, idx: number) => (
+            <div key={idx} className="flex justify-between text-sm">
+              <span>{item.name} x{item.qty}</span>
+              <span className="text-muted-foreground">R$ {(Number(item.price) * item.qty).toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {history && history.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1"><History className="w-3 h-3" /> Historico</p>
+          <div className="space-y-2">
+            {(history as any[]).map((h: any) => (
+              <div key={h.id} className="flex items-start gap-2 text-xs">
+                <div className="w-2 h-2 rounded-full bg-primary mt-1 shrink-0" />
+                <div>
+                  <span className="font-medium">{ORDER_STATUS_LABELS[h.fromStatus] || h.fromStatus || "Inicio"}</span>
+                  <ArrowRight className="w-3 h-3 inline mx-1" />
+                  <span className="font-medium">{ORDER_STATUS_LABELS[h.toStatus] || h.toStatus}</span>
+                  <span className="text-muted-foreground ml-1">por {h.changedByName}</span>
+                  {h.reason && <span className="text-muted-foreground ml-1">- {h.reason}</span>}
+                  <p className="text-muted-foreground">{new Date(h.createdAt).toLocaleString("pt-BR")}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {nextStatuses.length > 0 && (
+        <div className="border-t pt-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Alterar Status</p>
+          <Textarea
+            data-testid="input-status-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Motivo da alteracao (opcional)..."
+            className="text-sm mb-2"
+          />
+          <div className="flex flex-wrap gap-2">
+            {nextStatuses.map((ns: string) => (
+              <Button
+                key={ns}
+                size="sm"
+                variant={ns === "cancelado" ? "destructive" : "default"}
+                data-testid={`button-change-to-${ns}`}
+                onClick={() => onStatusChange(ns, reason)}
+              >
+                <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                {ORDER_STATUS_LABELS[ns] || ns}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrderSettingsTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["/api/admin/order-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/order-settings", { credentials: "include" });
+      return await res.json();
+    },
+  });
+
+  const [pickupWindowHours, setPickupWindowHours] = useState(72);
+  const [toleranceHours, setToleranceHours] = useState(24);
+  const [adminOverride, setAdminOverride] = useState(true);
+
+  useEffect(() => {
+    if (settings) {
+      setPickupWindowHours(settings.pickupWindowHours || 72);
+      setToleranceHours(settings.toleranceHours || 24);
+      setAdminOverride(settings.adminOverride !== false);
+    }
+  }, [settings]);
+
+  const updateSettings = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("PUT", "/api/admin/order-settings", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/order-settings"] });
+      toast({ title: "Configuracoes salvas!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
+
+  return (
+    <>
+      <h2 className="text-lg font-bold text-foreground mb-4">Configuracoes de Pedidos</h2>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm">Prazos de Retirada</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 px-4 pb-4">
+            <div>
+              <Label className="text-xs">Janela de Retirada (horas)</Label>
+              <Input
+                data-testid="input-pickup-window"
+                type="number"
+                min={1}
+                max={720}
+                value={pickupWindowHours}
+                onChange={(e) => setPickupWindowHours(Number(e.target.value))}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Tempo que o cliente tem para retirar o pedido apos ficar pronto</p>
+            </div>
+            <div>
+              <Label className="text-xs">Tolerancia Adicional (horas)</Label>
+              <Input
+                data-testid="input-tolerance"
+                type="number"
+                min={0}
+                max={168}
+                value={toleranceHours}
+                onChange={(e) => setToleranceHours(Number(e.target.value))}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Horas extras antes de marcar como nao retirado</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm">Controle de Status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 px-4 pb-4">
+            <div className="flex items-center gap-2">
+              <input
+                data-testid="input-admin-override"
+                type="checkbox"
+                checked={adminOverride}
+                onChange={(e) => setAdminOverride(e.target.checked)}
+                className="rounded border-input"
+              />
+              <Label className="text-xs">Admin pode pular etapas de status</Label>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Quando ativado, admin pode alterar status para qualquer valor, ignorando o fluxo normal</p>
+
+            <div className="border-t pt-3">
+              <p className="text-xs font-medium mb-2">Fluxo de Status</p>
+              <div className="space-y-1.5">
+                {Object.entries(DEFAULT_TRANSITIONS).map(([from, toList]) => (
+                  <div key={from} className="flex items-center gap-1 text-xs flex-wrap">
+                    <span className={`rounded-md px-1.5 py-0.5 ${ORDER_STATUS_COLORS[from] || ""}`}>
+                      {ORDER_STATUS_LABELS[from]}
+                    </span>
+                    {toList.length > 0 ? (
+                      <>
+                        <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                        {toList.map((to: string) => (
+                          <span key={to} className={`rounded-md px-1.5 py-0.5 ${ORDER_STATUS_COLORS[to] || ""}`}>
+                            {ORDER_STATUS_LABELS[to]}
+                          </span>
+                        ))}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground ml-1">(final)</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-4">
+        <Button
+          data-testid="button-save-order-settings"
+          onClick={() => updateSettings.mutate({ pickupWindowHours, toleranceHours, adminOverride })}
+          disabled={updateSettings.isPending}
+        >
+          {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+          Salvar Configuracoes
+        </Button>
+      </div>
+    </>
+  );
+}
+
 export default function Admin() {
   const { data: user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -622,6 +894,9 @@ export default function Admin() {
   const [editingCategoryIsTopLevel, setEditingCategoryIsTopLevel] = useState(false);
   const [selectedParentCat, setSelectedParentCat] = useState<number | null>(null);
   const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
+  const [viewingOrderDetail, setViewingOrderDetail] = useState<any>(null);
+  const [statusChangeReason, setStatusChangeReason] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
@@ -756,12 +1031,15 @@ export default function Admin() {
   });
 
   const updateOrderStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const res = await apiRequest("PATCH", `/api/orders/${id}/status`, { status });
+    mutationFn: async ({ id, status, reason }: { id: number; status: string; reason?: string }) => {
+      const res = await apiRequest("PATCH", `/api/orders/${id}/status`, { status, reason: reason || "" });
       return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders/overdue"] });
+      setStatusChangeReason("");
       toast({ title: "Status atualizado!" });
     },
     onError: (err: any) => {
@@ -798,17 +1076,21 @@ export default function Admin() {
 
   if (!user || user.role !== "admin") return null;
 
-  const filteredOrders = orderSearch
-    ? ((allOrders ?? []) as any[]).filter((o: any) => {
-        const term = orderSearch.toLowerCase();
-        return (
-          String(o.id).includes(term) ||
-          o.userName?.toLowerCase().includes(term) ||
-          o.userEmail?.toLowerCase().includes(term) ||
-          o.status?.toLowerCase().includes(term)
-        );
-      })
-    : ((allOrders ?? []) as any[]);
+  const filteredOrders = ((allOrders ?? []) as any[]).filter((o: any) => {
+    if (orderStatusFilter !== "all" && o.status !== orderStatusFilter) return false;
+    if (!orderSearch) return true;
+    const term = orderSearch.toLowerCase();
+    return (
+      String(o.id).includes(term) ||
+      o.userName?.toLowerCase().includes(term) ||
+      o.userEmail?.toLowerCase().includes(term) ||
+      (ORDER_STATUS_LABELS[o.status] || o.status)?.toLowerCase().includes(term)
+    );
+  });
+
+  const overdueOrders = ((allOrders ?? []) as any[]).filter((o: any) =>
+    o.status === "pronto_retirada" && o.pickupDeadline && new Date(o.pickupDeadline) < new Date()
+  );
 
   const tabs: { key: AdminTab; label: string; icon: any }[] = [
     { key: "dashboard", label: "Painel", icon: LayoutDashboard },
@@ -820,6 +1102,7 @@ export default function Admin() {
     { key: "banners", label: "Banners", icon: Image },
     { key: "videos", label: "Videos", icon: Video },
     { key: "pickup", label: "Retirada", icon: MapPin },
+    { key: "order-settings", label: "Config. Pedidos", icon: Settings },
   ];
 
   return (
@@ -1046,15 +1329,39 @@ export default function Admin() {
           <>
             <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
               <h2 className="text-lg font-bold text-foreground">Gestao de Pedidos ({filteredOrders.length})</h2>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  data-testid="input-search-orders"
-                  value={orderSearch}
-                  onChange={(e) => setOrderSearch(e.target.value)}
-                  placeholder="Buscar por ID, cliente, status..."
-                  className="pl-10"
-                />
+              <div className="flex flex-wrap items-center gap-2">
+                {overdueOrders.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    data-testid="button-filter-overdue"
+                    onClick={() => setOrderStatusFilter(orderStatusFilter === "overdue" ? "all" : "overdue" as any)}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                    {overdueOrders.length} Atrasado(s)
+                  </Button>
+                )}
+                <select
+                  data-testid="select-order-filter"
+                  value={orderStatusFilter}
+                  onChange={(e) => setOrderStatusFilter(e.target.value)}
+                  className="text-xs border border-input rounded-md px-2 py-1.5 bg-background"
+                >
+                  <option value="all">Todos os Status</option>
+                  {ORDER_STATUSES.map((s) => (
+                    <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+                  ))}
+                </select>
+                <div className="relative w-full sm:w-52">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    data-testid="input-search-orders"
+                    value={orderSearch}
+                    onChange={(e) => setOrderSearch(e.target.value)}
+                    placeholder="Buscar pedido..."
+                    className="pl-10"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1069,7 +1376,7 @@ export default function Admin() {
                         <TableHead>Itens</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Data</TableHead>
+                        <TableHead>Prazo</TableHead>
                         <TableHead className="text-right">Acoes</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1081,14 +1388,24 @@ export default function Admin() {
                       ) : (
                         filteredOrders.map((order: any) => {
                           const items = Array.isArray(order.items) ? order.items : [];
+                          const isOverdue = order.status === "pronto_retirada" && order.pickupDeadline && new Date(order.pickupDeadline) < new Date();
+                          const nextStatuses = DEFAULT_TRANSITIONS[order.status] || [];
+
                           return (
-                            <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                              <TableCell className="text-sm font-medium">#{order.id}</TableCell>
+                            <TableRow key={order.id} data-testid={`row-order-${order.id}`} className={isOverdue ? "bg-red-50 dark:bg-red-950/20" : ""}>
+                              <TableCell className="text-sm font-medium">
+                                <button
+                                  data-testid={`button-view-order-${order.id}`}
+                                  onClick={() => setViewingOrderDetail(order)}
+                                  className="text-primary underline-offset-2 hover:underline"
+                                >
+                                  #{order.id}
+                                </button>
+                              </TableCell>
                               <TableCell>
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium truncate">{order.userName || "N/A"}</p>
                                   <p className="text-[11px] text-muted-foreground truncate">{order.userEmail || ""}</p>
-                                  {order.userPhone && <p className="text-[11px] text-muted-foreground">{order.userPhone}</p>}
                                 </div>
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
@@ -1096,24 +1413,47 @@ export default function Admin() {
                               </TableCell>
                               <TableCell className="text-right text-sm font-bold text-primary">R$ {Number(order.total).toFixed(2)}</TableCell>
                               <TableCell>
-                                <Badge variant={order.status === "entregue" ? "secondary" : order.status === "cancelado" ? "destructive" : "default"} className="text-[10px]">
-                                  {order.status}
-                                </Badge>
+                                <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium ${ORDER_STATUS_COLORS[order.status] || ""}`}>
+                                  {isOverdue && <AlertTriangle className="w-3 h-3" />}
+                                  {ORDER_STATUS_LABELS[order.status] || order.status}
+                                </span>
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                {order.createdAt ? new Date(order.createdAt).toLocaleDateString("pt-BR") : "-"}
+                                {order.pickupDeadline ? (
+                                  <span className={isOverdue ? "text-red-600 dark:text-red-400 font-medium" : ""}>
+                                    {new Date(order.pickupDeadline).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    {order.createdAt ? new Date(order.createdAt).toLocaleDateString("pt-BR") : "-"}
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell className="text-right">
-                                <select
-                                  data-testid={`select-order-status-${order.id}`}
-                                  value={order.status}
-                                  onChange={(e) => updateOrderStatus.mutate({ id: order.id, status: e.target.value })}
-                                  className="text-xs border border-input rounded-md px-2 py-1 bg-background"
-                                >
-                                  {ORDER_STATUSES.map((s) => (
-                                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                                <div className="flex items-center justify-end gap-1">
+                                  {nextStatuses.slice(0, 2).map((ns: string) => (
+                                    <Button
+                                      key={ns}
+                                      size="sm"
+                                      variant={ns === "cancelado" ? "destructive" : "default"}
+                                      data-testid={`button-status-${order.id}-${ns}`}
+                                      disabled={updateOrderStatus.isPending}
+                                      onClick={() => updateOrderStatus.mutate({ id: order.id, status: ns })}
+                                      className="text-[10px] h-7 px-2"
+                                    >
+                                      <ArrowRight className="w-3 h-3 mr-0.5" />
+                                      {ORDER_STATUS_LABELS[ns]?.split(" ")[0] || ns}
+                                    </Button>
                                   ))}
-                                </select>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    data-testid={`button-detail-order-${order.id}`}
+                                    onClick={() => setViewingOrderDetail(order)}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
@@ -1124,6 +1464,18 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
+
+            <Dialog open={!!viewingOrderDetail} onOpenChange={(open) => { if (!open) setViewingOrderDetail(null); }}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Pedido #{viewingOrderDetail?.id}</DialogTitle>
+                </DialogHeader>
+                {viewingOrderDetail && <OrderDetailPanel order={viewingOrderDetail} onStatusChange={(status: string, reason: string) => {
+                  updateOrderStatus.mutate({ id: viewingOrderDetail.id, status, reason });
+                  setViewingOrderDetail(null);
+                }} />}
+              </DialogContent>
+            </Dialog>
           </>
         )}
 
@@ -1482,6 +1834,8 @@ export default function Admin() {
             </Dialog>
           </>
         )}
+
+        {tab === "order-settings" && <OrderSettingsTab />}
       </div>
     </div>
   );

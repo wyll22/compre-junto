@@ -810,12 +810,82 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
-      const order = await storage.updateOrderStatus(Number(req.params.id), parsed.data.status);
+      const newStatus = parsed.data.status;
+      const reason = (req.body.reason as string) || "";
+
+      const settings = await storage.getOrderSettings();
+      const currentOrder = await storage.getOrder(Number(req.params.id));
+      if (!currentOrder) return res.status(404).json({ message: "Pedido nao encontrado" });
+
+      const transitions = settings.statusTransitions || {};
+      const allowed = transitions[currentOrder.status] || [];
+      if (!settings.adminOverride && !allowed.includes(newStatus)) {
+        return res.status(400).json({
+          message: `Transicao de "${currentOrder.status}" para "${newStatus}" nao permitida`
+        });
+      }
+
+      const user = await storage.getUser(userId);
+      const changedByName = user?.name || "Admin";
+
+      const order = await storage.changeOrderStatus(Number(req.params.id), newStatus, userId, changedByName, reason);
       if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
-      await auditLog(req, userId, "alterar_status", "pedido", Number(req.params.id), { status: parsed.data.status });
+      await auditLog(req, userId, "alterar_status", "pedido", Number(req.params.id), { from: currentOrder.status, to: newStatus, reason });
       res.json(order);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar pedido" });
+    }
+  });
+
+  app.get("/api/orders/:id/history", async (req: Request, res: Response) => {
+    const userId = (req.session as any)?.userId;
+    if (!userId) return res.status(401).json({ message: "Nao autenticado" });
+    try {
+      const order = await storage.getOrder(Number(req.params.id));
+      if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
+      const user = await storage.getUser(userId);
+      if (order.userId !== userId && user?.role !== "admin") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const history = await storage.getOrderStatusHistory(Number(req.params.id));
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar historico" });
+    }
+  });
+
+  app.get("/api/admin/orders/overdue", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const orders = await storage.getOverdueOrders();
+      res.json(orders);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar pedidos atrasados" });
+    }
+  });
+
+  app.get("/api/admin/order-settings", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const settings = await storage.getOrderSettings();
+      res.json(settings);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar configuracoes" });
+    }
+  });
+
+  app.put("/api/admin/order-settings", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      await storage.updateOrderSettings(req.body);
+      await auditLog(req, userId, "atualizar_configuracoes", "pedidos", 0, req.body);
+      const settings = await storage.getOrderSettings();
+      res.json(settings);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao atualizar configuracoes" });
     }
   });
 

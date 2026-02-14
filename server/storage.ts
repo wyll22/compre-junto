@@ -96,6 +96,19 @@ type OrderRow = {
   status: string;
   fulfillmentType: string;
   pickupPointId: number | null;
+  statusChangedAt?: Date | string | null;
+  pickupDeadline?: Date | string | null;
+  createdAt?: Date | string | null;
+};
+
+type OrderStatusHistoryRow = {
+  id: number;
+  orderId: number;
+  fromStatus: string | null;
+  toStatus: string;
+  changedByUserId: number | null;
+  changedByName: string;
+  reason: string;
   createdAt?: Date | string | null;
 };
 
@@ -158,6 +171,12 @@ export interface IStorage {
   getOrders(userId?: number): Promise<OrderRow[]>;
   getOrder(id: number): Promise<OrderRow | null>;
   updateOrderStatus(id: number, status: string): Promise<OrderRow | null>;
+  changeOrderStatus(orderId: number, newStatus: string, changedByUserId: number, changedByName: string, reason?: string): Promise<OrderRow | null>;
+  getOrderStatusHistory(orderId: number): Promise<OrderStatusHistoryRow[]>;
+  getOverdueOrders(): Promise<OrderRow[]>;
+
+  getOrderSettings(): Promise<Record<string, any>>;
+  updateOrderSettings(settings: Record<string, any>): Promise<void>;
 
   getPickupPoints(activeOnly?: boolean): Promise<PickupPointRow[]>;
   getPickupPoint(id: number): Promise<PickupPointRow | null>;
@@ -252,6 +271,19 @@ const ORDER_SELECT = `
   status,
   fulfillment_type AS "fulfillmentType",
   pickup_point_id AS "pickupPointId",
+  status_changed_at AS "statusChangedAt",
+  pickup_deadline AS "pickupDeadline",
+  created_at AS "createdAt"
+`;
+
+const STATUS_HISTORY_SELECT = `
+  id,
+  order_id AS "orderId",
+  from_status AS "fromStatus",
+  to_status AS "toStatus",
+  changed_by_user_id AS "changedByUserId",
+  changed_by_name AS "changedByName",
+  reason,
   created_at AS "createdAt"
 `;
 
@@ -885,10 +917,104 @@ class DatabaseStorage implements IStorage {
 
   async updateOrderStatus(id: number, status: string): Promise<OrderRow | null> {
     const result = await pool.query(
-      `UPDATE orders SET status = $1 WHERE id = $2 RETURNING ${ORDER_SELECT}`,
+      `UPDATE orders SET status = $1, status_changed_at = NOW() WHERE id = $2 RETURNING ${ORDER_SELECT}`,
       [status, id],
     );
     return (result.rows[0] as OrderRow | undefined) ?? null;
+  }
+
+  async changeOrderStatus(orderId: number, newStatus: string, changedByUserId: number, changedByName: string, reason?: string): Promise<OrderRow | null> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const orderRes = await client.query(`SELECT ${ORDER_SELECT} FROM orders WHERE id = $1 FOR UPDATE`, [orderId]);
+      const order = orderRes.rows[0] as OrderRow | undefined;
+      if (!order) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      const fromStatus = order.status;
+
+      let pickupDeadlineClause = "";
+      const values: any[] = [newStatus, orderId];
+      if (newStatus === "pronto_retirada" && !order.pickupDeadline) {
+        const settings = await this.getOrderSettings();
+        const windowHours = settings.pickupWindowHours || 72;
+        const toleranceHours = settings.toleranceHours || 24;
+        const totalHours = windowHours + toleranceHours;
+        pickupDeadlineClause = `, pickup_deadline = NOW() + interval '${totalHours} hours'`;
+      }
+
+      const updated = await client.query(
+        `UPDATE orders SET status = $1, status_changed_at = NOW()${pickupDeadlineClause} WHERE id = $2 RETURNING ${ORDER_SELECT}`,
+        values,
+      );
+
+      await client.query(
+        `INSERT INTO order_status_history (order_id, from_status, to_status, changed_by_user_id, changed_by_name, reason)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [orderId, fromStatus, newStatus, changedByUserId, changedByName, reason || ""],
+      );
+
+      await client.query("COMMIT");
+      return updated.rows[0] as OrderRow;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getOrderStatusHistory(orderId: number): Promise<OrderStatusHistoryRow[]> {
+    const result = await pool.query(
+      `SELECT ${STATUS_HISTORY_SELECT} FROM order_status_history WHERE order_id = $1 ORDER BY created_at ASC`,
+      [orderId],
+    );
+    return result.rows as OrderStatusHistoryRow[];
+  }
+
+  async getOverdueOrders(): Promise<OrderRow[]> {
+    const result = await pool.query(
+      `SELECT ${ORDER_SELECT} FROM orders
+       WHERE status = 'pronto_retirada'
+       AND pickup_deadline IS NOT NULL
+       AND pickup_deadline < NOW()
+       ORDER BY pickup_deadline ASC`,
+    );
+    return result.rows as OrderRow[];
+  }
+
+  async getOrderSettings(): Promise<Record<string, any>> {
+    const result = await pool.query(`SELECT key, value FROM order_settings`);
+    const settings: Record<string, any> = {};
+    for (const row of result.rows) {
+      settings[row.key] = row.value;
+    }
+    const defaults: Record<string, any> = {
+      statusLabels: { recebido: "Recebido", em_separacao: "Em separacao", pronto_retirada: "Pronto para retirada", retirado: "Retirado", nao_retirado: "Nao retirado no prazo", cancelado: "Cancelado" },
+      statusTransitions: { recebido: ["em_separacao", "cancelado"], em_separacao: ["pronto_retirada", "cancelado"], pronto_retirada: ["retirado", "nao_retirado", "cancelado"], retirado: [], nao_retirado: ["cancelado"], cancelado: [] },
+      adminOverride: true,
+      pickupWindowHours: 72,
+      toleranceHours: 24,
+      autoMarkOverdue: true,
+      autoCancelAfterOverdue: false,
+      autoCancelDelayHours: 48,
+      overdueStockPolicy: "hold",
+      notifications: {},
+    };
+    return { ...defaults, ...settings };
+  }
+
+  async updateOrderSettings(settings: Record<string, any>): Promise<void> {
+    for (const [key, value] of Object.entries(settings)) {
+      await pool.query(
+        `INSERT INTO order_settings (key, value) VALUES ($1, $2::jsonb)
+         ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, updated_at = NOW()`,
+        [key, JSON.stringify(value)],
+      );
+    }
   }
 
   async getPickupPoints(activeOnly?: boolean): Promise<PickupPointRow[]> {
@@ -974,6 +1100,7 @@ class DatabaseStorage implements IStorage {
     const result = await pool.query(
       `SELECT o.id, o.user_id AS "userId", o.items, o.total, o.status,
               o.fulfillment_type AS "fulfillmentType", o.pickup_point_id AS "pickupPointId",
+              o.status_changed_at AS "statusChangedAt", o.pickup_deadline AS "pickupDeadline",
               o.created_at AS "createdAt",
               u.name AS "userName", u.email AS "userEmail", u.phone AS "userPhone"
        FROM orders o

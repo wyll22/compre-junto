@@ -1,0 +1,64 @@
+Vamos usar fluxo de retirada (não entrega) para pedidos de grupo e muitos pedidos locais.
+Adicione e use estes status nesta ordem exata:
+	1.	Recebido
+	2.	Em separação
+	3.	Pronto para retirada
+	4.	Retirado
+	5.	Não retirado no prazo (quando aplicável)
+	6.	Cancelado
+
+Comportamento principal
+	•	Substitua o ciclo antigo de pedidos por essa lista de status acima.
+	•	Mantenha compatibilidade com registros existentes:
+	•	migrar/convertar status antigos para os novos com segurança.
+	•	Registrar timestamp de cada mudança de status.
+	•	Manter histórico completo de status (trilha de auditoria), não apenas status atual.
+	•	Permitir apenas transições válidas para frente (com opção de override de admin, configurável no Admin).
+
+Lógica de prazo de retirada
+	•	Adicionar regras de prazo de retirada configuráveis no Admin (padrão global + override opcional por produto/categoria):
+	•	janela de retirada em horas/dias,
+	•	período de tolerância,
+	•	marcação automática como “Não retirado no prazo” quando expirar,
+	•	opção de cancelamento automático após “Não retirado no prazo”.
+	•	Quando o pedido virar “Não retirado no prazo”, aplicar política de estoque/reserva configurada no Admin.
+
+Requisitos do painel Admin (obrigatório)
+
+Criar/editar controles no Admin para eu mudar tudo isso sem editar código:
+	•	rótulos de status (texto exibido),
+	•	matriz de transições permitidas,
+	•	override de admin liga/desliga,
+	•	prazo padrão de retirada,
+	•	tolerância padrão,
+	•	marcação automática de atraso liga/desliga,
+	•	cancelamento automático por atraso liga/desliga + tempo,
+	•	regra de estoque para pedido em atraso,
+	•	toggles de notificação por status (email/whatsapp/sms como placeholder caso canal não esteja ativo ainda).
+
+Requisitos de interface
+	•	“Meus Pedidos” do cliente deve mostrar:
+	•	badge do status atual,
+	•	contagem regressiva para retirada quando aplicável,
+	•	linha do tempo/histórico das mudanças de status.
+	•	Tela de pedidos no Admin deve suportar:
+	•	botões rápidos de troca de status,
+	•	visualização do prazo,
+	•	filtro de atrasados,
+	•	marcação manual como retirado com timestamp e log do operador.
+
+Restrições técnicas
+	•	Sem quebrar rotas/telas já existentes.
+	•	Incluir migração(ões) de banco, atualização de enum/tabelas, e caminho seguro de migração com dados existentes.
+	•	Expor novas configurações via API do Admin com validação em Zod.
+	•	Adicionar logs de auditoria para toda mudança de status (quem, de, para, quando, motivo).
+
+Formato da resposta
+
+No final, retorne apenas:
+	•	arquivos alterados,
+	•	migrações criadas,
+	•	mapeamento de status aplicado,
+	•	checklist de testes (fluxo normal + fluxo atrasado + fluxo cancelado).
+
+Não faça perguntas de follow-up. Implemente diretamente.
