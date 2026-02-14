@@ -7,15 +7,15 @@ interface BrandLogoProps {
 
 export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
   const sizeClass = size === "large"
-    ? "h-[100px] sm:h-[120px] md:h-[140px]"
-    : "h-[60px] sm:h-[70px] md:h-[80px]";
+    ? "w-[160px] md:w-[200px] h-auto mx-auto"
+    : "w-[120px] md:w-[160px] h-auto";
 
   return (
     <img
       src={logoImg}
       alt="Compra Junto Formosa"
       decoding="async"
-      className={`${sizeClass} w-auto object-contain flex-shrink-0 ${className}`}
+      className={`object-contain flex-shrink-0 ${sizeClass} ${className}`}
       onError={(e) => {
         (e.target as HTMLImageElement).style.display = "none";
       }}
