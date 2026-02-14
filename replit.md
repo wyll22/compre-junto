@@ -58,6 +58,16 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
   - Enhanced Banners/Videos: delete confirmation dialogs
   - New endpoints: GET /api/admin/stats, GET /api/admin/users, PATCH /api/members/:id/reserve-status
   - Orders admin now joins with user data (getOrdersWithUsers)
+- 2026-02-14: Security hardening
+  - Helmet for security headers (CSP, XSS protection, HSTS, etc.)
+  - Strict CORS: exact origin matching, credentials enabled
+  - Zod validation schemas for all 20+ API routes with safeParse
+  - Global log sanitization: PII fields redacted ([REDACTED]), names partially masked, recursive depth limit
+  - Rate limiting: 5 attempts per user/15min lockout, in-memory store with auto-cleanup
+  - Password policy: minimum 8 characters
+  - Session security: 7-day rolling sessions, regeneration on login/password change
+  - Trust proxy enabled for accurate IP detection behind reverse proxy
+  - Numeric fields use z.coerce.number() for form compatibility
 - 2026-02-14: Major update with comprehensive features
   - Added Minha Conta page with Meus Grupos, Meus Pedidos, Meus Dados tabs
   - Cart now creates real orders on backend with confirmation screen
