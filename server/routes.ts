@@ -197,7 +197,13 @@ export async function registerRoutes(
         pool: pool as any,
         createTableIfMissing: true,
       }),
-      secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString("hex"),
+      secret: (() => {
+        const secret = process.env.SESSION_SECRET;
+        if (!secret && process.env.NODE_ENV === "production") {
+          throw new Error("SESSION_SECRET is required in production");
+        }
+        return secret || crypto.randomBytes(64).toString("hex");
+      })(),
       resave: false,
       saveUninitialized: false,
       rolling: true,
@@ -223,14 +229,20 @@ export async function registerRoutes(
     if (process.env.NODE_ENV !== "production") return next();
     const origin = req.headers.origin;
     const referer = req.headers.referer;
-    const allowedHost = process.env.APP_DOMAIN || "https://comprajuntoformosa.replit.app";
-    if (origin && origin !== allowedHost) {
-      return res.status(403).json({ message: "Origem invalida" });
+    const allowedHost = (process.env.APP_DOMAIN || "https://comprajuntoformosa.replit.app").replace(/\/+$/, "");
+    if (origin) {
+      if (origin !== allowedHost) {
+        return res.status(403).json({ message: "Origem invalida" });
+      }
+      return next();
     }
-    if (!origin && referer && !referer.startsWith(allowedHost)) {
-      return res.status(403).json({ message: "Origem invalida" });
+    if (referer) {
+      if (!referer.startsWith(allowedHost + "/") && referer !== allowedHost) {
+        return res.status(403).json({ message: "Origem invalida" });
+      }
+      return next();
     }
-    next();
+    return res.status(403).json({ message: "Origem nao identificada" });
   });
 
   app.post("/api/auth/register", async (req: Request, res: Response) => {

@@ -9,10 +9,8 @@ export default function Contato() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
-        <Link href="/">
-          <a className="flex items-center gap-2 text-primary-foreground" data-testid="link-back-home">
-            <ArrowLeft className="w-5 h-5" />
-          </a>
+        <Link href="/" className="flex items-center gap-2 text-primary-foreground" data-testid="link-back-home">
+          <ArrowLeft className="w-5 h-5" />
         </Link>
         <BrandLogo size="header" />
       </header>

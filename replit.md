@@ -64,7 +64,14 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
   - Enhanced Banners/Videos: delete confirmation dialogs
   - New endpoints: GET /api/admin/stats, GET /api/admin/users, PATCH /api/members/:id/reserve-status
   - Orders admin now joins with user data (getOrdersWithUsers)
-- 2026-02-14: Security hardening
+- 2026-02-14: Security hardening (phase 2)
+  - XSS sanitization: global middleware strips HTML tags, javascript: URIs, on* event handlers from all request bodies
+  - CSRF protection: Origin/Referer validation on all mutations in production, rejects unknown/missing origins
+  - SESSION_SECRET: required env var in production (fails fast), crypto fallback only in dev
+  - Audit logs: audit_logs table tracking admin actions (create/edit/delete products, categories, group/order status changes) with userId, userName, action, entity, details (JSON diff), ipAddress
+  - New endpoint: GET /api/admin/audit-logs (admin-only)
+  - Backend role enforcement: /api/products/all requires admin, /api/groups/:id/members requires auth + membership, /api/orders/:id checks ownership
+- 2026-02-14: Security hardening (phase 1)
   - Helmet for security headers (CSP, XSS protection, HSTS, etc.)
   - Strict CORS: exact origin matching, credentials enabled
   - Zod validation schemas for all 20+ API routes with safeParse
