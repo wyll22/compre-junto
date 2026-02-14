@@ -1,4 +1,4 @@
-import logoImg from "@assets/IMG_1311_1771052232188.png";
+import logoImg from "@assets/logo-transparent-final.png";
 
 interface BrandLogoProps {
   size?: "header" | "large";
@@ -13,7 +13,7 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
           src={logoImg}
           alt="Compra Junto Formosa"
           decoding="async"
-          className="w-[140px] md:w-[180px] h-auto object-contain"
+          className="w-[160px] md:w-[200px] h-auto object-contain"
         />
       </div>
     );
@@ -24,7 +24,7 @@ export function BrandLogo({ size = "header", className = "" }: BrandLogoProps) {
       src={logoImg}
       alt="Compra Junto Formosa"
       decoding="async"
-      className={`w-[80px] md:w-[110px] h-auto object-contain flex-shrink-0 ${className}`}
+      className={`w-[100px] md:w-[130px] h-auto object-contain flex-shrink-0 ${className}`}
     />
   );
 }
