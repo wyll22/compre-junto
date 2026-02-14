@@ -10,6 +10,7 @@ import {
   Plus, Trash2, LayoutDashboard, ExternalLink, Edit, Package, Users, Image, Video, Loader2,
   ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
   Mail, Phone, ChevronDown, ChevronUp, Search, MapPin, AlertTriangle, Settings, ArrowRight, History,
+  Monitor, Globe, Database, Server, Shield, RefreshCcw, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -30,7 +31,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -887,6 +888,270 @@ function OrderSettingsTab() {
   );
 }
 
+function SystemTab() {
+  const { data: health, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["/api/admin/system-health"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/system-health", { credentials: "include" });
+      return await res.json();
+    },
+    refetchInterval: 30000,
+  });
+
+  const formatUptime = (seconds: number) => {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  };
+
+  if (isLoading || !health) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const isOnline = health.status === "online";
+  const dbConnected = health.database?.connected;
+  const counts = health.counts || {};
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-bold text-foreground">Monitoramento do Sistema</h2>
+        <Button data-testid="button-refresh-health" variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          {isFetching ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <RefreshCcw className="w-4 h-4 mr-1.5" />}
+          Atualizar
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <Card data-testid="card-site-status">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Status do Site</CardTitle>
+            <Globe className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`w-3 h-3 rounded-full ${isOnline ? "bg-green-500 animate-pulse" : "bg-destructive"}`} />
+              <span className="text-lg font-bold">{isOnline ? "Online" : "Offline"}</span>
+            </div>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>Tempo ativo: {formatUptime(health.uptime)}</p>
+              <p>Resposta API: {health.performance?.apiResponseMs}ms</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-db-status">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Banco de Dados</CardTitle>
+            <Database className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`w-3 h-3 rounded-full ${dbConnected ? "bg-green-500 animate-pulse" : "bg-destructive"}`} />
+              <span className="text-lg font-bold">{dbConnected ? "Conectado" : "Desconectado"}</span>
+            </div>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>Tamanho: {health.database?.sizeMB} MB</p>
+              <p>Resposta: {health.performance?.dbResponseMs}ms</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-server-status">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Servidor</CardTitle>
+            <Server className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1 text-sm">
+              <p className="text-muted-foreground">Node.js: <span className="font-medium text-foreground">{health.nodeVersion}</span></p>
+              <p className="text-muted-foreground">Memoria RAM: <span className="font-medium text-foreground">{health.memoryUsage?.rss} MB</span></p>
+              <p className="text-muted-foreground">Heap: <span className="font-medium text-foreground">{health.memoryUsage?.heapUsed}/{health.memoryUsage?.heapTotal} MB</span></p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {(counts.overdue_pickups > 0 || counts.low_stock_products > 0) && (
+        <Card className="border-yellow-500/50">
+          <CardHeader className="flex flex-row items-center gap-1 space-y-0 pb-2">
+            <AlertTriangle className="w-4 h-4 text-yellow-500" />
+            <CardTitle className="text-sm font-medium text-yellow-600">Alertas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1.5 text-sm">
+              {counts.overdue_pickups > 0 && (
+                <div className="flex items-center gap-2" data-testid="alert-overdue">
+                  <Badge variant="destructive">{counts.overdue_pickups}</Badge>
+                  <span>pedido(s) com retirada atrasada</span>
+                </div>
+              )}
+              {counts.low_stock_products > 0 && (
+                <div className="flex items-center gap-2" data-testid="alert-low-stock">
+                  <Badge className="bg-yellow-500 text-white">{counts.low_stock_products}</Badge>
+                  <span>produto(s) com estoque baixo (5 ou menos)</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground">Produtos Ativos</p>
+            <p className="text-xl font-bold">{counts.active_products}</p>
+            <p className="text-xs text-muted-foreground">{counts.inactive_products} inativos</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground">Pedidos Hoje</p>
+            <p className="text-xl font-bold">{counts.orders_today}</p>
+            <p className="text-xs text-muted-foreground">{counts.total_orders} total</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground">Clientes</p>
+            <p className="text-xl font-bold">{counts.total_customers}</p>
+            <p className="text-xs text-muted-foreground">+{counts.new_customers_week} esta semana</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground">Grupos Abertos</p>
+            <p className="text-xl font-bold">{counts.open_groups}</p>
+            <p className="text-xs text-muted-foreground">{counts.closed_groups} fechados</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground">Receita 30 dias</p>
+            <p className="text-xl font-bold">R$ {Number(counts.revenue_30d || 0).toFixed(0)}</p>
+            <p className="text-xs text-muted-foreground">R$ {Number(counts.total_revenue || 0).toFixed(0)} total</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recursos do Sistema</CardTitle>
+            <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              {[
+                { label: "Categorias ativas", value: counts.active_categories, icon: FolderTree },
+                { label: "Pontos de retirada", value: counts.active_pickup_points, icon: MapPin },
+                { label: "Banners ativos", value: counts.active_banners, icon: Image },
+                { label: "Videos ativos", value: counts.active_videos, icon: Video },
+                { label: "Pedidos pendentes", value: counts.pending_orders, icon: Clock },
+                { label: "Pedidos cancelados", value: counts.cancelled_orders, icon: XCircle },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <item.icon className="w-3.5 h-3.5" />
+                    <span>{item.label}</span>
+                  </div>
+                  <span className="font-medium text-foreground">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Atividade Recente</CardTitle>
+            <History className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm max-h-[250px] overflow-y-auto">
+              {(health.recentActivity || []).length === 0 && (
+                <p className="text-muted-foreground text-xs">Nenhuma atividade registrada</p>
+              )}
+              {(health.recentActivity || []).map((activity: any, i: number) => (
+                <div key={i} className="flex items-start gap-2 pb-2 border-b border-border last:border-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-foreground truncate">
+                      <span className="font-medium">{activity.user_name}</span>
+                      {" "}{activity.action}{" "}
+                      <span className="text-muted-foreground">{activity.entity}</span>
+                      {activity.entity_id ? ` #${activity.entity_id}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDate(activity.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Seguranca</CardTitle>
+          <Shield className="w-4 h-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="space-y-2">
+              <h4 className="font-medium text-foreground">Protecoes Ativas</h4>
+              {[
+                "SSL/HTTPS automatico",
+                "Headers de seguranca (Helmet)",
+                "Protecao CSRF",
+                "Protecao XSS (sanitizacao)",
+                "Rate Limiting (limite de requisicoes)",
+                "Senhas criptografadas (bcrypt)",
+                "Validacao de dados (Zod)",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-medium text-foreground">Backup e Dados</h4>
+              {[
+                "Backup automatico (PostgreSQL/Neon)",
+                "Rollback de banco disponivel",
+                "Auditoria de acoes admin",
+                "Sessoes seguras no servidor",
+                "Controle de acesso por perfil",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <p className="text-xs text-muted-foreground text-center">
+        Atualizado automaticamente a cada 30 segundos
+      </p>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { data: user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -1112,6 +1377,7 @@ export default function Admin() {
     { key: "videos", label: "Videos", icon: Video },
     { key: "pickup", label: "Retirada", icon: MapPin },
     { key: "order-settings", label: "Config. Pedidos", icon: Settings },
+    { key: "system", label: "Sistema", icon: Monitor },
   ];
 
   return (
@@ -1856,6 +2122,8 @@ export default function Admin() {
         )}
 
         {tab === "order-settings" && <OrderSettingsTab />}
+
+        {tab === "system" && <SystemTab />}
       </div>
     </div>
   );

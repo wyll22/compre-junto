@@ -13,6 +13,18 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-14: Admin system monitoring tab
+  - New "Sistema" tab in admin panel with real-time monitoring
+  - Backend /api/admin/system-health endpoint with comprehensive diagnostics
+  - Status cards: site online/offline, database connection, server memory
+  - Performance metrics: API response time, DB response time, uptime
+  - Alerts: overdue pickups, low stock products (5 or less)
+  - System resources summary: categories, pickup points, banners, videos
+  - Recent activity feed from audit logs
+  - Security checklist showing all active protections
+  - Auto-refresh every 30 seconds with manual refresh button
+  - Countdown timer (saleEndsAt) on product cards for time-limited sales
+
 - 2026-02-14: Production-readiness features
   - SEO: meta description, Open Graph tags, Twitter cards, lang=pt-BR
   - Password recovery: forgot-password/reset-password flow with 1-hour token expiry, single-use tokens

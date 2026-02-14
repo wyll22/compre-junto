@@ -997,6 +997,90 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/system-health", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const startTime = Date.now();
+
+      const dbStart = Date.now();
+      const dbResult = await pool.query("SELECT NOW() as now, pg_database_size(current_database()) as db_size");
+      const dbResponseTime = Date.now() - dbStart;
+      const dbRow = dbResult.rows[0];
+
+      const counts = await pool.query(`
+        SELECT
+          (SELECT COUNT(*) FROM products WHERE active = true)::int as active_products,
+          (SELECT COUNT(*) FROM products WHERE active = false)::int as inactive_products,
+          (SELECT COUNT(*) FROM orders)::int as total_orders,
+          (SELECT COUNT(*) FROM orders WHERE status = 'recebido')::int as pending_orders,
+          (SELECT COUNT(*) FROM orders WHERE status = 'cancelado')::int as cancelled_orders,
+          (SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '24 hours')::int as orders_today,
+          (SELECT COUNT(*) FROM users WHERE role = 'user')::int as total_customers,
+          (SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days')::int as new_customers_week,
+          (SELECT COUNT(*) FROM groups)::int as total_groups,
+          (SELECT COUNT(*) FROM groups WHERE status = 'aberto')::int as open_groups,
+          (SELECT COUNT(*) FROM groups WHERE status = 'fechado')::int as closed_groups,
+          (SELECT COUNT(*) FROM banners WHERE active = true)::int as active_banners,
+          (SELECT COUNT(*) FROM videos WHERE active = true)::int as active_videos,
+          (SELECT COUNT(*) FROM categories WHERE active = true)::int as active_categories,
+          (SELECT COUNT(*) FROM pickup_points WHERE active = true)::int as active_pickup_points,
+          (SELECT COALESCE(SUM(CAST(total AS NUMERIC)), 0) FROM orders WHERE status != 'cancelado') as total_revenue,
+          (SELECT COALESCE(SUM(CAST(total AS NUMERIC)), 0) FROM orders WHERE status != 'cancelado' AND created_at > NOW() - INTERVAL '30 days') as revenue_30d,
+          (SELECT COUNT(*) FROM orders WHERE status = 'pronto_retirada' AND pickup_deadline < NOW())::int as overdue_pickups,
+          (SELECT COUNT(*) FROM products WHERE stock <= 5 AND active = true)::int as low_stock_products
+      `);
+
+      const recentErrors = await pool.query(`
+        SELECT action, entity, entity_id, details, created_at
+        FROM audit_logs
+        WHERE action IN ('erro', 'error', 'falha')
+        ORDER BY created_at DESC
+        LIMIT 10
+      `).catch(() => ({ rows: [] }));
+
+      const recentActivity = await pool.query(`
+        SELECT action, entity, entity_id, user_name, created_at
+        FROM audit_logs
+        ORDER BY created_at DESC
+        LIMIT 15
+      `);
+
+      const apiResponseTime = Date.now() - startTime;
+
+      res.json({
+        status: "online",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        performance: {
+          apiResponseMs: apiResponseTime,
+          dbResponseMs: dbResponseTime,
+        },
+        database: {
+          connected: true,
+          serverTime: dbRow.now,
+          sizeBytes: parseInt(dbRow.db_size),
+          sizeMB: (parseInt(dbRow.db_size) / (1024 * 1024)).toFixed(2),
+        },
+        counts: counts.rows[0],
+        recentErrors: recentErrors.rows,
+        recentActivity: recentActivity.rows,
+        nodeVersion: process.version,
+        memoryUsage: {
+          rss: Math.round(process.memoryUsage().rss / (1024 * 1024)),
+          heapUsed: Math.round(process.memoryUsage().heapUsed / (1024 * 1024)),
+          heapTotal: Math.round(process.memoryUsage().heapTotal / (1024 * 1024)),
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        status: "error",
+        message: "Erro ao verificar saude do sistema",
+        database: { connected: false },
+      });
+    }
+  });
+
   app.get("/api/admin/audit-logs", async (req: Request, res: Response) => {
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
