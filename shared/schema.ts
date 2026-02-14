@@ -169,3 +169,95 @@ export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+
+export const registerSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
+  email: z.string().email("Email invalido").max(200),
+  password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres").max(128),
+  phone: z.string().max(30).optional().default(""),
+  displayName: z.string().max(100).optional().default(""),
+});
+
+export const loginSchema = z.object({
+  identifier: z.string().min(1, "Email ou telefone obrigatorio").max(200).optional(),
+  email: z.string().max(200).optional(),
+  password: z.string().min(1, "Senha obrigatoria").max(128),
+}).refine(data => data.identifier || data.email, { message: "Email ou telefone obrigatorio" });
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Senha atual obrigatoria").max(128),
+  newPassword: z.string().min(8, "Nova senha deve ter pelo menos 8 caracteres").max(128),
+});
+
+export const profileUpdateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  displayName: z.string().max(100).optional(),
+  phone: z.string().max(30).optional(),
+  addressCep: z.string().max(20).optional(),
+  addressStreet: z.string().max(300).optional(),
+  addressNumber: z.string().max(20).optional(),
+  addressComplement: z.string().max(200).optional(),
+  addressDistrict: z.string().max(200).optional(),
+  addressCity: z.string().max(200).optional(),
+  addressState: z.string().max(2).optional(),
+});
+
+export const createProductSchema = z.object({
+  name: z.string().min(1, "Nome obrigatorio").max(300),
+  description: z.string().min(1).max(2000),
+  imageUrl: z.string().url().max(2000),
+  originalPrice: z.union([z.string(), z.number()]).transform(String),
+  groupPrice: z.union([z.string(), z.number()]).transform(String),
+  nowPrice: z.union([z.string(), z.number()]).transform(String).optional(),
+  minPeople: z.coerce.number().int().min(1).max(10000).optional().default(10),
+  stock: z.coerce.number().int().min(0).max(1000000).optional().default(100),
+  reserveFee: z.union([z.string(), z.number()]).transform(String).optional().default("0"),
+  category: z.string().min(1).max(200),
+  saleMode: z.enum(["grupo", "agora"]).default("grupo"),
+  active: z.boolean().optional().default(true),
+  categoryId: z.coerce.number().int().nullable().optional(),
+  subcategoryId: z.coerce.number().int().nullable().optional(),
+});
+
+export const createCategorySchema = z.object({
+  name: z.string().min(1, "Nome obrigatorio").max(200),
+  slug: z.string().min(1).max(200),
+  parentId: z.coerce.number().int().nullable().optional(),
+  sortOrder: z.coerce.number().int().min(0).optional().default(0),
+  active: z.boolean().optional().default(true),
+});
+
+export const createBannerSchema = z.object({
+  title: z.string().max(300).optional().default(""),
+  imageUrl: z.string().url().max(2000),
+  mobileImageUrl: z.string().max(2000).nullable().optional(),
+  linkUrl: z.string().max(2000).nullable().optional(),
+  sortOrder: z.coerce.number().int().min(0).optional().default(0),
+  active: z.boolean().optional().default(true),
+});
+
+export const createVideoSchema = z.object({
+  title: z.string().max(300).optional().default(""),
+  embedUrl: z.string().url().max(2000),
+  sortOrder: z.coerce.number().int().min(0).optional().default(0),
+  active: z.boolean().optional().default(true),
+});
+
+export const createOrderSchema = z.object({
+  items: z.array(z.any()).min(1, "Carrinho vazio"),
+  total: z.union([z.string(), z.number()]).transform(String),
+});
+
+export const statusSchema = z.object({
+  status: z.string().min(1).max(50),
+});
+
+export const reserveStatusSchema = z.object({
+  reserveStatus: z.enum(["pendente", "pago", "nenhuma"]),
+});
+
+export const joinGroupSchema = z.object({
+  productId: z.number().int().optional(),
+  name: z.string().max(200).optional(),
+  phone: z.string().max(30).optional(),
+});

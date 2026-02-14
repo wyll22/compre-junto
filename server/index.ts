@@ -33,6 +33,36 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+const SENSITIVE_KEYS = new Set([
+  "password", "currentPassword", "newPassword",
+  "email", "phone", "token", "secret", "authorization",
+  "addressCep", "addressStreet", "addressNumber", "addressComplement",
+  "addressDistrict", "addressCity", "addressState",
+]);
+
+function sanitizeForLog(data: any, depth: number = 0): any {
+  if (depth > 3) return "[...]";
+  if (!data || typeof data !== "object") return data;
+  if (Array.isArray(data)) {
+    if (data.length === 0) return "[]";
+    return `[Array(${data.length})]`;
+  }
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (SENSITIVE_KEYS.has(key)) {
+      sanitized[key] = "[REDACTED]";
+    } else if (key === "name" || key === "displayName") {
+      const str = String(value || "");
+      sanitized[key] = str.length > 2 ? str[0] + "***" + str[str.length - 1] : "***";
+    } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      sanitized[key] = sanitizeForLog(value, depth + 1);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -49,7 +79,8 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        const sanitized = sanitizeForLog(capturedJsonResponse);
+        logLine += ` :: ${JSON.stringify(sanitized).slice(0, 500)}`;
       }
 
       log(logLine);

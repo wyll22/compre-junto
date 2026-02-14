@@ -3,7 +3,15 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
+import helmet from "helmet";
+import cors from "cors";
 import { pool } from "./db";
+import { z } from "zod";
+import {
+  registerSchema, loginSchema, changePasswordSchema, profileUpdateSchema,
+  createProductSchema, createCategorySchema, createBannerSchema, createVideoSchema,
+  createOrderSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
+} from "@shared/schema";
 
 declare module "express-session" {
   interface SessionData {
@@ -11,13 +19,8 @@ declare module "express-session" {
   }
 }
 
-const MIN_PASSWORD_LENGTH = 8;
-
-function validatePassword(password: string): string | null {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return `Senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres`;
-  }
-  return null;
+function parseZodError(error: z.ZodError): string {
+  return error.errors.map(e => e.message).join("; ");
 }
 
 const rateLimitStore = new Map<string, { count: number; windowStart: number; lockedUntil: number }>();
@@ -127,6 +130,28 @@ export async function registerRoutes(
 
   app.set("trust proxy", 1);
 
+  app.use(helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+    crossOriginEmbedderPolicy: false,
+  }));
+
+  const allowedOrigins = process.env.NODE_ENV === "production"
+    ? [process.env.APP_DOMAIN || "https://comprajuntoformosa.replit.app"].filter(Boolean)
+    : ["http://localhost:5000", "http://0.0.0.0:5000"];
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }));
+
   app.use(
     session({
       store: new PgStore({
@@ -148,14 +173,11 @@ export async function registerRoutes(
 
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      const { name, email, password, phone, displayName } = req.body;
-      if (!name || !email || !password) {
-        return res.status(400).json({ message: "Nome, email e senha sao obrigatorios" });
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
       }
-      const passwordError = validatePassword(password);
-      if (passwordError) {
-        return res.status(400).json({ message: passwordError });
-      }
+      const { name, email, password, phone, displayName } = parsed.data;
 
       const ip = getClientIp(req);
       const registerKey = `register:${ip}`;
@@ -175,11 +197,12 @@ export async function registerRoutes(
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
-      const { email, password, identifier } = req.body;
-      const loginId = identifier || email;
-      if (!loginId || !password) {
-        return res.status(400).json({ message: "Email/telefone e senha sao obrigatorios" });
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
       }
+      const { identifier, email, password } = parsed.data;
+      const loginId = identifier || email || "";
 
       const loginKey = `login:${normalizeIdentifier(loginId)}`;
       const ipKey = `login-ip:${getClientIp(req)}`;
@@ -242,12 +265,11 @@ export async function registerRoutes(
     const userId = requireAuth(req, res);
     if (userId === null) return;
     try {
-      const { name, displayName, phone, addressCep, addressStreet, addressNumber, addressComplement, addressDistrict, addressCity, addressState } = req.body;
-      const user = await storage.updateUser(userId, {
-        name, displayName, phone,
-        addressCep, addressStreet, addressNumber, addressComplement,
-        addressDistrict, addressCity, addressState,
-      });
+      const parsed = profileUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const user = await storage.updateUser(userId, parsed.data);
       res.json(user);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar perfil" });
@@ -258,14 +280,11 @@ export async function registerRoutes(
     const userId = requireAuth(req, res);
     if (userId === null) return;
     try {
-      const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Senha atual e nova senha sao obrigatorias" });
+      const parsed = changePasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
       }
-      const passwordError = validatePassword(newPassword);
-      if (passwordError) {
-        return res.status(400).json({ message: passwordError });
-      }
+      const { currentPassword, newPassword } = parsed.data;
       const success = await storage.changePassword(userId, currentPassword, newPassword);
       if (!success) {
         return res.status(400).json({ message: "Senha atual incorreta" });
@@ -307,7 +326,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const cat = await storage.createCategory(req.body);
+      const parsed = createCategorySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const cat = await storage.createCategory(parsed.data);
       res.status(201).json(cat);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar categoria" });
@@ -318,7 +341,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const cat = await storage.updateCategory(Number(req.params.id), req.body);
+      const parsed = createCategorySchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const cat = await storage.updateCategory(Number(req.params.id), parsed.data);
       res.json(cat);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar categoria" });
@@ -364,7 +391,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const product = await storage.createProduct(req.body);
+      const parsed = createProductSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const product = await storage.createProduct(parsed.data);
       res.status(201).json(product);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar produto" });
@@ -375,7 +406,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const product = await storage.updateProduct(Number(req.params.id), req.body);
+      const parsed = createProductSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const product = await storage.updateProduct(Number(req.params.id), parsed.data);
       res.json(product);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar produto" });
@@ -412,7 +447,13 @@ export async function registerRoutes(
       const userId = requireAuth(req, res);
       if (userId === null) return;
 
-      const productId = Number(req.body.productId);
+      const parsed = joinGroupSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+
+      const productId = parsed.data.productId;
+      if (!productId) return res.status(400).json({ message: "Produto obrigatorio" });
       const product = await storage.getProduct(productId);
       if (!product) return res.status(404).json({ message: "Produto nao encontrado" });
 
@@ -424,8 +465,8 @@ export async function registerRoutes(
       const user = await storage.getUserById(userId);
       if (user) {
         const updated = await storage.addMemberToGroup(group.id, {
-          name: req.body.name || user.name,
-          phone: req.body.phone || user.phone || "",
+          name: parsed.data.name || user.name,
+          phone: parsed.data.phone || user.phone || "",
           userId,
         });
         return res.status(201).json(updated);
@@ -442,10 +483,15 @@ export async function registerRoutes(
       const userId = requireAuth(req, res);
       if (userId === null) return;
 
+      const parsed = joinGroupSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+
       const groupId = Number(req.params.id);
       const user = await storage.getUserById(userId);
-      const name = String(req.body.name || user?.name || "").trim();
-      const phone = String(req.body.phone || user?.phone || "").trim();
+      const name = (parsed.data.name || user?.name || "").trim();
+      const phone = (parsed.data.phone || user?.phone || "").trim();
 
       if (!name) return res.status(400).json({ message: "Nome e obrigatorio" });
 
@@ -465,8 +511,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const { status } = req.body;
-      const group = await storage.updateGroupStatus(Number(req.params.id), status);
+      const parsed = statusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const group = await storage.updateGroupStatus(Number(req.params.id), parsed.data.status);
       if (!group) return res.status(404).json({ message: "Grupo nao encontrado" });
       res.json(group);
     } catch (err: any) {
@@ -491,7 +540,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const banner = await storage.createBanner(req.body);
+      const parsed = createBannerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const banner = await storage.createBanner(parsed.data);
       res.status(201).json(banner);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar banner" });
@@ -502,7 +555,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const banner = await storage.updateBanner(Number(req.params.id), req.body);
+      const parsed = createBannerSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const banner = await storage.updateBanner(Number(req.params.id), parsed.data);
       res.json(banner);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar banner" });
@@ -526,7 +583,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const video = await storage.createVideo(req.body);
+      const parsed = createVideoSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const video = await storage.createVideo(parsed.data);
       res.status(201).json(video);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar video" });
@@ -537,7 +598,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const video = await storage.updateVideo(Number(req.params.id), req.body);
+      const parsed = createVideoSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const video = await storage.updateVideo(Number(req.params.id), parsed.data);
       res.json(video);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar video" });
@@ -555,11 +620,11 @@ export async function registerRoutes(
     const userId = requireAuth(req, res);
     if (userId === null) return;
     try {
-      const { items, total } = req.body;
-      if (!items || !Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ message: "Carrinho vazio" });
+      const parsed = createOrderSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
       }
-      const order = await storage.createOrder({ userId, items, total: String(total) });
+      const order = await storage.createOrder({ userId, items: parsed.data.items, total: parsed.data.total });
       res.status(201).json(order);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar pedido" });
@@ -590,8 +655,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const { status } = req.body;
-      const order = await storage.updateOrderStatus(Number(req.params.id), status);
+      const parsed = statusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const order = await storage.updateOrderStatus(Number(req.params.id), parsed.data.status);
       if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
       res.json(order);
     } catch (err: any) {
@@ -625,11 +693,11 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     try {
-      const { reserveStatus } = req.body;
-      if (!["pendente", "pago", "nenhuma"].includes(reserveStatus)) {
-        return res.status(400).json({ message: "Status invalido" });
+      const parsed = reserveStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
       }
-      const member = await storage.updateMemberReserveStatus(Number(req.params.id), reserveStatus);
+      const member = await storage.updateMemberReserveStatus(Number(req.params.id), parsed.data.reserveStatus);
       if (!member) return res.status(404).json({ message: "Membro nao encontrado" });
       res.json(member);
     } catch (err: any) {
