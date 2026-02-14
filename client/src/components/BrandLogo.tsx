@@ -1,4 +1,4 @@
-import logoImg from "@assets/logo-outline.png";
+import logoImg from "@assets/logo-nobg.png";
 
 interface BrandLogoProps {
   size?: "header" | "large";
