@@ -1,0 +1,251 @@
+Quero que você faça uma atualização completa no app atual “Compra Junto Formosa”, SEM recomeçar do zero, aproveitando tudo que já existe e corrigindo os problemas atuais. 
+
+IMPORTANTE:
+- Não quero respostas longas de planejamento.
+- Quero implementação prática, com foco em deixar o app funcional para uso.
+- Não quebrar o que já está funcionando.
+- Se precisar de migração de banco, aplicar de forma segura.
+- No fim, rodar testes básicos e mostrar links de teste.
+
+========================================
+1) MODOS DE COMPRA REALMENTE SEPARADOS
+========================================
+
+Hoje ainda está confuso. Corrigir para ficar 100% separado:
+
+A) Modo “Compra em Grupo”
+- Exibir SOMENTE produtos com tipo de venda = grupo.
+- Card deve mostrar:
+  - nome, imagem, categoria
+  - preço em grupo
+  - participantes atuais / meta
+  - faltam X para fechar
+  - status (aberto/fechado)
+  - prazo restante (se existir)
+- Botão único do card: “Entrar no grupo”.
+- Não mostrar botão de carrinho nesse modo.
+- Se grupo fechado, botão desabilitado e status claro.
+
+B) Modo “Compre Agora”
+- Exibir SOMENTE produtos com tipo de venda = agora.
+- Card deve mostrar:
+  - nome, imagem, categoria
+  - preço “agora” (individual)
+  - estoque disponível
+- Botão único do card: “Adicionar ao carrinho”.
+- Não mostrar botão “Entrar no grupo” nesse modo.
+
+C) Navegação entre modos
+- Topo com 2 abas claras:
+  - Compra em Grupo
+  - Compre Agora
+- Trocar de aba deve trocar realmente o conjunto de produtos e regras.
+- Manter categoria e busca funcionando dentro da aba atual.
+
+========================================
+2) CATEGORIAS (MOBILE + DESKTOP)
+========================================
+
+Corrigir barra de categorias para não cortar no celular e não “sumir” itens:
+
+- Categorias base:
+  Todos, Básico, Bebida, Higiene Pessoal, Industrializado, Lavanderia, Limpeza, Matinais, Perfumaria, Temperos/Condimentos, Pet Shop, Hortifruti, Frios e Laticínios, Padaria, Ferramentas, Botinas/EPIs, Roupas, Calçados, Agro.
+- No mobile:
+  - scroll horizontal suave
+  - sem texto cortado
+  - item ativo visualmente destacado
+- “Todos” deve sempre mostrar todos os produtos da aba atual.
+- Filtro por categoria deve funcionar em ambos os modos.
+
+========================================
+3) LOGIN, CADASTRO E REGRAS DE ACESSO
+========================================
+
+Implementar/revisar regras:
+
+- Visitante pode navegar e ver produtos.
+- Para “Entrar no grupo”: login obrigatório.
+- Para “Finalizar pedido” no carrinho: login obrigatório.
+- Se não logado:
+  - redirecionar para login/cadastro
+  - depois voltar para fluxo original.
+- Cadastro:
+  - nome, email, telefone, senha.
+- Sessão persistente após login.
+- Menu de usuário quando logado:
+  - Minha Conta
+  - Meus Grupos
+  - Meus Pedidos
+  - Sair
+
+Preparar estrutura para confirmação futura:
+- Campos no usuário:
+  - emailVerified (boolean)
+  - phoneVerified (boolean)
+- Interface mostrando “verificado / pendente”.
+- Sem integração externa por enquanto (somente deixar pronto).
+
+========================================
+4) FLUXO DE GRUPOS (OPERACIONAL)
+========================================
+
+Regras obrigatórias de grupos:
+
+- Produto de grupo deve ter:
+  - meta de participantes
+  - contador atual
+  - prazo opcional
+  - taxa de reserva opcional
+- Ao entrar no grupo:
+  - impedir entrada duplicada do mesmo usuário no mesmo grupo
+  - atualizar contador
+- Ao atingir meta:
+  - fechar grupo automaticamente
+  - impedir novas entradas
+  - se estoque permitir, criar novo grupo aberto automaticamente para o mesmo produto.
+- Admin pode fechar grupo manualmente.
+- Exibir feedback visual de sucesso/erro claro.
+
+========================================
+5) CARRINHO E PEDIDO (COMPRE AGORA)
+========================================
+
+- Carrinho com:
+  - adicionar item
+  - aumentar/diminuir quantidade
+  - remover item
+  - subtotal por item
+  - total geral
+- Persistência do carrinho (localStorage) com sincronização quando usuário logar.
+- Finalizar pedido:
+  - só com usuário logado
+  - criar pedido no backend
+  - status inicial: “recebido”
+  - limpar carrinho após sucesso
+  - exibir número do pedido e tela de confirmação.
+
+========================================
+6) MINHA CONTA (CLIENTE)
+========================================
+
+Criar área “Minha Conta” funcional:
+
+A) Meus Grupos
+- listar grupos em que o usuário entrou
+- status do grupo (aberto/fechado)
+- progresso (participantes/meta)
+- data de entrada
+
+B) Meus Pedidos
+- listar pedidos de compre agora
+- status: recebido, separando, enviado, entregue, cancelado
+- total, data e itens básicos
+
+C) Dados da conta
+- editar nome e telefone
+- exibir email e status de verificação
+
+========================================
+7) ADMIN COMPLETO (SEM GAMBIAARRA)
+========================================
+
+Manter /admin funcional e seguro:
+
+- Acesso apenas admin.
+- Se usuário comum tentar entrar, bloquear.
+
+A) Produtos (CRUD completo)
+Campos:
+- nome
+- descrição
+- tipoVenda (grupo/agora)
+- categoria
+- preçoNormal
+- preçoGrupo
+- preçoAgora
+- estoque
+- metaParticipantes (quando grupo)
+- taxaReserva (quando grupo, opcional)
+- imagemURL
+- ativo/inativo
+
+Regras:
+- produto “grupo” precisa metaParticipantes válida.
+- produto “agora” não usa meta de grupo no card.
+
+B) Grupos
+- lista de grupos:
+  - produto, participantes, meta, status, criado em, prazo
+- ação fechar grupo manualmente.
+
+C) Pedidos
+- listar pedidos
+- atualizar status dos pedidos.
+
+D) Banners
+- CRUD de banners:
+  - imagem, título opcional, link opcional, ordem, ativo.
+
+E) Vídeos
+- CRUD de vídeos:
+  - url, título, ordem, ativo.
+
+========================================
+8) HOME MAIS BONITA E COMERCIAL
+========================================
+
+Melhorar layout mantendo performance:
+
+- Header com:
+  - logo à esquerda
+  - busca
+  - carrinho com contador
+  - usuário/login
+- Hero/banner principal com CTA.
+- Seção de banners dinâmicos (carrossel ou grade com destaque).
+- Seção de vídeos (cards/embed).
+- Seção de produtos conforme aba e categoria selecionadas.
+- Visual mais chamativo e organizado, sem poluição.
+
+Logo:
+- deixar preparado para trocar logo facilmente por arquivo/URL no admin ou config.
+- aplicar identidade visual verde/amarelo com contraste bom.
+
+========================================
+9) TAXA DE RESERVA (PREPARAÇÃO DE PRODUÇÃO)
+========================================
+
+Implementar base da taxa de reserva no fluxo de grupo:
+
+- Campo taxaReserva por produto de grupo.
+- Ao entrar no grupo, registrar no banco que existe “reserva pendente” para o usuário naquele grupo.
+- NÃO integrar gateway agora.
+- Deixar estrutura pronta para etapa seguinte:
+  - status da reserva: pendente, paga, estornada, cancelada.
+- Exibir no modal de entrada no grupo:
+  - valor da taxa
+  - texto de aceite.
+
+========================================
+10) QUALIDADE, TESTE E ENTREGA
+========================================
+
+- Resolver erros visuais de responsividade mobile.
+- Garantir que “Todos” funcione.
+- Garantir que categorias não quebrem layout.
+- Garantir que carrinho/conta/pedidos/grupos funcionem com sessão.
+- Tratar erros de API com mensagens amigáveis.
+- Remover logs desnecessários.
+- Rodar typecheck e corrigir erros.
+- Rodar app e validar os fluxos principais.
+
+No final da implementação, me entregue:
+1) resumo do que foi corrigido e criado;
+2) credenciais de admin de teste;
+3) URLs para testar:
+   - Home
+   - Login/Cadastro
+   - Carrinho
+   - Minha Conta
+   - Admin
+4) lista curta do que ficou para Fase 2 (pagamento real, confirmação por WhatsApp/SMS/email).

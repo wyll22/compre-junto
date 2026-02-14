@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, numeric, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   phone: text("phone").default(""),
   role: text("role").notNull().default("user"),
   emailVerified: boolean("email_verified").default(false),
+  phoneVerified: boolean("phone_verified").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -46,6 +47,7 @@ export const members = pgTable("members", {
   userId: integer("user_id"),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
+  reserveStatus: text("reserve_status").default("pendente"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -72,9 +74,9 @@ export const videos = pgTable("videos", {
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  items: text("items").notNull(),
+  items: jsonb("items").notNull(),
   total: numeric("total").notNull(),
-  status: text("status").notNull().default("pendente"),
+  status: text("status").notNull().default("recebido"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -151,5 +153,10 @@ export const CATEGORIES = [
   "Hortifruti",
   "Frios e Laticinios",
   "Padaria",
+  "Ferramentas",
+  "Botinas/EPIs",
+  "Roupas",
+  "Calcados",
+  "Agro",
   "Outros",
 ] as const;

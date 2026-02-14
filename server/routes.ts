@@ -11,6 +11,25 @@ declare module "express-session" {
   }
 }
 
+function requireAuth(req: Request, res: Response): number | null {
+  if (!req.session.userId) {
+    res.status(401).json({ message: "Faca login para continuar" });
+    return null;
+  }
+  return req.session.userId;
+}
+
+async function requireAdmin(req: Request, res: Response): Promise<number | null> {
+  const userId = requireAuth(req, res);
+  if (userId === null) return null;
+  const user = await storage.getUserById(userId);
+  if (!user || user.role !== "admin") {
+    res.status(403).json({ message: "Acesso negado" });
+    return null;
+  }
+  return userId;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -83,12 +102,35 @@ export async function registerRoutes(
     res.json(user);
   });
 
+  app.put("/api/auth/profile", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    try {
+      const { name, phone } = req.body;
+      const user = await storage.updateUser(userId, { name, phone });
+      res.json(user);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao atualizar perfil" });
+    }
+  });
+
   app.get("/api/products", async (req: Request, res: Response) => {
     const category = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;
     const saleMode = req.query.saleMode as string | undefined;
     const products = await storage.getProducts(category, search, saleMode);
     res.json(products);
+  });
+
+  app.get("/api/products/all", async (req: Request, res: Response) => {
+    const result = await pool.query(
+      `SELECT id, name, description, image_url AS "imageUrl", original_price AS "originalPrice",
+              group_price AS "groupPrice", now_price AS "nowPrice", min_people AS "minPeople",
+              stock, reserve_fee AS "reserveFee", category, sale_mode AS "saleMode",
+              active, created_at AS "createdAt"
+       FROM products ORDER BY id DESC`,
+    );
+    res.json(result.rows);
   });
 
   app.get("/api/products/:id", async (req: Request, res: Response) => {
@@ -98,6 +140,8 @@ export async function registerRoutes(
   });
 
   app.post("/api/products", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     try {
       const product = await storage.createProduct(req.body);
       res.status(201).json(product);
@@ -107,6 +151,8 @@ export async function registerRoutes(
   });
 
   app.put("/api/products/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     try {
       const product = await storage.updateProduct(Number(req.params.id), req.body);
       res.json(product);
@@ -116,6 +162,8 @@ export async function registerRoutes(
   });
 
   app.delete("/api/products/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     await storage.deleteProduct(Number(req.params.id));
     res.status(204).send();
   });
@@ -133,8 +181,16 @@ export async function registerRoutes(
     res.json(group);
   });
 
+  app.get("/api/groups/:id/members", async (req: Request, res: Response) => {
+    const members = await storage.getGroupMembers(Number(req.params.id));
+    res.json(members);
+  });
+
   app.post("/api/groups", async (req: Request, res: Response) => {
     try {
+      const userId = requireAuth(req, res);
+      if (userId === null) return;
+
       const productId = Number(req.body.productId);
       const product = await storage.getProduct(productId);
       if (!product) return res.status(404).json({ message: "Produto nao encontrado" });
@@ -144,11 +200,12 @@ export async function registerRoutes(
         minPeople: product.minPeople,
       });
 
-      if (req.body.name && req.body.phone) {
+      const user = await storage.getUserById(userId);
+      if (user) {
         const updated = await storage.addMemberToGroup(group.id, {
-          name: req.body.name,
-          phone: req.body.phone,
-          userId: req.session.userId,
+          name: req.body.name || user.name,
+          phone: req.body.phone || user.phone || "",
+          userId,
         });
         return res.status(201).json(updated);
       }
@@ -161,39 +218,20 @@ export async function registerRoutes(
 
   app.post("/api/groups/:id/join", async (req: Request, res: Response) => {
     try {
+      const userId = requireAuth(req, res);
+      if (userId === null) return;
+
       const groupId = Number(req.params.id);
-      const name = String(req.body.name ?? "").trim();
-      const phone = String(req.body.phone ?? "").trim();
+      const user = await storage.getUserById(userId);
+      const name = String(req.body.name || user?.name || "").trim();
+      const phone = String(req.body.phone || user?.phone || "").trim();
 
       if (!name) return res.status(400).json({ message: "Nome e obrigatorio" });
-      if (!phone) return res.status(400).json({ message: "Telefone e obrigatorio" });
 
       const updated = await storage.addMemberToGroup(groupId, {
         name,
         phone,
-        userId: req.session.userId,
-      });
-
-      res.json(updated);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message || "Erro ao entrar no grupo" });
-    }
-  });
-
-  app.post("/api/groups/join", async (req: Request, res: Response) => {
-    try {
-      const groupId = Number(req.body.groupId);
-      const name = String(req.body.name ?? "").trim();
-      const phone = String(req.body.phone ?? "").trim();
-
-      if (!groupId) return res.status(400).json({ message: "groupId e obrigatorio" });
-      if (!name) return res.status(400).json({ message: "Nome e obrigatorio" });
-      if (!phone) return res.status(400).json({ message: "Telefone e obrigatorio" });
-
-      const updated = await storage.addMemberToGroup(groupId, {
-        name,
-        phone,
-        userId: req.session.userId,
+        userId,
       });
 
       res.json(updated);
@@ -203,6 +241,8 @@ export async function registerRoutes(
   });
 
   app.patch("/api/groups/:id/status", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     try {
       const { status } = req.body;
       const group = await storage.updateGroupStatus(Number(req.params.id), status);
@@ -213,6 +253,13 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/user/groups", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    const groups = await storage.getUserGroups(userId);
+    res.json(groups);
+  });
+
   app.get("/api/banners", async (req: Request, res: Response) => {
     const activeOnly = req.query.active === "true";
     const banners = await storage.getBanners(activeOnly);
@@ -220,6 +267,8 @@ export async function registerRoutes(
   });
 
   app.post("/api/banners", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     try {
       const banner = await storage.createBanner(req.body);
       res.status(201).json(banner);
@@ -229,6 +278,8 @@ export async function registerRoutes(
   });
 
   app.put("/api/banners/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     try {
       const banner = await storage.updateBanner(Number(req.params.id), req.body);
       res.json(banner);
@@ -238,6 +289,8 @@ export async function registerRoutes(
   });
 
   app.delete("/api/banners/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     await storage.deleteBanner(Number(req.params.id));
     res.status(204).send();
   });
@@ -249,6 +302,8 @@ export async function registerRoutes(
   });
 
   app.post("/api/videos", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     try {
       const video = await storage.createVideo(req.body);
       res.status(201).json(video);
@@ -258,6 +313,8 @@ export async function registerRoutes(
   });
 
   app.put("/api/videos/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     try {
       const video = await storage.updateVideo(Number(req.params.id), req.body);
       res.json(video);
@@ -267,8 +324,58 @@ export async function registerRoutes(
   });
 
   app.delete("/api/videos/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
     await storage.deleteVideo(Number(req.params.id));
     res.status(204).send();
+  });
+
+  app.post("/api/orders", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    try {
+      const { items, total } = req.body;
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Carrinho vazio" });
+      }
+      const order = await storage.createOrder({ userId, items, total: String(total) });
+      res.status(201).json(order);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao criar pedido" });
+    }
+  });
+
+  app.get("/api/orders", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    const user = await storage.getUserById(userId);
+    if (user?.role === "admin" && req.query.all === "true") {
+      const orders = await storage.getOrders();
+      return res.json(orders);
+    }
+    const orders = await storage.getOrders(userId);
+    res.json(orders);
+  });
+
+  app.get("/api/orders/:id", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    const order = await storage.getOrder(Number(req.params.id));
+    if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
+    res.json(order);
+  });
+
+  app.patch("/api/orders/:id/status", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const { status } = req.body;
+      const order = await storage.updateOrderStatus(Number(req.params.id), status);
+      if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
+      res.json(order);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao atualizar pedido" });
+    }
   });
 
   storage.seedProducts().catch(console.error);

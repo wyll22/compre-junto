@@ -1,5 +1,4 @@
 import { pool } from "./db";
-import type { InsertProduct, InsertBanner, InsertVideo } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
 type ProductRow = {
@@ -25,6 +24,16 @@ type GroupRow = {
   currentPeople: number;
   minPeople: number;
   status: string;
+  createdAt?: Date | string | null;
+};
+
+type MemberRow = {
+  id: number;
+  groupId: number;
+  userId: number | null;
+  name: string;
+  phone: string;
+  reserveStatus: string;
   createdAt?: Date | string | null;
 };
 
@@ -55,6 +64,16 @@ type UserRow = {
   phone: string | null;
   role: string;
   emailVerified: boolean;
+  phoneVerified: boolean;
+  createdAt?: Date | string | null;
+};
+
+type OrderRow = {
+  id: number;
+  userId: number;
+  items: any;
+  total: string | number;
+  status: string;
   createdAt?: Date | string | null;
 };
 
@@ -70,6 +89,9 @@ export interface IStorage {
   createGroup(input: { productId: number; minPeople: number }): Promise<GroupRow>;
   addMemberToGroup(groupId: number, input: { name: string; phone: string; userId?: number }): Promise<GroupRow>;
   updateGroupStatus(id: number, status: string): Promise<GroupRow | null>;
+  getGroupMembers(groupId: number): Promise<MemberRow[]>;
+
+  getUserGroups(userId: number): Promise<any[]>;
 
   getBanners(activeOnly?: boolean): Promise<BannerRow[]>;
   createBanner(input: any): Promise<BannerRow>;
@@ -84,6 +106,12 @@ export interface IStorage {
   registerUser(input: { name: string; email: string; password: string; phone?: string }): Promise<UserRow>;
   loginUser(email: string, password: string): Promise<UserRow | null>;
   getUserById(id: number): Promise<UserRow | null>;
+  updateUser(id: number, input: { name?: string; phone?: string }): Promise<UserRow | null>;
+
+  createOrder(input: { userId: number; items: any; total: string }): Promise<OrderRow>;
+  getOrders(userId?: number): Promise<OrderRow[]>;
+  getOrder(id: number): Promise<OrderRow | null>;
+  updateOrderStatus(id: number, status: string): Promise<OrderRow | null>;
 
   seedProducts(): Promise<void>;
 }
@@ -114,6 +142,16 @@ const GROUP_SELECT = `
   created_at AS "createdAt"
 `;
 
+const MEMBER_SELECT = `
+  id,
+  group_id AS "groupId",
+  user_id AS "userId",
+  name,
+  phone,
+  reserve_status AS "reserveStatus",
+  created_at AS "createdAt"
+`;
+
 const BANNER_SELECT = `
   id,
   title,
@@ -134,10 +172,21 @@ const VIDEO_SELECT = `
   created_at AS "createdAt"
 `;
 
+const ORDER_SELECT = `
+  id,
+  user_id AS "userId",
+  items,
+  total,
+  status,
+  created_at AS "createdAt"
+`;
+
+const USER_SELECT = `id, name, email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", created_at AS "createdAt"`;
+
 class DatabaseStorage implements IStorage {
   async getProducts(category?: string, search?: string, saleMode?: string): Promise<ProductRow[]> {
     const values: unknown[] = [];
-    const conditions: string[] = [];
+    const conditions: string[] = ["active = true"];
 
     if (search?.trim()) {
       values.push(`%${search.trim()}%`);
@@ -155,12 +204,10 @@ class DatabaseStorage implements IStorage {
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
     const result = await pool.query(
       `SELECT ${PRODUCT_SELECT} FROM products ${where} ORDER BY id DESC`,
       values,
     );
-
     return result.rows as ProductRow[];
   }
 
@@ -239,7 +286,6 @@ class DatabaseStorage implements IStorage {
       `UPDATE products SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING ${PRODUCT_SELECT}`,
       values,
     );
-
     return (result.rows[0] as ProductRow | undefined) ?? null;
   }
 
@@ -253,22 +299,25 @@ class DatabaseStorage implements IStorage {
 
     if (productId !== undefined) {
       values.push(productId);
-      conditions.push(`product_id = $${values.length}`);
+      conditions.push(`g.product_id = $${values.length}`);
     }
 
     if (status) {
       values.push(status);
-      conditions.push(`status = $${values.length}`);
+      conditions.push(`g.status = $${values.length}`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
     const result = await pool.query(
-      `SELECT ${GROUP_SELECT} FROM groups ${where} ORDER BY id DESC`,
+      `SELECT g.id, g.product_id AS "productId", g.current_people AS "currentPeople",
+              g.min_people AS "minPeople", g.status, g.created_at AS "createdAt",
+              p.name AS "productName", p.image_url AS "productImageUrl"
+       FROM groups g
+       LEFT JOIN products p ON p.id = g.product_id
+       ${where} ORDER BY g.id DESC`,
       values,
     );
-
-    return result.rows as GroupRow[];
+    return result.rows as any[];
   }
 
   async getGroup(id: number): Promise<GroupRow | null> {
@@ -301,26 +350,49 @@ class DatabaseStorage implements IStorage {
 
       const group = groupRes.rows[0] as any;
       if (!group) throw new Error("Grupo nao encontrado");
-      if (group.status !== "aberto") throw new Error("Grupo ja esta fechado");
+      if (group.status !== "aberto") throw new Error("Este grupo ja esta fechado");
 
-      const dupRes = await client.query(
-        `SELECT id FROM members WHERE group_id = $1 AND phone = $2 LIMIT 1`,
-        [groupId, input.phone],
+      if (input.userId) {
+        const dupRes = await client.query(
+          `SELECT id FROM members WHERE group_id = $1 AND user_id = $2 LIMIT 1`,
+          [groupId, input.userId],
+        );
+        if (dupRes.rows.length) throw new Error("Voce ja esta neste grupo");
+      }
+
+      const reserveFeeRes = await client.query(
+        `SELECT reserve_fee AS "reserveFee" FROM products WHERE id = $1`,
+        [group.product_id],
+      );
+      const reserveFee = reserveFeeRes.rows[0]?.reserveFee;
+      const hasReserveFee = reserveFee && Number(reserveFee) > 0;
+
+      await client.query(
+        `INSERT INTO members (group_id, name, phone, user_id, reserve_status) VALUES ($1, $2, $3, $4, $5)`,
+        [groupId, input.name, input.phone, input.userId || null, hasReserveFee ? "pendente" : "nenhuma"],
       );
 
-      if (!dupRes.rows.length) {
-        await client.query(
-          `INSERT INTO members (group_id, name, phone, user_id) VALUES ($1, $2, $3, $4)`,
-          [groupId, input.name, input.phone, input.userId || null],
-        );
+      const nextPeople = Number(group.current_people) + 1;
+      const nextStatus = nextPeople >= Number(group.min_people) ? "fechado" : "aberto";
 
-        const nextPeople = Number(group.current_people) + 1;
-        const nextStatus = nextPeople >= Number(group.min_people) ? "fechado" : "aberto";
+      await client.query(
+        `UPDATE groups SET current_people = $1, status = $2 WHERE id = $3`,
+        [nextPeople, nextStatus, groupId],
+      );
 
-        await client.query(
-          `UPDATE groups SET current_people = $1, status = $2 WHERE id = $3`,
-          [nextPeople, nextStatus, groupId],
+      if (nextStatus === "fechado") {
+        const product = await client.query(
+          `SELECT id, stock, min_people FROM products WHERE id = $1`,
+          [group.product_id],
         );
+        const p = product.rows[0];
+        if (p && Number(p.stock) > Number(p.min_people)) {
+          await client.query(
+            `INSERT INTO groups (product_id, current_people, min_people, status)
+             VALUES ($1, 0, $2, 'aberto')`,
+            [group.product_id, Number(p.min_people)],
+          );
+        }
       }
 
       const updated = await client.query(
@@ -344,6 +416,31 @@ class DatabaseStorage implements IStorage {
       [status, id],
     );
     return (result.rows[0] as GroupRow | undefined) ?? null;
+  }
+
+  async getGroupMembers(groupId: number): Promise<MemberRow[]> {
+    const result = await pool.query(
+      `SELECT ${MEMBER_SELECT} FROM members WHERE group_id = $1 ORDER BY id ASC`,
+      [groupId],
+    );
+    return result.rows as MemberRow[];
+  }
+
+  async getUserGroups(userId: number): Promise<any[]> {
+    const result = await pool.query(
+      `SELECT m.id AS "memberId", m.created_at AS "joinedAt", m.reserve_status AS "reserveStatus",
+              g.id AS "groupId", g.current_people AS "currentPeople", g.min_people AS "minPeople",
+              g.status, g.created_at AS "groupCreatedAt",
+              p.id AS "productId", p.name AS "productName", p.image_url AS "productImageUrl",
+              p.group_price AS "groupPrice", p.reserve_fee AS "reserveFee"
+       FROM members m
+       JOIN groups g ON g.id = m.group_id
+       JOIN products p ON p.id = g.product_id
+       WHERE m.user_id = $1
+       ORDER BY m.created_at DESC`,
+      [userId],
+    );
+    return result.rows;
   }
 
   async getBanners(activeOnly?: boolean): Promise<BannerRow[]> {
@@ -375,12 +472,8 @@ class DatabaseStorage implements IStorage {
     const fields: string[] = [];
     const values: unknown[] = [];
     const map: Record<string, string> = {
-      title: "title",
-      imageUrl: "image_url",
-      mobileImageUrl: "mobile_image_url",
-      linkUrl: "link_url",
-      sortOrder: "sort_order",
-      active: "active",
+      title: "title", imageUrl: "image_url", mobileImageUrl: "mobile_image_url",
+      linkUrl: "link_url", sortOrder: "sort_order", active: "active",
     };
 
     for (const [key, rawValue] of Object.entries(input)) {
@@ -393,7 +486,6 @@ class DatabaseStorage implements IStorage {
 
     if (!fields.length) return null;
     values.push(id);
-
     const result = await pool.query(
       `UPDATE banners SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING ${BANNER_SELECT}`,
       values,
@@ -418,12 +510,7 @@ class DatabaseStorage implements IStorage {
       `INSERT INTO videos (title, embed_url, sort_order, active)
       VALUES ($1, $2, $3, $4)
       RETURNING ${VIDEO_SELECT}`,
-      [
-        input.title || "",
-        input.embedUrl,
-        Number(input.sortOrder) || 0,
-        input.active !== undefined ? input.active : true,
-      ],
+      [input.title || "", input.embedUrl, Number(input.sortOrder) || 0, input.active !== undefined ? input.active : true],
     );
     return result.rows[0] as VideoRow;
   }
@@ -432,10 +519,7 @@ class DatabaseStorage implements IStorage {
     const fields: string[] = [];
     const values: unknown[] = [];
     const map: Record<string, string> = {
-      title: "title",
-      embedUrl: "embed_url",
-      sortOrder: "sort_order",
-      active: "active",
+      title: "title", embedUrl: "embed_url", sortOrder: "sort_order", active: "active",
     };
 
     for (const [key, rawValue] of Object.entries(input)) {
@@ -448,7 +532,6 @@ class DatabaseStorage implements IStorage {
 
     if (!fields.length) return null;
     values.push(id);
-
     const result = await pool.query(
       `UPDATE videos SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING ${VIDEO_SELECT}`,
       values,
@@ -468,7 +551,7 @@ class DatabaseStorage implements IStorage {
     const result = await pool.query(
       `INSERT INTO users (name, email, password, phone, role)
       VALUES ($1, $2, $3, $4, 'user')
-      RETURNING id, name, email, phone, role, email_verified AS "emailVerified", created_at AS "createdAt"`,
+      RETURNING ${USER_SELECT}`,
       [input.name, input.email.toLowerCase(), hashedPassword, input.phone || ""],
     );
     return result.rows[0] as UserRow;
@@ -476,7 +559,7 @@ class DatabaseStorage implements IStorage {
 
   async loginUser(email: string, password: string): Promise<UserRow | null> {
     const result = await pool.query(
-      `SELECT id, name, email, password, phone, role, email_verified AS "emailVerified", created_at AS "createdAt"
+      `SELECT id, name, email, password, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", created_at AS "createdAt"
       FROM users WHERE email = $1 LIMIT 1`,
       [email.toLowerCase()],
     );
@@ -493,11 +576,67 @@ class DatabaseStorage implements IStorage {
 
   async getUserById(id: number): Promise<UserRow | null> {
     const result = await pool.query(
-      `SELECT id, name, email, phone, role, email_verified AS "emailVerified", created_at AS "createdAt"
-      FROM users WHERE id = $1 LIMIT 1`,
+      `SELECT ${USER_SELECT} FROM users WHERE id = $1 LIMIT 1`,
       [id],
     );
     return (result.rows[0] as UserRow | undefined) ?? null;
+  }
+
+  async updateUser(id: number, input: { name?: string; phone?: string }): Promise<UserRow | null> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    if (input.name !== undefined) {
+      values.push(input.name);
+      fields.push(`name = $${values.length}`);
+    }
+    if (input.phone !== undefined) {
+      values.push(input.phone);
+      fields.push(`phone = $${values.length}`);
+    }
+    if (!fields.length) return this.getUserById(id);
+
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE users SET ${fields.join(", ")} WHERE id = $${values.length} RETURNING ${USER_SELECT}`,
+      values,
+    );
+    return (result.rows[0] as UserRow | undefined) ?? null;
+  }
+
+  async createOrder(input: { userId: number; items: any; total: string }): Promise<OrderRow> {
+    const result = await pool.query(
+      `INSERT INTO orders (user_id, items, total, status)
+      VALUES ($1, $2::jsonb, $3, 'recebido')
+      RETURNING ${ORDER_SELECT}`,
+      [input.userId, JSON.stringify(input.items), input.total],
+    );
+    return result.rows[0] as OrderRow;
+  }
+
+  async getOrders(userId?: number): Promise<OrderRow[]> {
+    const where = userId ? `WHERE user_id = $1` : "";
+    const values = userId ? [userId] : [];
+    const result = await pool.query(
+      `SELECT ${ORDER_SELECT} FROM orders ${where} ORDER BY id DESC`,
+      values,
+    );
+    return result.rows as OrderRow[];
+  }
+
+  async getOrder(id: number): Promise<OrderRow | null> {
+    const result = await pool.query(
+      `SELECT ${ORDER_SELECT} FROM orders WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    return (result.rows[0] as OrderRow | undefined) ?? null;
+  }
+
+  async updateOrderStatus(id: number, status: string): Promise<OrderRow | null> {
+    const result = await pool.query(
+      `UPDATE orders SET status = $1 WHERE id = $2 RETURNING ${ORDER_SELECT}`,
+      [status, id],
+    );
+    return (result.rows[0] as OrderRow | undefined) ?? null;
   }
 
   async seedProducts(): Promise<void> {
@@ -507,102 +646,14 @@ class DatabaseStorage implements IStorage {
       if (total > 0) return;
 
       const seed: any[] = [
-        {
-          name: "Kit Cesta Basica Premium",
-          description: "Itens essenciais para o mes inteiro",
-          imageUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800",
-          originalPrice: "120",
-          groupPrice: "85",
-          nowPrice: "110",
-          minPeople: 10,
-          stock: 500,
-          category: "Basico",
-          saleMode: "grupo",
-        },
-        {
-          name: "Fardo de Coca-Cola 1.5L (6 un)",
-          description: "Refrigerante Coca-Cola 1.5L",
-          imageUrl: "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=800",
-          originalPrice: "59.9",
-          groupPrice: "42",
-          nowPrice: "54.9",
-          minPeople: 5,
-          stock: 200,
-          category: "Bebida",
-          saleMode: "grupo",
-        },
-        {
-          name: "Kit Higiene Pessoal Familiar",
-          description: "Sabonete, shampoo e creme dental",
-          imageUrl: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=800",
-          originalPrice: "45",
-          groupPrice: "29.9",
-          nowPrice: "39.9",
-          minPeople: 8,
-          stock: 300,
-          category: "Higiene pessoal",
-          saleMode: "grupo",
-        },
-        {
-          name: "Sabao Liquido OMO 3L",
-          description: "Limpeza pesada com alto rendimento",
-          imageUrl: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800",
-          originalPrice: "48.9",
-          groupPrice: "35.5",
-          nowPrice: "44.9",
-          minPeople: 15,
-          stock: 400,
-          category: "Limpeza",
-          saleMode: "grupo",
-        },
-        {
-          name: "Cafe Pilao 500g",
-          description: "Cafe torrado e moido tradicional",
-          imageUrl: "https://images.unsplash.com/photo-1510972527921-ce03766a1cf1?w=800",
-          originalPrice: "18.9",
-          groupPrice: "14.5",
-          nowPrice: "16.9",
-          minPeople: 10,
-          stock: 600,
-          category: "Matinais",
-          saleMode: "agora",
-        },
-        {
-          name: "Desinfetante Pinho Sol 1L",
-          description: "Limpeza profunda e perfumada",
-          imageUrl: "https://images.unsplash.com/photo-1585421514284-efb74c2b69ba?w=800",
-          originalPrice: "12.9",
-          groupPrice: "8.9",
-          nowPrice: "11.5",
-          minPeople: 12,
-          stock: 350,
-          category: "Limpeza",
-          saleMode: "agora",
-        },
-        {
-          name: "Racao Premium Caes 15kg",
-          description: "Racao premium para caes adultos",
-          imageUrl: "https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?w=800",
-          originalPrice: "129.9",
-          groupPrice: "95",
-          nowPrice: "119.9",
-          minPeople: 5,
-          stock: 100,
-          category: "Pet Shop",
-          saleMode: "agora",
-        },
-        {
-          name: "Caixa de Leite Integral 12un",
-          description: "Leite integral longa vida",
-          imageUrl: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=800",
-          originalPrice: "59.9",
-          groupPrice: "42",
-          nowPrice: "52.9",
-          minPeople: 8,
-          stock: 250,
-          category: "Frios e Laticinios",
-          saleMode: "grupo",
-        },
+        { name: "Kit Cesta Basica Premium", description: "Itens essenciais para o mes inteiro", imageUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800", originalPrice: "120", groupPrice: "85", nowPrice: "110", minPeople: 10, stock: 500, category: "Basico", saleMode: "grupo" },
+        { name: "Fardo de Coca-Cola 1.5L (6 un)", description: "Refrigerante Coca-Cola 1.5L", imageUrl: "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=800", originalPrice: "59.9", groupPrice: "42", nowPrice: "54.9", minPeople: 5, stock: 200, category: "Bebida", saleMode: "grupo" },
+        { name: "Kit Higiene Pessoal Familiar", description: "Sabonete, shampoo e creme dental", imageUrl: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=800", originalPrice: "45", groupPrice: "29.9", nowPrice: "39.9", minPeople: 8, stock: 300, category: "Higiene pessoal", saleMode: "grupo" },
+        { name: "Sabao Liquido OMO 3L", description: "Limpeza pesada com alto rendimento", imageUrl: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800", originalPrice: "48.9", groupPrice: "35.5", nowPrice: "44.9", minPeople: 15, stock: 400, reserveFee: "5", category: "Limpeza", saleMode: "grupo" },
+        { name: "Cafe Pilao 500g", description: "Cafe torrado e moido tradicional", imageUrl: "https://images.unsplash.com/photo-1510972527921-ce03766a1cf1?w=800", originalPrice: "18.9", groupPrice: "14.5", nowPrice: "16.9", minPeople: 10, stock: 600, category: "Matinais", saleMode: "agora" },
+        { name: "Desinfetante Pinho Sol 1L", description: "Limpeza profunda e perfumada", imageUrl: "https://images.unsplash.com/photo-1585421514284-efb74c2b69ba?w=800", originalPrice: "12.9", groupPrice: "8.9", nowPrice: "11.5", minPeople: 12, stock: 350, category: "Limpeza", saleMode: "agora" },
+        { name: "Racao Premium Caes 15kg", description: "Racao premium para caes adultos", imageUrl: "https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?w=800", originalPrice: "129.9", groupPrice: "95", nowPrice: "119.9", minPeople: 5, stock: 100, category: "Pet Shop", saleMode: "agora" },
+        { name: "Caixa de Leite Integral 12un", description: "Leite integral longa vida", imageUrl: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=800", originalPrice: "59.9", groupPrice: "42", nowPrice: "52.9", minPeople: 8, stock: 250, category: "Frios e Laticinios", saleMode: "grupo" },
       ];
 
       for (const p of seed) {
