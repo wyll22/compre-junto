@@ -102,6 +102,7 @@ function ProductForm({
     saleMode: "grupo",
     fulfillmentType: "pickup",
     active: true,
+    saleEndsAt: "",
   });
   const subCats = form.categoryId ? allCats.filter((c: any) => c.parentId === Number(form.categoryId)) : [];
 
@@ -122,12 +123,13 @@ function ProductForm({
         saleMode: editProduct.saleMode || "grupo",
         fulfillmentType: editProduct.fulfillmentType || (editProduct.saleMode === "agora" ? "delivery" : "pickup"),
         active: editProduct.active !== false,
+        saleEndsAt: editProduct.saleEndsAt ? new Date(editProduct.saleEndsAt).toISOString().slice(0, 16) : "",
       });
     } else {
       setForm({
         name: "", description: "", imageUrl: "", originalPrice: "", groupPrice: "",
         nowPrice: "", minPeople: "10", stock: "100", reserveFee: "0",
-        categoryId: "", subcategoryId: "", saleMode: "grupo", fulfillmentType: "pickup", active: true,
+        categoryId: "", subcategoryId: "", saleMode: "grupo", fulfillmentType: "pickup", active: true, saleEndsAt: "",
       });
     }
   }, [editProduct, isOpen]);
@@ -146,6 +148,7 @@ function ProductForm({
       category: selectedCat?.name || "Outros",
       categoryId: form.categoryId ? Number(form.categoryId) : null,
       subcategoryId: form.subcategoryId ? Number(form.subcategoryId) : null,
+      saleEndsAt: form.saleEndsAt ? new Date(form.saleEndsAt).toISOString() : null,
     };
 
     if (editProduct) {
@@ -240,6 +243,12 @@ function ProductForm({
           <div className="space-y-1.5">
             <Label>URL da Imagem</Label>
             <Input data-testid="input-image-url" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Encerra em (Queima de Estoque)</Label>
+            <Input data-testid="input-sale-ends-at" type="datetime-local" value={form.saleEndsAt} onChange={(e) => setForm({ ...form, saleEndsAt: e.target.value })} />
+            <p className="text-[11px] text-muted-foreground">Opcional. Define countdown no card do produto.</p>
           </div>
 
           <div className="flex items-center gap-2">
