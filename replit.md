@@ -13,6 +13,15 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-14: Production-readiness features
+  - SEO: meta description, Open Graph tags, Twitter cards, lang=pt-BR
+  - Password recovery: forgot-password/reset-password flow with 1-hour token expiry, single-use tokens
+  - Product detail page: /produto/:id with qty selector, group progress display, related products
+  - Stock control: transactional decrement with FOR UPDATE locks during checkout, rollback on error
+  - Payment indication: PIX key and WhatsApp contact shown on order confirmation
+  - In-app notifications: notifications table, auto-creation on order status changes, NotificationBell with polling, mark-read
+  - API: POST /api/auth/forgot-password, POST /api/auth/reset-password, GET /api/products/:id, GET /api/notifications, GET /api/notifications/unread-count, POST /api/notifications/mark-read
+
 - 2026-02-14: Pickup-focused order status workflow
   - New status flow: recebido → em_separacao → pronto_retirada → retirado (with nao_retirado/cancelado branches)
   - order_status_history table tracks all status transitions with user, timestamp, and reason
