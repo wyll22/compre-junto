@@ -21,8 +21,11 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
     ? "min-w-[120px] lg:min-w-[140px] flex items-center"
     : "flex items-center justify-center";
 
+  const bgClass = size === "header" ? "bg-white rounded-md px-2 py-1" : "";
+
   return (
     <div className={`${containerClass} ${className}`} data-testid="brand-logo">
+      <div className={bgClass}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 4760 6460"
@@ -37,6 +40,7 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
           <path fill={yellowFill} d={YELLOW_PATH} />
         </g>
       </svg>
+      </div>
     </div>
   );
 }
