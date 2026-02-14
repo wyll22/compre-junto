@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users, ShoppingBag, UserCircle, Loader2, Package, LogOut } from "lucide-react";
-import logoImg from "@assets/49ECF8D6-8EFD-4DE3-B65C-335066A661D2_1771048499776.png";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -126,15 +126,8 @@ export default function Account() {
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <Link href="/">
-              <img
-                data-testid="img-account-logo"
-                src={logoImg}
-                alt="Compra Junto Formosa"
-                decoding="async"
-                className="logo-header"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
+            <Link href="/" data-testid="link-account-logo">
+              <BrandLogo variant="header" />
             </Link>
             <h1 className="text-lg font-bold font-display text-white">Minha Conta</h1>
           </div>

@@ -10,7 +10,7 @@ import {
   Plus, Trash2, LayoutDashboard, ExternalLink, Edit, Package, Users, Image, Video, Loader2, ClipboardList, Eye,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import logoImg from "@assets/49ECF8D6-8EFD-4DE3-B65C-335066A661D2_1771048499776.png";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -406,15 +406,8 @@ export default function Admin() {
       <header className="brand-gradient border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Link href="/">
-              <img
-                data-testid="img-admin-logo"
-                src={logoImg}
-                alt="Compra Junto Formosa"
-                decoding="async"
-                className="logo-header"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
+            <Link href="/" data-testid="link-admin-logo">
+              <BrandLogo variant="header" />
             </Link>
             <h1 className="text-lg font-bold font-display text-white">Painel Admin</h1>
           </div>

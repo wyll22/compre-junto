@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
-import logoImg from "@assets/49ECF8D6-8EFD-4DE3-B65C-335066A661D2_1771048499776.png";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -64,14 +64,7 @@ export default function Login() {
               Voltar
             </Button>
           </Link>
-          <img
-              data-testid="img-login-logo"
-              src={logoImg}
-              alt="Compra Junto Formosa"
-              decoding="async"
-              className="logo-auth"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-            />
+          <BrandLogo variant="auth" />
           <p className="text-muted-foreground text-sm mt-1">
             {isRegister ? "Crie sua conta" : "Entre na sua conta"}
           </p>

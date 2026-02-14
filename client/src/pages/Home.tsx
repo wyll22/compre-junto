@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronLeft, ChevronRight, UserCircle } from "lucide-react";
-import logoImg from "@assets/49ECF8D6-8EFD-4DE3-B65C-335066A661D2_1771048499776.png";
+import { BrandLogo } from "@/components/BrandLogo";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { CATEGORIES } from "@shared/schema";
@@ -88,15 +88,8 @@ export default function Home() {
       <header className="brand-gradient sticky top-0 z-30 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-3">
-            <Link href="/">
-              <img
-                data-testid="img-brand-logo"
-                src={logoImg}
-                alt="Compra Junto Formosa"
-                decoding="async"
-                className="logo-header"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
+            <Link href="/" data-testid="link-brand-logo">
+              <BrandLogo variant="header" />
             </Link>
 
             <div className="relative flex-1 max-w-md hidden sm:block">
