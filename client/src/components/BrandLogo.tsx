@@ -14,21 +14,21 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
   const yellowFill = resolvedVariant === "white" ? "#FFFFFF" : "#D4A62A";
 
   const sizeClass = size === "header"
-    ? "h-[44px] md:h-[52px] lg:h-[60px] w-auto"
+    ? "h-[48px] md:h-[56px] lg:h-[64px] w-auto"
     : "h-[80px] md:h-[100px] lg:h-[120px] w-auto";
 
   const containerClass = size === "header"
     ? "min-w-[120px] lg:min-w-[140px] flex items-center"
     : "flex items-center justify-center";
 
-  const bgClass = size === "header" ? "bg-white rounded inline-flex p-0.5" : "";
+  const bgClass = size === "header" ? "bg-white rounded-lg inline-flex p-1" : "";
 
   return (
     <div className={`${containerClass} ${className}`} data-testid="brand-logo">
       <div className={bgClass}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="270 0 3990 6460"
+        viewBox="0 0 4760 6460"
         preserveAspectRatio="xMidYMid meet"
         className={sizeClass}
         style={{ imageRendering: "auto" as const, objectFit: "contain" as const, filter: "none", opacity: 1, mixBlendMode: "normal" as const, transform: "none" }}
