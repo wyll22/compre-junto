@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface CartItem {
   productId: number;
@@ -16,9 +18,11 @@ interface CartItem {
 
 export default function Cart() {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
   const { data: user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const savedCart = localStorage.getItem("fsa_cart");
@@ -55,17 +59,70 @@ export default function Cart() {
 
   const total = cart.reduce((acc, item) => acc + Number(item.price) * item.qty, 0);
 
+  const createOrder = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/orders", {
+        items: cart.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          imageUrl: item.imageUrl,
+          price: item.price,
+          qty: item.qty,
+        })),
+        total: total.toFixed(2),
+      });
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      setOrderSuccess(data.id);
+      saveCart([]);
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    },
+    onError: (err: any) => {
+      const msg = err?.message || "Erro ao criar pedido";
+      let parsed = msg;
+      try {
+        parsed = JSON.parse(msg.split(":").slice(1).join(":").trim()).message || msg;
+      } catch {}
+      toast({ title: "Erro", description: parsed, variant: "destructive" });
+    },
+  });
+
   const handleCheckout = () => {
     if (!user) {
       setLocation("/login?redirect=/carrinho");
       return;
     }
-    toast({
-      title: "Pedido recebido!",
-      description: "Em breve entraremos em contato para confirmar seu pedido.",
-    });
-    saveCart([]);
+    createOrder.mutate();
   };
+
+  if (orderSuccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
+        <div className="bg-primary/10 p-6 rounded-full mb-4">
+          <CheckCircle className="w-12 h-12 text-primary" />
+        </div>
+        <h2 data-testid="text-order-success" className="text-2xl font-bold mb-2 text-foreground">
+          Pedido #{orderSuccess} recebido!
+        </h2>
+        <p className="text-muted-foreground mb-6 text-sm max-w-sm">
+          Seu pedido foi registrado com sucesso. Em breve entraremos em contato para confirmar os detalhes.
+        </p>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Link href="/minha-conta">
+            <Button data-testid="button-view-orders" variant="outline">
+              Ver meus pedidos
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button data-testid="button-back-to-store">
+              Voltar para a Loja
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (cart.length === 0) {
     return (
@@ -122,7 +179,6 @@ export default function Cart() {
                       data-testid={`button-decrease-${item.productId}`}
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
                       onClick={() => updateQty(item.productId, -1)}
                     >
                       <Minus className="w-3 h-3" />
@@ -132,7 +188,6 @@ export default function Cart() {
                       data-testid={`button-increase-${item.productId}`}
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
                       onClick={() => updateQty(item.productId, 1)}
                     >
                       <Plus className="w-3 h-3" />
@@ -166,8 +221,13 @@ export default function Cart() {
           className="w-full font-bold"
           size="lg"
           onClick={handleCheckout}
+          disabled={createOrder.isPending}
         >
-          {!user && <LogIn className="w-4 h-4 mr-1.5" />}
+          {createOrder.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+          ) : !user ? (
+            <LogIn className="w-4 h-4 mr-1.5" />
+          ) : null}
           {user ? "Finalizar Pedido" : "Fazer login para finalizar"}
         </Button>
       </div>

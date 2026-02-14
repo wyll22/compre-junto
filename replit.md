@@ -2,15 +2,22 @@
 
 ## Overview
 
-Compra Junto Formosa is a group buying web application for a local community in Formosa. Users can browse products in two modes (group buying and individual purchase), join buying groups for discounted prices, and manage a shopping cart. The app features user authentication, an admin panel, and a green/yellow brand identity. Built as a full-stack TypeScript project with React frontend and Express backend, using PostgreSQL for data storage. The interface is in Brazilian Portuguese with a mobile-first design.
+Compra Junto Formosa is a group buying web application for a local community in Formosa. Users can browse products in two modes (group buying and individual purchase), join buying groups for discounted prices, and manage a shopping cart. The app features user authentication, an admin panel, user account management, and a green/yellow brand identity. Built as a full-stack TypeScript project with React frontend and Express backend, using PostgreSQL for data storage. The interface is in Brazilian Portuguese with a mobile-first design.
 
 Key features:
 - Dual sale modes: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase)
-- 14+ product categories (Basico, Bebida, Higiene pessoal, etc.)
-- User authentication with register/login/logout (session-based)
+- 19 product categories (Basico, Bebida, Higiene pessoal, Industrializado, Lavanderia, Limpeza, Matinais, Perfumaria, Temperos/condimentos, Pet Shop, Hortifruti, Frios e Laticinios, Padaria, Ferramentas, Botinas/EPIs, Roupas, Calcados, Agro, Outros)
+- User authentication with register/login/logout (session-based with connect-pg-simple)
 - Group buying: users create or join groups for products to unlock group prices
-- Shopping cart (localStorage-based, login required for checkout)
-- Admin panel for managing products, groups, banners, and videos
+- Auto-close groups when min people reached + auto-create new group if stock allows
+- Duplicate user prevention in groups
+- Reserve fee tracking per member (pendente/pago/nenhuma)
+- Shopping cart (localStorage-based) with real order creation on backend
+- Order confirmation screen with order number
+- Minha Conta page: view groups, orders, update profile
+- Admin panel for managing products, groups, orders, banners, and videos
+- Banner carousel on home page (auto-rotate)
+- Videos section on home page (embedded YouTube/etc)
 - Green (#0B6B3A) and yellow (#D4A62A) brand identity
 
 ## User Preferences
@@ -20,14 +27,19 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
-- 2026-02-14: Evolved from "Compre Junto FSA" to "Compra Junto Formosa"
-- Added dual sale modes (grupo/agora) with tab-based switching
-- Added user authentication (register/login/logout with bcryptjs + sessions)
-- Expanded to 14+ product categories
-- Added new product fields: stock, reserveFee, nowPrice, active
-- Added banners and videos tables with full CRUD in admin
-- Rebuilt brand identity with green/yellow color palette
-- Created comprehensive admin panel with tabs for products, groups, banners, videos
+- 2026-02-14: Major update with comprehensive features
+  - Expanded to 19 product categories
+  - Added Minha Conta page with Meus Grupos, Meus Pedidos, Meus Dados tabs
+  - Cart now creates real orders on backend with confirmation screen
+  - Admin panel now includes Orders tab with status management
+  - Admin groups view shows product name and member list dialog
+  - Home page now shows banner carousel and videos section
+  - Session storage upgraded to PostgreSQL-backed (connect-pg-simple)
+  - Auto-close groups when min people reached, auto-create new if stock allows
+  - Reserve fee tracking (pendente/pago/nenhuma) per group member
+  - Duplicate user prevention in same group
+  - User profile update endpoint
+  - Admin can view all products (including inactive) via /api/products/all
 
 ## System Architecture
 
@@ -49,7 +61,7 @@ The project uses a single repository with three main directories:
 - **Forms**: React Hook Form with Zod validation
 - **Cart**: Client-side only, stored in localStorage (`fsa_cart` key)
 
-Pages: Home (`/`), Login (`/login`), Cart (`/carrinho`), Admin (`/admin`), 404
+Pages: Home (`/`), Login (`/login`), Cart (`/carrinho`), Minha Conta (`/minha-conta`), Admin (`/admin`), 404
 
 Path aliases:
 - `@/*` → `client/src/*`
@@ -59,9 +71,10 @@ Path aliases:
 - **Framework**: Express on Node.js
 - **Language**: TypeScript, run with `tsx` in development
 - **API Pattern**: RESTful JSON API under `/api/*`
-- **Authentication**: Session-based with express-session, bcryptjs for password hashing
+- **Authentication**: Session-based with express-session + connect-pg-simple, bcryptjs for password hashing
 - **Storage Layer**: `server/storage.ts` defines an `IStorage` interface with PostgreSQL implementation using raw pool queries
-- **Session**: In-memory session store (not persistent across restarts)
+- **Session**: PostgreSQL-backed session store (persistent across restarts)
+- **Auth Middleware**: requireAuth and requireAdmin functions in routes.ts
 
 ### Database
 - **Database**: PostgreSQL via `DATABASE_URL`
@@ -70,36 +83,45 @@ Path aliases:
 - **Migrations**: Drizzle Kit (`npm run db:push`)
 
 **Tables:**
-- `users` — id, name, email (unique), password (bcrypt hash), phone, role (user/admin), createdAt
+- `users` — id, name, email (unique), password (bcrypt hash), phone, role (user/admin), emailVerified, phoneVerified, createdAt
 - `products` — id, name, description, imageUrl, originalPrice, groupPrice, nowPrice, minPeople, stock, reserveFee, category, saleMode (grupo/agora), active, createdAt
 - `groups` — id, productId, currentPeople, minPeople, status (aberto/fechado), createdAt
-- `members` — id, groupId, userId, name, phone, createdAt
+- `members` — id, groupId, userId, name, phone, reserveStatus (pendente/pago/nenhuma), createdAt
 - `banners` — id, title, imageUrl, mobileImageUrl, linkUrl, sortOrder, active, createdAt
 - `videos` — id, title, embedUrl, sortOrder, active, createdAt
-- `orders` — id, userId, items (jsonb), totalAmount, status, createdAt
+- `orders` — id, userId, items (jsonb), total, status (recebido/processando/enviado/entregue/cancelado), createdAt
 
 ### API Routes
-- `GET /api/products` — list products (optional category/search/saleMode filters)
+- `GET /api/products` — list active products (optional category/search/saleMode filters)
+- `GET /api/products/all` — list ALL products including inactive (admin)
 - `GET /api/products/:id` — get single product
 - `POST /api/products` — create product (admin)
 - `PUT /api/products/:id` — update product (admin)
 - `DELETE /api/products/:id` — delete product (admin)
-- `GET /api/groups` — list groups (optional productId/status filters)
-- `POST /api/groups` — create group
-- `POST /api/groups/:id/join` — join a group
+- `GET /api/groups` — list groups (optional productId/status filters, includes product info)
+- `GET /api/groups/:id` — get single group
+- `GET /api/groups/:id/members` — list group members
+- `POST /api/groups` — create group (auth required, auto-joins creator)
+- `POST /api/groups/:id/join` — join a group (auth required, duplicate prevention)
 - `PATCH /api/groups/:id/status` — update group status (admin)
-- `GET /api/banners` — list banners
+- `GET /api/user/groups` — get current user's groups with product info
+- `GET /api/banners` — list banners (optional active=true filter)
 - `POST /api/banners` — create banner (admin)
 - `PUT /api/banners/:id` — update banner (admin)
 - `DELETE /api/banners/:id` — delete banner (admin)
-- `GET /api/videos` — list videos
+- `GET /api/videos` — list videos (optional active=true filter)
 - `POST /api/videos` — create video (admin)
 - `PUT /api/videos/:id` — update video (admin)
 - `DELETE /api/videos/:id` — delete video (admin)
+- `POST /api/orders` — create order (auth required)
+- `GET /api/orders` — list user's orders (admin: ?all=true for all)
+- `GET /api/orders/:id` — get single order
+- `PATCH /api/orders/:id/status` — update order status (admin)
 - `POST /api/auth/register` — register new user
 - `POST /api/auth/login` — login
 - `POST /api/auth/logout` — logout
 - `GET /api/auth/me` — get current user
+- `PUT /api/auth/profile` — update user profile (auth required)
 
 ### Dev vs Production
 - **Development**: `npm run dev` runs `tsx server/index.ts` with Vite middleware for HMR
@@ -113,7 +135,7 @@ Path aliases:
 ### Key NPM Packages
 - **drizzle-orm** + **drizzle-kit** + **drizzle-zod**: Database schema and migrations
 - **pg**: PostgreSQL client
-- **express** + **express-session**: HTTP server and sessions
+- **express** + **express-session** + **connect-pg-simple**: HTTP server, sessions with PG store
 - **bcryptjs**: Password hashing
 - **zod**: Runtime validation
 - **@tanstack/react-query**: Client-side data fetching

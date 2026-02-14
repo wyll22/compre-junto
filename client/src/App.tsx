@@ -8,6 +8,7 @@ import Home from "@/pages/Home";
 import Admin from "@/pages/Admin";
 import Cart from "@/pages/Cart";
 import Login from "@/pages/Login";
+import Account from "@/pages/Account";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/carrinho" component={Cart} />
       <Route path="/login" component={Login} />
+      <Route path="/minha-conta" component={Account} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,23 +1,54 @@
 import { useProducts } from "@/hooks/use-products";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { ProductCard } from "@/components/ProductCard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut } from "lucide-react";
+import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronLeft, ChevronRight, UserCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { CATEGORIES } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [saleMode, setSaleMode] = useState<"grupo" | "agora">("grupo");
   const [searchTerm, setSearchTerm] = useState("");
   const [cartCount, setCartCount] = useState(0);
+  const [bannerIdx, setBannerIdx] = useState(0);
 
   const { data: user } = useAuth();
   const logout = useLogout();
+
+  const { data: banners } = useQuery({
+    queryKey: ["/api/banners", "active"],
+    queryFn: async () => {
+      const res = await fetch("/api/banners?active=true");
+      if (!res.ok) return [];
+      return await res.json();
+    },
+  });
+
+  const { data: videos } = useQuery({
+    queryKey: ["/api/videos", "active"],
+    queryFn: async () => {
+      const res = await fetch("/api/videos?active=true");
+      if (!res.ok) return [];
+      return await res.json();
+    },
+  });
+
+  const activeBanners = (banners ?? []) as any[];
+  const activeVideos = (videos ?? []) as any[];
+
+  useEffect(() => {
+    if (activeBanners.length <= 1) return;
+    const interval = setInterval(() => {
+      setBannerIdx((prev) => (prev + 1) % activeBanners.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeBanners.length]);
 
   useEffect(() => {
     const updateCartCount = () => {
@@ -83,7 +114,7 @@ export default function Home() {
                   data-testid="button-cart"
                   variant="ghost"
                   size="icon"
-                  className="relative text-white hover:bg-white/15"
+                  className="relative text-white"
                 >
                   <ShoppingCart className="w-5 h-5" />
                   {cartCount > 0 && (
@@ -96,12 +127,21 @@ export default function Home() {
 
               {user ? (
                 <div className="flex items-center gap-1">
-                  <span className="text-white/80 text-xs hidden md:inline">{user.name.split(" ")[0]}</span>
+                  <Link href="/minha-conta">
+                    <Button
+                      data-testid="button-account"
+                      variant="ghost"
+                      size="icon"
+                      className="text-white"
+                    >
+                      <UserCircle className="w-5 h-5" />
+                    </Button>
+                  </Link>
                   <Button
                     data-testid="button-logout"
                     variant="ghost"
                     size="icon"
-                    className="text-white hover:bg-white/15"
+                    className="text-white"
                     onClick={() => logout.mutate()}
                   >
                     <LogOut className="w-4 h-4" />
@@ -120,7 +160,7 @@ export default function Home() {
                     data-testid="button-login"
                     variant="ghost"
                     size="icon"
-                    className="text-white hover:bg-white/15"
+                    className="text-white"
                   >
                     <User className="w-5 h-5" />
                   </Button>
@@ -155,7 +195,7 @@ export default function Home() {
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
                   saleMode === "grupo"
                     ? "text-white border-[#D4A62A] border-b-[3px]"
-                    : "text-white/60 border-transparent border-b-[3px] hover:text-white/80"
+                    : "text-white/60 border-transparent border-b-[3px]"
                 }`}
               >
                 <Users className="w-4 h-4" />
@@ -167,7 +207,7 @@ export default function Home() {
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
                   saleMode === "agora"
                     ? "text-white border-[#D4A62A] border-b-[3px]"
-                    : "text-white/60 border-transparent border-b-[3px] hover:text-white/80"
+                    : "text-white/60 border-transparent border-b-[3px]"
                 }`}
               >
                 <ShoppingBag className="w-4 h-4" />
@@ -188,7 +228,7 @@ export default function Home() {
                   className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     selectedCategory === cat
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-card text-foreground/70 border border-border hover:bg-muted"
+                      : "bg-card text-foreground/70 border border-border"
                   }`}
                 >
                   {cat}
@@ -200,6 +240,64 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {activeBanners.length > 0 && (
+          <div className="mb-6 relative rounded-md overflow-hidden" data-testid="banner-carousel">
+            <div className="relative aspect-[3/1] sm:aspect-[4/1] bg-muted">
+              {activeBanners.map((banner: any, i: number) => (
+                <div
+                  key={banner.id}
+                  className={`absolute inset-0 transition-opacity duration-500 ${i === bannerIdx ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                >
+                  {banner.linkUrl ? (
+                    <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                      <img
+                        src={banner.imageUrl}
+                        alt={banner.title || "Banner"}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </a>
+                  ) : (
+                    <img
+                      src={banner.imageUrl}
+                      alt={banner.title || "Banner"}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            {activeBanners.length > 1 && (
+              <>
+                <button
+                  onClick={() => setBannerIdx((prev) => (prev - 1 + activeBanners.length) % activeBanners.length)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1"
+                  data-testid="button-banner-prev"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setBannerIdx((prev) => (prev + 1) % activeBanners.length)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1"
+                  data-testid="button-banner-next"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {activeBanners.map((_: any, i: number) => (
+                    <button
+                      key={i}
+                      onClick={() => setBannerIdx(i)}
+                      className={`w-2 h-2 rounded-full transition-all ${i === bannerIdx ? "bg-white scale-125" : "bg-white/50"}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {saleMode === "grupo" && (
           <div className="mb-6 rounded-md brand-gradient p-6 text-white shadow-md relative overflow-hidden">
             <div className="relative z-10 max-w-lg">
@@ -256,6 +354,34 @@ export default function Home() {
             </motion.div>
           )}
         </div>
+
+        {activeVideos.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-xl font-display font-bold text-foreground mb-4">
+              Videos
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeVideos.map((video: any) => (
+                <div key={video.id} className="rounded-md overflow-hidden bg-card border border-border" data-testid={`video-${video.id}`}>
+                  <div className="aspect-video">
+                    <iframe
+                      src={video.embedUrl}
+                      title={video.title || "Video"}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                  {video.title && (
+                    <div className="p-2">
+                      <p className="text-sm font-medium truncate">{video.title}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );
