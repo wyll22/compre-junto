@@ -14,11 +14,11 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
   const yellowFill = resolvedVariant === "white" ? "#FFFFFF" : "#D4A62A";
 
   const sizeClass = size === "header"
-    ? "h-[48px] md:h-[56px] lg:h-[64px] w-auto"
+    ? "h-[36px] md:h-[42px] lg:h-[48px] w-auto"
     : "h-[80px] md:h-[100px] lg:h-[120px] w-auto";
 
   const containerClass = size === "header"
-    ? "min-w-[120px] lg:min-w-[140px] flex items-center"
+    ? "flex items-center"
     : "flex items-center justify-center";
 
   const bgClass = size === "header" ? "bg-white rounded-lg inline-flex p-1" : "";
