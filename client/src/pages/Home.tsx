@@ -1,14 +1,14 @@
 import { useProducts } from "@/hooks/use-products";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { ProductCard } from "@/components/ProductCard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronRight, UserCircle, Grid3X3, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -33,6 +33,12 @@ export default function Home() {
   const [cartCount, setCartCount] = useState(0);
   const [bannerIdx, setBannerIdx] = useState(0);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchMobileRef = useRef<HTMLDivElement>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: user } = useAuth();
   const logout = useLogout();
@@ -125,6 +131,62 @@ export default function Home() {
     };
   }, []);
 
+  const fetchSuggestions = useCallback((term: string) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    if (term.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setSuggestionsLoading(true);
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/products/suggestions?q=${encodeURIComponent(term)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data);
+          setShowSuggestions(data.length > 0);
+        }
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    fetchSuggestions(value);
+  }, [fetchSuggestions]);
+
+  const [, navigate] = useLocation();
+  const handleSuggestionClick = useCallback((product: any) => {
+    setShowSuggestions(false);
+    setSearchTerm("");
+    setSuggestions([]);
+    navigate(`/produto/${product.id}`);
+  }, [navigate]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        searchRef.current && !searchRef.current.contains(e.target as Node) &&
+        searchMobileRef.current && !searchMobileRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
   const { data: products, isLoading, error } = useProducts({
     search: searchTerm,
     saleMode,
@@ -147,8 +209,8 @@ export default function Home() {
               <BrandLogo size="header" />
             </Link>
 
-            <div className="relative flex-1 max-w-md hidden sm:block">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="relative flex-1 max-w-md hidden sm:block" ref={searchRef}>
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                 <Search className="h-4 w-4 text-white/60" />
               </div>
               <Input
@@ -157,8 +219,46 @@ export default function Home() {
                 placeholder="O que voce procura?"
                 className="pl-10 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25 focus:border-white/40"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                autoComplete="off"
               />
+              {showSuggestions && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                  {suggestionsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    suggestions.map((item: any) => (
+                      <button
+                        key={item.id}
+                        data-testid={`suggestion-${item.id}`}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover-elevate transition-colors"
+                        onClick={() => handleSuggestionClick(item)}
+                      >
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded-md flex-shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
+                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.saleMode === "grupo" && item.groupPrice ? `R$ ${Number(item.groupPrice).toFixed(2)}` : ""}
+                            {item.saleMode === "agora" && item.nowPrice ? `R$ ${Number(item.nowPrice).toFixed(2)}` : ""}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                          {item.saleMode === "grupo" ? "Grupo" : "Agora"}
+                        </Badge>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-1">
@@ -206,9 +306,9 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="sm:hidden mt-2">
+          <div className="sm:hidden mt-2" ref={searchMobileRef}>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                 <Search className="h-4 w-4 text-white/60" />
               </div>
               <Input
@@ -217,8 +317,43 @@ export default function Home() {
                 placeholder="O que voce procura?"
                 className="pl-10 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                autoComplete="off"
               />
+              {showSuggestions && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
+                  {suggestionsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    suggestions.map((item: any) => (
+                      <button
+                        key={item.id}
+                        data-testid={`suggestion-mobile-${item.id}`}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover-elevate transition-colors"
+                        onClick={() => handleSuggestionClick(item)}
+                      >
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="w-9 h-9 object-cover rounded-md flex-shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
+                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.saleMode === "grupo" && item.groupPrice ? `R$ ${Number(item.groupPrice).toFixed(2)}` : ""}
+                            {item.saleMode === "agora" && item.nowPrice ? `R$ ${Number(item.nowPrice).toFixed(2)}` : ""}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

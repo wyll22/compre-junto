@@ -13,6 +13,14 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-15: Smart search with autocomplete
+  - Autocomplete search bar: suggestions dropdown appears as user types (debounced 300ms)
+  - Lightweight /api/products/suggestions endpoint returns top 8 matching products
+  - Suggestions show product thumbnail, name, price, and sale mode badge
+  - Clicking a suggestion navigates to product detail page
+  - Works on both desktop and mobile search bars
+  - Click-outside closes dropdown, cleanup on unmount
+
 - 2026-02-15: User roles & analytics enhancements
   - User roles: admin, editor, author, user with distinct permissions
   - Role management: admin can change user roles from Clientes tab with role filter and count cards

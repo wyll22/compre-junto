@@ -516,6 +516,13 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/products/suggestions", async (req: Request, res: Response) => {
+    const term = req.query.q as string | undefined;
+    if (!term || term.trim().length < 2) return res.json([]);
+    const suggestions = await storage.searchProductsSuggestions(term);
+    res.json(suggestions);
+  });
+
   app.get("/api/products", async (req: Request, res: Response) => {
     const category = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;

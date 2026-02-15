@@ -133,6 +133,7 @@ export interface IStorage {
   seedCategories(): Promise<void>;
 
   getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number): Promise<ProductRow[]>;
+  searchProductsSuggestions(term: string, limit?: number): Promise<{ id: number; name: string; imageUrl: string | null; groupPrice: string | null; nowPrice: string | null; saleMode: string }[]>;
   getProduct(id: number): Promise<ProductRow | null>;
   createProduct(input: any): Promise<ProductRow>;
   updateProduct(id: number, input: any): Promise<ProductRow | null>;
@@ -476,6 +477,15 @@ class DatabaseStorage implements IStorage {
       values,
     );
     return result.rows as ProductRow[];
+  }
+
+  async searchProductsSuggestions(term: string, limit: number = 8): Promise<{ id: number; name: string; imageUrl: string | null; groupPrice: string | null; nowPrice: string | null; saleMode: string }[]> {
+    const result = await pool.query(
+      `SELECT id, name, image_url AS "imageUrl", group_price AS "groupPrice", now_price AS "nowPrice", sale_mode AS "saleMode"
+       FROM products WHERE active = true AND name ILIKE $1 ORDER BY name ASC LIMIT $2`,
+      [`%${term.trim()}%`, limit],
+    );
+    return result.rows;
   }
 
   async getProduct(id: number): Promise<ProductRow | null> {
