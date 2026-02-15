@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronRight, UserCircle, Grid3X3, X, SlidersHorizontal, Tag } from "lucide-react";
+import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronRight, UserCircle, Grid3X3 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Footer } from "@/components/Footer";
 import { NotificationBell } from "@/components/NotificationBell";
+import { FilterSidebar } from "@/components/FilterSidebar";
 
 type CategoryItem = {
   id: number;
@@ -36,7 +37,7 @@ export default function Home() {
   const [filterBrand, setFilterBrand] = useState<string>("");
   const [filterMinPrice, setFilterMinPrice] = useState<string>("");
   const [filterMaxPrice, setFilterMaxPrice] = useState<string>("");
-  const [showFilters, setShowFilters] = useState(false);
+  const [selectedFilterOptions, setSelectedFilterOptions] = useState<number[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -84,16 +85,6 @@ export default function Home() {
       return await res.json();
     },
   });
-
-  const { data: brandsData } = useQuery<string[]>({
-    queryKey: ["/api/products/brands"],
-    queryFn: async () => {
-      const res = await fetch("/api/products/brands");
-      if (!res.ok) return [];
-      return await res.json();
-    },
-  });
-  const brands = (brandsData ?? []) as string[];
 
   const activeBanners = (banners ?? []) as any[];
   const activeVideos = (videos ?? []) as any[];
@@ -201,7 +192,20 @@ export default function Home() {
     };
   }, []);
 
-  const activeFiltersCount = (filterBrand ? 1 : 0) + (filterMinPrice ? 1 : 0) + (filterMaxPrice ? 1 : 0);
+  const handleToggleFilterOption = useCallback((optionId: number) => {
+    setSelectedFilterOptions((prev) =>
+      prev.includes(optionId) ? prev.filter((id) => id !== optionId) : [...prev, optionId]
+    );
+  }, []);
+
+  const handleClearAllFilters = useCallback(() => {
+    setSelectedCategoryId(null);
+    setSelectedSubcategoryId(null);
+    setFilterBrand("");
+    setFilterMinPrice("");
+    setFilterMaxPrice("");
+    setSelectedFilterOptions([]);
+  }, []);
 
   const { data: products, isLoading, error } = useProducts({
     search: searchTerm,
@@ -211,6 +215,7 @@ export default function Home() {
     brand: filterBrand || undefined,
     minPrice: filterMinPrice ? Number(filterMinPrice) : undefined,
     maxPrice: filterMaxPrice ? Number(filterMaxPrice) : undefined,
+    filterOptionIds: selectedFilterOptions.length > 0 ? selectedFilterOptions : undefined,
   });
 
   const handleSelectCategory = (catId: number | null) => {
@@ -587,130 +592,58 @@ export default function Home() {
           </div>
         )}
 
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xl font-display font-bold text-foreground">
-              {searchTerm ? `Resultados para "${searchTerm}"` : selectedCategoryName}
-            </h2>
-            <div className="flex items-center gap-2">
+        <div className="flex gap-6">
+          <FilterSidebar
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={handleSelectCategory}
+            selectedBrand={filterBrand}
+            onSelectBrand={setFilterBrand}
+            minPrice={filterMinPrice}
+            maxPrice={filterMaxPrice}
+            onMinPriceChange={setFilterMinPrice}
+            onMaxPriceChange={setFilterMaxPrice}
+            selectedFilterOptions={selectedFilterOptions}
+            onToggleFilterOption={handleToggleFilterOption}
+            onClearAllFilters={handleClearAllFilters}
+            saleMode={saleMode}
+            searchTerm={searchTerm}
+          />
+
+          <div className="flex-1 min-w-0 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xl font-display font-bold text-foreground">
+                {searchTerm ? `Resultados para "${searchTerm}"` : selectedCategoryName}
+              </h2>
               <span className="text-xs text-muted-foreground">
                 {products?.length || 0} produtos
               </span>
-              <Button
-                data-testid="button-toggle-filters"
-                variant={showFilters ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="gap-1.5"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                Filtros
-                {activeFiltersCount > 0 && (
-                  <Badge variant="secondary">{activeFiltersCount}</Badge>
-                )}
-              </Button>
             </div>
-          </div>
 
-          {showFilters && (
-            <div className="bg-card border border-border rounded-md p-3 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Marca</label>
-                  <select
-                    data-testid="filter-brand"
-                    value={filterBrand}
-                    onChange={(e) => setFilterBrand(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                  >
-                    <option value="">Todas as marcas</option>
-                    {brands.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Preco minimo (R$)</label>
-                  <Input
-                    data-testid="filter-min-price"
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={filterMinPrice}
-                    onChange={(e) => setFilterMinPrice(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Preco maximo (R$)</label>
-                  <Input
-                    data-testid="filter-max-price"
-                    type="number"
-                    step="0.01"
-                    placeholder="999,00"
-                    value={filterMaxPrice}
-                    onChange={(e) => setFilterMaxPrice(e.target.value)}
-                  />
-                </div>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
+                <p className="text-muted-foreground text-sm">Carregando produtos...</p>
               </div>
-              {activeFiltersCount > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  {filterBrand && (
-                    <Badge variant="secondary" className="gap-1 text-xs">
-                      <Tag className="w-3 h-3" />
-                      {filterBrand}
-                      <button data-testid="button-remove-brand" onClick={() => setFilterBrand("")} className="ml-0.5"><X className="w-3 h-3" /></button>
-                    </Badge>
-                  )}
-                  {filterMinPrice && (
-                    <Badge variant="secondary" className="gap-1 text-xs">
-                      Min: R$ {filterMinPrice}
-                      <button data-testid="button-remove-min-price" onClick={() => setFilterMinPrice("")} className="ml-0.5"><X className="w-3 h-3" /></button>
-                    </Badge>
-                  )}
-                  {filterMaxPrice && (
-                    <Badge variant="secondary" className="gap-1 text-xs">
-                      Max: R$ {filterMaxPrice}
-                      <button data-testid="button-remove-max-price" onClick={() => setFilterMaxPrice("")} className="ml-0.5"><X className="w-3 h-3" /></button>
-                    </Badge>
-                  )}
-                  <Button
-                    data-testid="button-clear-filters"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { setFilterBrand(""); setFilterMinPrice(""); setFilterMaxPrice(""); }}
-                    className="text-xs"
-                  >
-                    Limpar filtros
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
-              <p className="text-muted-foreground text-sm">Carregando produtos...</p>
-            </div>
-          ) : error ? (
-            <div className="text-center py-16 bg-card rounded-md border border-border">
-              <p className="text-destructive font-medium text-sm">Erro ao carregar produtos.</p>
-            </div>
-          ) : products?.length === 0 ? (
-            <div className="text-center py-16 bg-card rounded-md border border-dashed border-border">
-              <ShoppingBag className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-foreground">Nenhum produto encontrado</h3>
-              <p className="text-muted-foreground text-sm">Tente buscar por outro termo ou categoria.</p>
-            </div>
-          ) : (
-            <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              <AnimatePresence>
-                {products?.map((product: any) => (
-                  <ProductCard key={product.id} product={product} saleMode={saleMode} />
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          )}
+            ) : error ? (
+              <div className="text-center py-16 bg-card rounded-md border border-border">
+                <p className="text-destructive font-medium text-sm">Erro ao carregar produtos.</p>
+              </div>
+            ) : products?.length === 0 ? (
+              <div className="text-center py-16 bg-card rounded-md border border-dashed border-border">
+                <ShoppingBag className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-foreground">Nenhum produto encontrado</h3>
+                <p className="text-muted-foreground text-sm">Tente buscar por outro termo ou categoria.</p>
+              </div>
+            ) : (
+              <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4">
+                <AnimatePresence>
+                  {products?.map((product: any) => (
+                    <ProductCard key={product.id} product={product} saleMode={saleMode} />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </div>
         </div>
 
         {activeVideos.length > 0 && (

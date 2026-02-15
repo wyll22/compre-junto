@@ -537,7 +537,10 @@ export async function registerRoutes(
     const brand = req.query.brand as string | undefined;
     const minPrice = req.query.minPrice ? Number(req.query.minPrice) : undefined;
     const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : undefined;
-    const filters = (brand || minPrice !== undefined || maxPrice !== undefined) ? { brand, minPrice, maxPrice } : undefined;
+    const filterOptionIdsRaw = req.query.filterOptionIds as string | undefined;
+    const filterOptionIds = filterOptionIdsRaw ? filterOptionIdsRaw.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
+    const hasFilters = brand || minPrice !== undefined || maxPrice !== undefined || (filterOptionIds && filterOptionIds.length > 0);
+    const filters = hasFilters ? { brand, minPrice, maxPrice, filterOptionIds } : undefined;
     const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId, filters);
     res.json(products);
   });
@@ -608,6 +611,106 @@ export async function registerRoutes(
     await storage.deleteProduct(Number(req.params.id));
     await auditLog(req, userId, "excluir", "produto", Number(req.params.id), { name: product?.name });
     res.status(204).send();
+  });
+
+  app.get("/api/filters/catalog", async (req: Request, res: Response) => {
+    const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
+    const subcategoryId = req.query.subcategoryId ? Number(req.query.subcategoryId) : undefined;
+    const search = req.query.search as string | undefined;
+    const saleMode = req.query.saleMode as string | undefined;
+    const catalog = await storage.getFilterCatalog({ categoryId, subcategoryId, search, saleMode });
+    res.json(catalog);
+  });
+
+  app.post("/api/filters/track", async (req: Request, res: Response) => {
+    const { filterTypeId, filterOptionId } = req.body;
+    if (!filterTypeId) return res.status(400).json({ message: "filterTypeId obrigatorio" });
+    await storage.trackFilterUsage(filterTypeId, filterOptionId);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/admin/filter-types", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const types = await storage.getFilterTypes();
+    res.json(types);
+  });
+
+  app.post("/api/admin/filter-types", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const { name, slug, inputType, sortOrder, active } = req.body;
+    if (!name || !slug) return res.status(400).json({ message: "Nome e slug obrigatorios" });
+    const ft = await storage.createFilterType({ name, slug, inputType, sortOrder, active });
+    await auditLog(req, userId, "criar", "filtro", ft.id, { name });
+    res.status(201).json(ft);
+  });
+
+  app.put("/api/admin/filter-types/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const ft = await storage.updateFilterType(Number(req.params.id), req.body);
+    if (!ft) return res.status(404).json({ message: "Tipo de filtro nao encontrado" });
+    await auditLog(req, userId, "editar", "filtro", ft.id, { name: ft.name });
+    res.json(ft);
+  });
+
+  app.delete("/api/admin/filter-types/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    await storage.deleteFilterType(Number(req.params.id));
+    await auditLog(req, userId, "excluir", "filtro", Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/admin/filter-options", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const filterTypeId = req.query.filterTypeId ? Number(req.query.filterTypeId) : undefined;
+    const options = await storage.getFilterOptions(filterTypeId);
+    res.json(options);
+  });
+
+  app.post("/api/admin/filter-options", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const { filterTypeId, label, value, sortOrder, active } = req.body;
+    if (!filterTypeId || !label || !value) return res.status(400).json({ message: "filterTypeId, label e value obrigatorios" });
+    const opt = await storage.createFilterOption({ filterTypeId, label, value, sortOrder, active });
+    await auditLog(req, userId, "criar", "opcao_filtro", opt.id, { label });
+    res.status(201).json(opt);
+  });
+
+  app.put("/api/admin/filter-options/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const opt = await storage.updateFilterOption(Number(req.params.id), req.body);
+    if (!opt) return res.status(404).json({ message: "Opcao nao encontrada" });
+    await auditLog(req, userId, "editar", "opcao_filtro", opt.id, { label: opt.label });
+    res.json(opt);
+  });
+
+  app.delete("/api/admin/filter-options/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    await storage.deleteFilterOption(Number(req.params.id));
+    await auditLog(req, userId, "excluir", "opcao_filtro", Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/products/:id/filters", async (req: Request, res: Response) => {
+    const filters = await storage.getProductFilters(Number(req.params.id));
+    res.json(filters);
+  });
+
+  app.put("/api/products/:id/filters", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const { filters } = req.body;
+    if (!Array.isArray(filters)) return res.status(400).json({ message: "filters deve ser um array" });
+    await storage.setProductFilters(Number(req.params.id), filters);
+    await auditLog(req, userId, "editar", "filtros_produto", Number(req.params.id));
+    res.json({ ok: true });
   });
 
   app.get("/api/groups", async (req: Request, res: Response) => {

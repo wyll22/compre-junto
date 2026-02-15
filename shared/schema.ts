@@ -253,6 +253,52 @@ export const navigationLinks = pgTable("navigation_links", {
   active: boolean("active").default(true),
 });
 
+export const filterTypes = pgTable("filter_types", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  inputType: text("input_type").notNull().default("select"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const filterOptions = pgTable("filter_options", {
+  id: serial("id").primaryKey(),
+  filterTypeId: integer("filter_type_id").notNull(),
+  label: text("label").notNull(),
+  value: text("value").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+export const productFilters = pgTable("product_filters", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull(),
+  filterTypeId: integer("filter_type_id").notNull(),
+  filterOptionId: integer("filter_option_id").notNull(),
+});
+
+export const filterUsage = pgTable("filter_usage", {
+  id: serial("id").primaryKey(),
+  filterTypeId: integer("filter_type_id").notNull(),
+  filterOptionId: integer("filter_option_id"),
+  count: integer("count").notNull().default(0),
+  lastUsedAt: timestamp("last_used_at").defaultNow(),
+});
+
+export const insertFilterTypeSchema = createInsertSchema(filterTypes).omit({ id: true, createdAt: true });
+export const insertFilterOptionSchema = createInsertSchema(filterOptions).omit({ id: true });
+export const insertProductFilterSchema = createInsertSchema(productFilters).omit({ id: true });
+
+export type FilterType = typeof filterTypes.$inferSelect;
+export type InsertFilterType = z.infer<typeof insertFilterTypeSchema>;
+export type FilterOption = typeof filterOptions.$inferSelect;
+export type InsertFilterOption = z.infer<typeof insertFilterOptionSchema>;
+export type ProductFilter = typeof productFilters.$inferSelect;
+export type InsertProductFilter = z.infer<typeof insertProductFilterSchema>;
+export type FilterUsageRow = typeof filterUsage.$inferSelect;
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });

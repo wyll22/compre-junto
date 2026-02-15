@@ -11,8 +11,9 @@ import {
   ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
   Mail, Phone, ChevronDown, ChevronUp, Search, MapPin, AlertTriangle, Settings, ArrowRight, History,
   Monitor, Globe, Database, Server, Shield, RefreshCcw, CheckCircle2, XCircle, FileText, Upload, Link2, Copy,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Filter,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
@@ -32,7 +33,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation" | "filters";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -80,6 +81,8 @@ function ProductForm({
 }) {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: allCategoriesData } = useQuery({
     queryKey: ["/api/categories"],
     queryFn: async () => {
@@ -89,6 +92,38 @@ function ProductForm({
   });
   const allCats = (allCategoriesData ?? []) as any[];
   const topCats = allCats.filter((c: any) => c.parentId === null);
+
+  const { data: activeFilterTypes } = useQuery<any[]>({
+    queryKey: ["/api/admin/filter-types"],
+  });
+  const activeTypes = (activeFilterTypes || []).filter((ft: any) => ft.active);
+
+  const { data: allFilterOptions } = useQuery<any[]>({
+    queryKey: ["/api/admin/filter-options", "all-active"],
+    queryFn: async () => {
+      const types = activeFilterTypes || [];
+      const activeIds = types.filter((ft: any) => ft.active).map((ft: any) => ft.id);
+      const results: any[] = [];
+      for (const tid of activeIds) {
+        const res = await fetch(`/api/admin/filter-options?filterTypeId=${tid}`, { credentials: "include" });
+        const opts = await res.json();
+        results.push(...(opts || []).filter((o: any) => o.active));
+      }
+      return results;
+    },
+    enabled: (activeFilterTypes || []).length > 0,
+  });
+
+  const { data: productFilters } = useQuery<any[]>({
+    queryKey: ["/api/products", editProduct?.id, "filters"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${editProduct.id}/filters`, { credentials: "include" });
+      return await res.json();
+    },
+    enabled: !!editProduct?.id,
+  });
+
+  const [selectedFilters, setSelectedFilters] = useState<Record<number, Set<number>>>({});
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -142,8 +177,22 @@ function ProductForm({
         categoryId: "", subcategoryId: "", saleMode: "grupo", fulfillmentType: "pickup", active: true, saleEndsAt: "",
         brand: "", weight: "", dimensions: "", specifications: "",
       });
+      setSelectedFilters({});
     }
   }, [editProduct, isOpen]);
+
+  useEffect(() => {
+    if (productFilters && productFilters.length > 0) {
+      const map: Record<number, Set<number>> = {};
+      productFilters.forEach((pf: any) => {
+        if (!map[pf.filterTypeId]) map[pf.filterTypeId] = new Set();
+        map[pf.filterTypeId].add(pf.filterOptionId);
+      });
+      setSelectedFilters(map);
+    } else if (productFilters) {
+      setSelectedFilters({});
+    }
+  }, [productFilters]);
 
   const loading = createProduct.isPending || updateProduct.isPending;
 
@@ -166,11 +215,29 @@ function ProductForm({
       saleEndsAt: form.saleEndsAt ? new Date(form.saleEndsAt).toISOString() : null,
     };
 
+    let productId = editProduct?.id;
     if (editProduct) {
       await updateProduct.mutateAsync({ id: editProduct.id, data: payload });
     } else {
-      await createProduct.mutateAsync(payload);
+      const created = await createProduct.mutateAsync(payload);
+      productId = (created as any)?.id;
     }
+
+    if (productId && activeTypes.length > 0) {
+      const filters: { filterTypeId: number; filterOptionId: number }[] = [];
+      Object.entries(selectedFilters).forEach(([typeId, optionIds]) => {
+        optionIds.forEach((optId) => {
+          filters.push({ filterTypeId: Number(typeId), filterOptionId: optId });
+        });
+      });
+      try {
+        await apiRequest("PUT", `/api/products/${productId}/filters`, { filters });
+        queryClient.invalidateQueries({ queryKey: ["/api/products", productId, "filters"] });
+      } catch (err: any) {
+        toast({ title: "Aviso", description: "Produto salvo, mas houve erro ao salvar filtros.", variant: "destructive" });
+      }
+    }
+
     onClose();
   };
 
@@ -290,6 +357,46 @@ function ProductForm({
             <input data-testid="input-active" type="checkbox" id="active" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="rounded border-input" />
             <Label htmlFor="active">Produto ativo</Label>
           </div>
+
+          {activeTypes.length > 0 && (
+            <div className="space-y-3 border-t border-border pt-3">
+              <Label className="text-sm font-semibold">Filtros do Produto</Label>
+              {activeTypes.map((ft: any) => {
+                const options = (allFilterOptions || []).filter((o: any) => o.filterTypeId === ft.id);
+                if (options.length === 0) return null;
+                const selected = selectedFilters[ft.id] || new Set();
+                const toggleOption = (optId: number) => {
+                  setSelectedFilters((prev) => {
+                    const newSet = new Set(prev[ft.id] || []);
+                    if (newSet.has(optId)) {
+                      newSet.delete(optId);
+                    } else {
+                      newSet.add(optId);
+                    }
+                    return { ...prev, [ft.id]: newSet };
+                  });
+                };
+                return (
+                  <div key={ft.id} className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">{ft.name}</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {options.map((opt: any) => (
+                        <label key={opt.id} className="flex items-center gap-1.5 text-sm cursor-pointer" data-testid={`filter-option-${ft.id}-${opt.id}`}>
+                          <input
+                            type="checkbox"
+                            checked={selected.has(opt.id)}
+                            onChange={() => toggleOption(opt.id)}
+                            className="rounded border-input"
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={loading}>Cancelar</Button>
@@ -1912,6 +2019,406 @@ function NavigationTab() {
   );
 }
 
+function FiltersTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: filterTypes, isLoading: typesLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/filter-types"],
+  });
+
+  const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
+  const { data: filterOptions, isLoading: optionsLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/filter-options", selectedTypeId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/filter-options?filterTypeId=${selectedTypeId}`, { credentials: "include" });
+      return await res.json();
+    },
+    enabled: selectedTypeId !== null,
+  });
+
+  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
+  const [editingType, setEditingType] = useState<any>(null);
+  const [typeForm, setTypeForm] = useState({ name: "", slug: "", inputType: "select", sortOrder: "0", active: true });
+  const [slugManual, setSlugManual] = useState(false);
+
+  const [optionDialogOpen, setOptionDialogOpen] = useState(false);
+  const [editingOption, setEditingOption] = useState<any>(null);
+  const [optionForm, setOptionForm] = useState({ label: "", value: "", sortOrder: "0", active: true });
+
+  const generateSlug = (name: string) =>
+    name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+  const openNewType = () => {
+    setEditingType(null);
+    setSlugManual(false);
+    setTypeForm({ name: "", slug: "", inputType: "select", sortOrder: "0", active: true });
+    setTypeDialogOpen(true);
+  };
+
+  const openEditType = (ft: any) => {
+    setEditingType(ft);
+    setSlugManual(true);
+    setTypeForm({
+      name: ft.name || "",
+      slug: ft.slug || "",
+      inputType: ft.inputType || "select",
+      sortOrder: String(ft.sortOrder || 0),
+      active: ft.active !== false,
+    });
+    setTypeDialogOpen(true);
+  };
+
+  const openNewOption = () => {
+    setEditingOption(null);
+    setOptionForm({ label: "", value: "", sortOrder: "0", active: true });
+    setOptionDialogOpen(true);
+  };
+
+  const openEditOption = (opt: any) => {
+    setEditingOption(opt);
+    setOptionForm({
+      label: opt.label || "",
+      value: opt.value || "",
+      sortOrder: String(opt.sortOrder || 0),
+      active: opt.active !== false,
+    });
+    setOptionDialogOpen(true);
+  };
+
+  const saveTypeMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editingType) {
+        const res = await apiRequest("PUT", `/api/admin/filter-types/${editingType.id}`, data);
+        return await res.json();
+      }
+      const res = await apiRequest("POST", "/api/admin/filter-types", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/filter-types"] });
+      toast({ title: editingType ? "Tipo de filtro atualizado!" : "Tipo de filtro criado!" });
+      setTypeDialogOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const deleteTypeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/filter-types/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/filter-types"] });
+      toast({ title: "Tipo de filtro removido!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const saveOptionMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editingOption) {
+        const res = await apiRequest("PUT", `/api/admin/filter-options/${editingOption.id}`, data);
+        return await res.json();
+      }
+      const res = await apiRequest("POST", "/api/admin/filter-options", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/filter-options", selectedTypeId] });
+      toast({ title: editingOption ? "Opcao atualizada!" : "Opcao criada!" });
+      setOptionDialogOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const deleteOptionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/filter-options/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/filter-options", selectedTypeId] });
+      toast({ title: "Opcao removida!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const handleTypeNameChange = (name: string) => {
+    if (!slugManual) {
+      setTypeForm((f) => ({ ...f, name, slug: generateSlug(name) }));
+    } else {
+      setTypeForm((f) => ({ ...f, name }));
+    }
+  };
+
+  const handleTypeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveTypeMutation.mutate({
+      name: typeForm.name,
+      slug: typeForm.slug,
+      inputType: typeForm.inputType,
+      sortOrder: Number(typeForm.sortOrder),
+      active: typeForm.active,
+    });
+  };
+
+  const handleOptionSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveOptionMutation.mutate({
+      filterTypeId: selectedTypeId,
+      label: optionForm.label,
+      value: optionForm.value,
+      sortOrder: Number(optionForm.sortOrder),
+      active: optionForm.active,
+    });
+  };
+
+  if (typesLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div>
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <h2 className="text-lg font-bold text-foreground">Tipos de Filtro ({filterTypes?.length || 0})</h2>
+            <Button size="sm" data-testid="button-new-filter-type" onClick={openNewType}>
+              <Plus className="w-4 h-4 mr-1" /> Novo Tipo de Filtro
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>Tipo Input</TableHead>
+                      <TableHead>Ordem</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Acoes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {!filterTypes || filterTypes.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum tipo de filtro cadastrado.</TableCell></TableRow>
+                    ) : (
+                      filterTypes.map((ft: any) => (
+                        <TableRow key={ft.id} data-testid={`row-filter-type-${ft.id}`}>
+                          <TableCell className="font-medium text-sm">{ft.name}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{ft.slug}</TableCell>
+                          <TableCell className="text-sm">{ft.inputType}</TableCell>
+                          <TableCell className="text-sm">{ft.sortOrder}</TableCell>
+                          <TableCell>
+                            <Badge variant={ft.active ? "default" : "secondary"} className="text-[10px]">{ft.active ? "Ativo" : "Inativo"}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" data-testid={`button-edit-filter-type-${ft.id}`} onClick={() => openEditType(ft)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="text-destructive" data-testid={`button-delete-filter-type-${ft.id}`}><Trash2 className="w-4 h-4" /></Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir tipo de filtro?</AlertDialogTitle>
+                                    <AlertDialogDescription>Essa acao nao pode ser desfeita. O tipo "{ft.name}" e todas suas opcoes serao excluidos.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteTypeMutation.mutate(ft.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-lg font-bold text-foreground">Opcoes de Filtro</h2>
+              <select
+                data-testid="select-filter-type-for-options"
+                value={selectedTypeId ?? ""}
+                onChange={(e) => setSelectedTypeId(e.target.value ? Number(e.target.value) : null)}
+                className="text-sm border border-input rounded-md px-2 py-1.5 bg-background"
+              >
+                <option value="">Selecionar tipo...</option>
+                {(filterTypes || []).map((ft: any) => (
+                  <option key={ft.id} value={String(ft.id)}>{ft.name}</option>
+                ))}
+              </select>
+            </div>
+            {selectedTypeId && (
+              <Button size="sm" data-testid="button-new-filter-option" onClick={openNewOption}>
+                <Plus className="w-4 h-4 mr-1" /> Nova Opcao
+              </Button>
+            )}
+          </div>
+
+          {selectedTypeId ? (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Label</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Ordem</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Acoes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {optionsLoading ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></TableCell></TableRow>
+                      ) : !filterOptions || filterOptions.length === 0 ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">Nenhuma opcao cadastrada para este filtro.</TableCell></TableRow>
+                      ) : (
+                        filterOptions.map((opt: any) => (
+                          <TableRow key={opt.id} data-testid={`row-filter-option-${opt.id}`}>
+                            <TableCell className="font-medium text-sm">{opt.label}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{opt.value}</TableCell>
+                            <TableCell className="text-sm">{opt.sortOrder}</TableCell>
+                            <TableCell>
+                              <Badge variant={opt.active ? "default" : "secondary"} className="text-[10px]">{opt.active ? "Ativo" : "Inativo"}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" data-testid={`button-edit-filter-option-${opt.id}`} onClick={() => openEditOption(opt)}>
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive" data-testid={`button-delete-filter-option-${opt.id}`}><Trash2 className="w-4 h-4" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Excluir opcao?</AlertDialogTitle>
+                                      <AlertDialogDescription>Essa acao nao pode ser desfeita. A opcao "{opt.label}" sera excluida.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteOptionMutation.mutate(opt.id)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                Selecione um tipo de filtro acima para ver suas opcoes.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={typeDialogOpen} onOpenChange={(open) => !saveTypeMutation.isPending && !open && setTypeDialogOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>{editingType ? "Editar Tipo de Filtro" : "Novo Tipo de Filtro"}</DialogTitle></DialogHeader>
+          <form onSubmit={handleTypeSubmit} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input data-testid="input-filter-type-name" value={typeForm.name} onChange={(e) => handleTypeNameChange(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Slug</Label>
+              <Input data-testid="input-filter-type-slug" value={typeForm.slug} onChange={(e) => { setSlugManual(true); setTypeForm((f) => ({ ...f, slug: e.target.value })); }} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo de Input</Label>
+              <select data-testid="select-filter-input-type" value={typeForm.inputType} onChange={(e) => setTypeForm((f) => ({ ...f, inputType: e.target.value }))} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                <option value="select">Select</option>
+                <option value="checkbox">Checkbox</option>
+                <option value="radio">Radio</option>
+                <option value="range">Range</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ordem</Label>
+              <Input data-testid="input-filter-type-order" type="number" value={typeForm.sortOrder} onChange={(e) => setTypeForm((f) => ({ ...f, sortOrder: e.target.value }))} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch data-testid="switch-filter-type-active" checked={typeForm.active} onCheckedChange={(checked) => setTypeForm((f) => ({ ...f, active: checked }))} />
+              <Label>Ativo</Label>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setTypeDialogOpen(false)}>Cancelar</Button>
+              <Button data-testid="button-save-filter-type" type="submit" className="flex-1" disabled={saveTypeMutation.isPending}>
+                {saveTypeMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                Salvar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={optionDialogOpen} onOpenChange={(open) => !saveOptionMutation.isPending && !open && setOptionDialogOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>{editingOption ? "Editar Opcao" : "Nova Opcao"}</DialogTitle></DialogHeader>
+          <form onSubmit={handleOptionSubmit} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Label</Label>
+              <Input data-testid="input-filter-option-label" value={optionForm.label} onChange={(e) => setOptionForm((f) => ({ ...f, label: e.target.value }))} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Valor</Label>
+              <Input data-testid="input-filter-option-value" value={optionForm.value} onChange={(e) => setOptionForm((f) => ({ ...f, value: e.target.value }))} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ordem</Label>
+              <Input data-testid="input-filter-option-order" type="number" value={optionForm.sortOrder} onChange={(e) => setOptionForm((f) => ({ ...f, sortOrder: e.target.value }))} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch data-testid="switch-filter-option-active" checked={optionForm.active} onCheckedChange={(checked) => setOptionForm((f) => ({ ...f, active: checked }))} />
+              <Label>Ativo</Label>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setOptionDialogOpen(false)}>Cancelar</Button>
+              <Button data-testid="button-save-filter-option" type="submit" className="flex-1" disabled={saveOptionMutation.isPending}>
+                {saveOptionMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                Salvar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function AdminTabBar({ tabs, tab, setTab }: { tabs: { key: string; label: string; icon: any }[]; tab: string; setTab: (t: any) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -2201,6 +2708,7 @@ export default function Admin() {
     { key: "order-settings", label: "Config. Pedidos", icon: Settings },
     { key: "articles", label: "Artigos", icon: FileText },
     { key: "media", label: "Midia", icon: Upload },
+    { key: "filters", label: "Filtros", icon: Filter },
     { key: "navigation", label: "Navegacao", icon: Link2 },
     { key: "system", label: "Sistema", icon: Monitor },
   ];
@@ -2944,6 +3452,8 @@ export default function Admin() {
         {tab === "articles" && <ArticlesTab />}
 
         {tab === "media" && <MediaTab />}
+
+        {tab === "filters" && <FiltersTab />}
 
         {tab === "navigation" && <NavigationTab />}
 

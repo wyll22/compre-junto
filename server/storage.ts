@@ -136,7 +136,7 @@ export interface IStorage {
   deleteCategory(id: number): Promise<void>;
   seedCategories(): Promise<void>;
 
-  getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number }): Promise<ProductRow[]>;
+  getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number; filterOptionIds?: number[] }): Promise<ProductRow[]>;
   getProductBrands(): Promise<string[]>;
   searchProductsSuggestions(term: string, limit?: number): Promise<{ id: number; name: string; imageUrl: string | null; groupPrice: string | null; nowPrice: string | null; saleMode: string }[]>;
   getProduct(id: number): Promise<ProductRow | null>;
@@ -222,6 +222,23 @@ export interface IStorage {
   createNavigationLink(input: any): Promise<any>;
   updateNavigationLink(id: number, input: any): Promise<any | null>;
   deleteNavigationLink(id: number): Promise<void>;
+
+  getFilterTypes(activeOnly?: boolean): Promise<any[]>;
+  getFilterType(id: number): Promise<any | null>;
+  createFilterType(input: { name: string; slug: string; inputType?: string; sortOrder?: number; active?: boolean }): Promise<any>;
+  updateFilterType(id: number, input: any): Promise<any | null>;
+  deleteFilterType(id: number): Promise<void>;
+
+  getFilterOptions(filterTypeId?: number, activeOnly?: boolean): Promise<any[]>;
+  createFilterOption(input: { filterTypeId: number; label: string; value: string; sortOrder?: number; active?: boolean }): Promise<any>;
+  updateFilterOption(id: number, input: any): Promise<any | null>;
+  deleteFilterOption(id: number): Promise<void>;
+
+  getProductFilters(productId: number): Promise<any[]>;
+  setProductFilters(productId: number, filters: { filterTypeId: number; filterOptionId: number }[]): Promise<void>;
+
+  getFilterCatalog(params?: { categoryId?: number; subcategoryId?: number; search?: string; saleMode?: string }): Promise<any>;
+  trackFilterUsage(filterTypeId: number, filterOptionId?: number): Promise<void>;
 
   seedProducts(): Promise<void>;
 }
@@ -452,7 +469,7 @@ class DatabaseStorage implements IStorage {
     }
   }
 
-  async getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number }): Promise<ProductRow[]> {
+  async getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number; filterOptionIds?: number[] }): Promise<ProductRow[]> {
     const values: unknown[] = [];
     const conditions: string[] = ["active = true"];
 
@@ -491,6 +508,11 @@ class DatabaseStorage implements IStorage {
     if (filters?.maxPrice !== undefined) {
       values.push(filters.maxPrice);
       conditions.push(`COALESCE(now_price, original_price)::numeric <= $${values.length}`);
+    }
+
+    if (filters?.filterOptionIds && filters.filterOptionIds.length > 0) {
+      values.push(filters.filterOptionIds);
+      conditions.push(`id IN (SELECT product_id FROM product_filters WHERE filter_option_id = ANY($${values.length}))`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -1512,6 +1534,222 @@ class DatabaseStorage implements IStorage {
       [limit],
     );
     return result.rows;
+  }
+
+  async getFilterTypes(activeOnly: boolean = false): Promise<any[]> {
+    const where = activeOnly ? "WHERE active = true" : "";
+    const result = await pool.query(
+      `SELECT id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, created_at AS "createdAt"
+       FROM filter_types ${where} ORDER BY sort_order ASC, name ASC`
+    );
+    return result.rows;
+  }
+
+  async getFilterType(id: number): Promise<any | null> {
+    const result = await pool.query(
+      `SELECT id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, created_at AS "createdAt"
+       FROM filter_types WHERE id = $1 LIMIT 1`, [id]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async createFilterType(input: { name: string; slug: string; inputType?: string; sortOrder?: number; active?: boolean }): Promise<any> {
+    const result = await pool.query(
+      `INSERT INTO filter_types (name, slug, input_type, sort_order, active)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active`,
+      [input.name, input.slug, input.inputType ?? "select", input.sortOrder ?? 0, input.active !== false]
+    );
+    return result.rows[0];
+  }
+
+  async updateFilterType(id: number, input: any): Promise<any | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    if (input.name !== undefined) { fields.push(`name = $${idx++}`); values.push(input.name); }
+    if (input.slug !== undefined) { fields.push(`slug = $${idx++}`); values.push(input.slug); }
+    if (input.inputType !== undefined) { fields.push(`input_type = $${idx++}`); values.push(input.inputType); }
+    if (input.sortOrder !== undefined) { fields.push(`sort_order = $${idx++}`); values.push(input.sortOrder); }
+    if (input.active !== undefined) { fields.push(`active = $${idx++}`); values.push(input.active); }
+    if (fields.length === 0) return this.getFilterType(id);
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE filter_types SET ${fields.join(", ")} WHERE id = $${idx}
+       RETURNING id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active`,
+      values
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async deleteFilterType(id: number): Promise<void> {
+    await pool.query(`DELETE FROM filter_types WHERE id = $1`, [id]);
+  }
+
+  async getFilterOptions(filterTypeId?: number, activeOnly: boolean = false): Promise<any[]> {
+    const conditions: string[] = [];
+    const values: any[] = [];
+    if (filterTypeId) { conditions.push(`fo.filter_type_id = $${conditions.length + 1}`); values.push(filterTypeId); }
+    if (activeOnly) { conditions.push(`fo.active = true`); }
+    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+    const result = await pool.query(
+      `SELECT fo.id, fo.filter_type_id AS "filterTypeId", fo.label, fo.value, fo.sort_order AS "sortOrder", fo.active,
+              ft.name AS "filterTypeName", ft.slug AS "filterTypeSlug"
+       FROM filter_options fo
+       JOIN filter_types ft ON ft.id = fo.filter_type_id
+       ${where}
+       ORDER BY fo.sort_order ASC, fo.label ASC`,
+      values
+    );
+    return result.rows;
+  }
+
+  async createFilterOption(input: { filterTypeId: number; label: string; value: string; sortOrder?: number; active?: boolean }): Promise<any> {
+    const result = await pool.query(
+      `INSERT INTO filter_options (filter_type_id, label, value, sort_order, active)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, filter_type_id AS "filterTypeId", label, value, sort_order AS "sortOrder", active`,
+      [input.filterTypeId, input.label, input.value, input.sortOrder ?? 0, input.active !== false]
+    );
+    return result.rows[0];
+  }
+
+  async updateFilterOption(id: number, input: any): Promise<any | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    if (input.label !== undefined) { fields.push(`label = $${idx++}`); values.push(input.label); }
+    if (input.value !== undefined) { fields.push(`value = $${idx++}`); values.push(input.value); }
+    if (input.sortOrder !== undefined) { fields.push(`sort_order = $${idx++}`); values.push(input.sortOrder); }
+    if (input.active !== undefined) { fields.push(`active = $${idx++}`); values.push(input.active); }
+    if (fields.length === 0) return null;
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE filter_options SET ${fields.join(", ")} WHERE id = $${idx}
+       RETURNING id, filter_type_id AS "filterTypeId", label, value, sort_order AS "sortOrder", active`,
+      values
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async deleteFilterOption(id: number): Promise<void> {
+    await pool.query(`DELETE FROM filter_options WHERE id = $1`, [id]);
+  }
+
+  async getProductFilters(productId: number): Promise<any[]> {
+    const result = await pool.query(
+      `SELECT pf.id, pf.product_id AS "productId", pf.filter_type_id AS "filterTypeId", pf.filter_option_id AS "filterOptionId",
+              ft.name AS "filterTypeName", ft.slug AS "filterTypeSlug",
+              fo.label AS "optionLabel", fo.value AS "optionValue"
+       FROM product_filters pf
+       JOIN filter_types ft ON ft.id = pf.filter_type_id
+       JOIN filter_options fo ON fo.id = pf.filter_option_id
+       WHERE pf.product_id = $1
+       ORDER BY ft.sort_order ASC, fo.sort_order ASC`,
+      [productId]
+    );
+    return result.rows;
+  }
+
+  async setProductFilters(productId: number, filters: { filterTypeId: number; filterOptionId: number }[]): Promise<void> {
+    await pool.query(`DELETE FROM product_filters WHERE product_id = $1`, [productId]);
+    for (const f of filters) {
+      await pool.query(
+        `INSERT INTO product_filters (product_id, filter_type_id, filter_option_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [productId, f.filterTypeId, f.filterOptionId]
+      );
+    }
+  }
+
+  async getFilterCatalog(params?: { categoryId?: number; subcategoryId?: number; search?: string; saleMode?: string }): Promise<any> {
+    const conditions: string[] = ["p.active = true"];
+    const values: any[] = [];
+    let idx = 1;
+    if (params?.categoryId) { conditions.push(`p.category_id = $${idx++}`); values.push(params.categoryId); }
+    if (params?.subcategoryId) { conditions.push(`p.subcategory_id = $${idx++}`); values.push(params.subcategoryId); }
+    if (params?.search) { conditions.push(`(p.name ILIKE $${idx} OR COALESCE(p.description, '') ILIKE $${idx})`); values.push(`%${params.search}%`); idx++; }
+    if (params?.saleMode) { conditions.push(`p.sale_mode = $${idx++}`); values.push(params.saleMode); }
+    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+
+    const catRes = await pool.query(
+      `SELECT c.id, c.name, c.slug, c.parent_id AS "parentId", COUNT(p.id)::int AS count
+       FROM categories c
+       LEFT JOIN products p ON (p.category_id = c.id OR p.subcategory_id = c.id) AND p.active = true
+       WHERE c.active = true
+       GROUP BY c.id
+       ORDER BY c.sort_order ASC, c.name ASC`
+    );
+
+    const brandRes = await pool.query(
+      `SELECT p.brand, COUNT(*)::int AS count
+       FROM products p ${where} AND p.brand IS NOT NULL AND p.brand != ''
+       GROUP BY p.brand ORDER BY count DESC, p.brand ASC`,
+      values
+    );
+
+    const priceRes = await pool.query(
+      `SELECT MIN(COALESCE(p.now_price, p.original_price)::numeric)::text AS "minPrice",
+              MAX(COALESCE(p.now_price, p.original_price)::numeric)::text AS "maxPrice"
+       FROM products p ${where}`,
+      values
+    );
+
+    const dynamicRes = await pool.query(
+      `SELECT ft.id AS "filterTypeId", ft.name AS "filterTypeName", ft.slug AS "filterTypeSlug", ft.input_type AS "inputType",
+              fo.id AS "optionId", fo.label AS "optionLabel", fo.value AS "optionValue",
+              COUNT(DISTINCT pf.product_id)::int AS count
+       FROM filter_types ft
+       JOIN filter_options fo ON fo.filter_type_id = ft.id AND fo.active = true
+       LEFT JOIN product_filters pf ON pf.filter_option_id = fo.id
+       LEFT JOIN products p ON p.id = pf.product_id AND p.active = true
+       WHERE ft.active = true
+       GROUP BY ft.id, ft.name, ft.slug, ft.input_type, fo.id, fo.label, fo.value
+       ORDER BY ft.sort_order ASC, fo.sort_order ASC`
+    );
+
+    const dynamicFilters: Record<string, any> = {};
+    for (const row of dynamicRes.rows) {
+      if (!dynamicFilters[row.filterTypeId]) {
+        dynamicFilters[row.filterTypeId] = {
+          id: row.filterTypeId,
+          name: row.filterTypeName,
+          slug: row.filterTypeSlug,
+          inputType: row.inputType,
+          options: [],
+        };
+      }
+      dynamicFilters[row.filterTypeId].options.push({
+        id: row.optionId,
+        label: row.optionLabel,
+        value: row.optionValue,
+        count: row.count,
+      });
+    }
+
+    return {
+      categories: catRes.rows,
+      brands: brandRes.rows,
+      priceRange: priceRes.rows[0] ?? { minPrice: "0", maxPrice: "0" },
+      dynamicFilters: Object.values(dynamicFilters),
+    };
+  }
+
+  async trackFilterUsage(filterTypeId: number, filterOptionId?: number): Promise<void> {
+    const existing = await pool.query(
+      `SELECT id FROM filter_usage WHERE filter_type_id = $1 AND ${filterOptionId ? 'filter_option_id = $2' : 'filter_option_id IS NULL'}`,
+      filterOptionId ? [filterTypeId, filterOptionId] : [filterTypeId]
+    );
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE filter_usage SET count = count + 1, last_used_at = NOW() WHERE id = $1`,
+        [existing.rows[0].id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO filter_usage (filter_type_id, filter_option_id, count) VALUES ($1, $2, 1)`,
+        [filterTypeId, filterOptionId ?? null]
+      );
+    }
   }
 }
 
