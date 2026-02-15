@@ -13,6 +13,18 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-15: Advanced filters, product specs & stock management
+  - Advanced filters on Home page: brand dropdown, price range (min/max), collapsible filter panel
+  - Active filter badges with individual remove buttons and "clear all" option
+  - Filter count badge on toggle button shows number of active filters
+  - Product detail page: specifications section with brand, weight, dimensions, specs text
+  - Stock management UI: disabled buy button when out of stock, qty limited to available stock
+  - ProductCard: "Esgotado" badge when stock=0, low stock warning (<=5 units)
+  - ProductDetail: stock count shown, qty capped, out-of-stock prevents adding to cart
+  - Database: brand, weight, dimensions, specifications columns on products table
+  - API: GET /api/products/brands, products filter supports brand/minPrice/maxPrice params
+  - Admin ProductForm: inputs for brand, weight, dimensions, specifications
+
 - 2026-02-15: Smart search with autocomplete
   - Autocomplete search bar: suggestions dropdown appears as user types (debounced 300ms)
   - Lightweight /api/products/suggestions endpoint returns top 8 matching products

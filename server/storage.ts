@@ -27,6 +27,10 @@ type ProductRow = {
   active: boolean;
   categoryId: number | null;
   subcategoryId: number | null;
+  brand: string | null;
+  weight: string | null;
+  dimensions: string | null;
+  specifications: string | null;
   createdAt?: Date | string | null;
 };
 
@@ -132,7 +136,8 @@ export interface IStorage {
   deleteCategory(id: number): Promise<void>;
   seedCategories(): Promise<void>;
 
-  getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number): Promise<ProductRow[]>;
+  getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number }): Promise<ProductRow[]>;
+  getProductBrands(): Promise<string[]>;
   searchProductsSuggestions(term: string, limit?: number): Promise<{ id: number; name: string; imageUrl: string | null; groupPrice: string | null; nowPrice: string | null; saleMode: string }[]>;
   getProduct(id: number): Promise<ProductRow | null>;
   createProduct(input: any): Promise<ProductRow>;
@@ -247,6 +252,10 @@ const PRODUCT_SELECT = `
   active,
   category_id AS "categoryId",
   subcategory_id AS "subcategoryId",
+  brand,
+  weight,
+  dimensions,
+  specifications,
   sale_ends_at AS "saleEndsAt",
   created_at AS "createdAt"
 `;
@@ -443,7 +452,7 @@ class DatabaseStorage implements IStorage {
     }
   }
 
-  async getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number): Promise<ProductRow[]> {
+  async getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number }): Promise<ProductRow[]> {
     const values: unknown[] = [];
     const conditions: string[] = ["active = true"];
 
@@ -471,12 +480,32 @@ class DatabaseStorage implements IStorage {
       conditions.push(`subcategory_id = $${values.length}`);
     }
 
+    if (filters?.brand) {
+      values.push(filters.brand);
+      conditions.push(`brand = $${values.length}`);
+    }
+    if (filters?.minPrice !== undefined) {
+      values.push(filters.minPrice);
+      conditions.push(`COALESCE(now_price, original_price)::numeric >= $${values.length}`);
+    }
+    if (filters?.maxPrice !== undefined) {
+      values.push(filters.maxPrice);
+      conditions.push(`COALESCE(now_price, original_price)::numeric <= $${values.length}`);
+    }
+
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const result = await pool.query(
       `SELECT ${PRODUCT_SELECT} FROM products ${where} ORDER BY id DESC`,
       values,
     );
     return result.rows as ProductRow[];
+  }
+
+  async getProductBrands(): Promise<string[]> {
+    const result = await pool.query(
+      `SELECT DISTINCT brand FROM products WHERE active = true AND brand IS NOT NULL AND brand != '' ORDER BY brand ASC`,
+    );
+    return result.rows.map((r: any) => r.brand);
   }
 
   async searchProductsSuggestions(term: string, limit: number = 8): Promise<{ id: number; name: string; imageUrl: string | null; groupPrice: string | null; nowPrice: string | null; saleMode: string }[]> {
@@ -499,8 +528,8 @@ class DatabaseStorage implements IStorage {
   async createProduct(input: any): Promise<ProductRow> {
     const result = await pool.query(
       `INSERT INTO products
-        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, fulfillment_type, active, category_id, subcategory_id, sale_ends_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, fulfillment_type, active, category_id, subcategory_id, brand, weight, dimensions, specifications, sale_ends_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING ${PRODUCT_SELECT}`,
       [
         input.name,
@@ -518,6 +547,10 @@ class DatabaseStorage implements IStorage {
         input.active !== undefined ? input.active : true,
         input.categoryId || null,
         input.subcategoryId || null,
+        input.brand || null,
+        input.weight || null,
+        input.dimensions || null,
+        input.specifications || null,
         input.saleEndsAt || null,
       ],
     );
@@ -541,6 +574,10 @@ class DatabaseStorage implements IStorage {
       active: "active",
       categoryId: "category_id",
       subcategoryId: "subcategory_id",
+      brand: "brand",
+      weight: "weight",
+      dimensions: "dimensions",
+      specifications: "specifications",
       saleEndsAt: "sale_ends_at",
     };
 

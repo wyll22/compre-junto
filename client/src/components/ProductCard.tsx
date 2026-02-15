@@ -211,6 +211,11 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
               <span className="text-[10px] text-primary/80 font-medium">
                 {saleMode === "grupo" ? "Preco em grupo" : "Preco individual"}
               </span>
+              {product.stock > 0 && product.stock <= 5 && (
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                  Restam {product.stock}!
+                </span>
+              )}
             </div>
 
             {saleMode === "grupo" && (
@@ -291,15 +296,21 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
             )}
 
             {saleMode === "agora" && (
-              <Button
-                data-testid={`button-add-cart-${product.id}`}
-                onClick={handleAddToCart}
-                className="w-full font-bold"
-                size="sm"
-              >
-                <ShoppingCart className="w-3.5 h-3.5 mr-1.5" />
-                Adicionar ao carrinho
-              </Button>
+              product.stock > 0 ? (
+                <Button
+                  data-testid={`button-add-cart-${product.id}`}
+                  onClick={handleAddToCart}
+                  className="w-full font-bold"
+                  size="sm"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5 mr-1.5" />
+                  Adicionar ao carrinho
+                </Button>
+              ) : (
+                <Button disabled className="w-full font-bold" size="sm" data-testid={`button-out-of-stock-${product.id}`}>
+                  Esgotado
+                </Button>
+              )
             )}
           </div>
         </div>

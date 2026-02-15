@@ -105,6 +105,10 @@ function ProductForm({
     fulfillmentType: "pickup",
     active: true,
     saleEndsAt: "",
+    brand: "",
+    weight: "",
+    dimensions: "",
+    specifications: "",
   });
   const subCats = form.categoryId ? allCats.filter((c: any) => c.parentId === Number(form.categoryId)) : [];
 
@@ -126,12 +130,17 @@ function ProductForm({
         fulfillmentType: editProduct.fulfillmentType || (editProduct.saleMode === "agora" ? "delivery" : "pickup"),
         active: editProduct.active !== false,
         saleEndsAt: editProduct.saleEndsAt ? new Date(editProduct.saleEndsAt).toISOString().slice(0, 16) : "",
+        brand: editProduct.brand || "",
+        weight: editProduct.weight || "",
+        dimensions: editProduct.dimensions || "",
+        specifications: editProduct.specifications || "",
       });
     } else {
       setForm({
         name: "", description: "", imageUrl: "", originalPrice: "", groupPrice: "",
         nowPrice: "", minPeople: "10", stock: "100", reserveFee: "0",
         categoryId: "", subcategoryId: "", saleMode: "grupo", fulfillmentType: "pickup", active: true, saleEndsAt: "",
+        brand: "", weight: "", dimensions: "", specifications: "",
       });
     }
   }, [editProduct, isOpen]);
@@ -150,6 +159,10 @@ function ProductForm({
       category: selectedCat?.name || "Outros",
       categoryId: form.categoryId ? Number(form.categoryId) : null,
       subcategoryId: form.subcategoryId ? Number(form.subcategoryId) : null,
+      brand: form.brand || null,
+      weight: form.weight || null,
+      dimensions: form.dimensions || null,
+      specifications: form.specifications || null,
       saleEndsAt: form.saleEndsAt ? new Date(form.saleEndsAt).toISOString() : null,
     };
 
@@ -245,6 +258,26 @@ function ProductForm({
           <div className="space-y-1.5">
             <Label>URL da Imagem</Label>
             <Input data-testid="input-image-url" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label>Marca</Label>
+              <Input data-testid="input-brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Ex: Samsung" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Peso</Label>
+              <Input data-testid="input-weight" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} placeholder="Ex: 500g" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Dimensoes</Label>
+              <Input data-testid="input-dimensions" value={form.dimensions} onChange={(e) => setForm({ ...form, dimensions: e.target.value })} placeholder="Ex: 20x10x5 cm" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Especificacoes Tecnicas</Label>
+            <Textarea data-testid="input-specifications" value={form.specifications} onChange={(e) => setForm({ ...form, specifications: e.target.value })} placeholder="Detalhes tecnicos do produto (material, composicao, voltagem, etc.)" rows={3} />
           </div>
 
           <div className="space-y-1.5">

@@ -523,13 +523,22 @@ export async function registerRoutes(
     res.json(suggestions);
   });
 
+  app.get("/api/products/brands", async (_req: Request, res: Response) => {
+    const brands = await storage.getProductBrands();
+    res.json(brands);
+  });
+
   app.get("/api/products", async (req: Request, res: Response) => {
     const category = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;
     const saleMode = req.query.saleMode as string | undefined;
     const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
     const subcategoryId = req.query.subcategoryId ? Number(req.query.subcategoryId) : undefined;
-    const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId);
+    const brand = req.query.brand as string | undefined;
+    const minPrice = req.query.minPrice ? Number(req.query.minPrice) : undefined;
+    const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : undefined;
+    const filters = (brand || minPrice !== undefined || maxPrice !== undefined) ? { brand, minPrice, maxPrice } : undefined;
+    const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId, filters);
     res.json(products);
   });
 
@@ -541,6 +550,7 @@ export async function registerRoutes(
               group_price AS "groupPrice", now_price AS "nowPrice", min_people AS "minPeople",
               stock, reserve_fee AS "reserveFee", category, sale_mode AS "saleMode",
               category_id AS "categoryId", subcategory_id AS "subcategoryId",
+              brand, weight, dimensions, specifications,
               active, created_at AS "createdAt"
        FROM products ORDER BY id DESC`,
     );

@@ -49,6 +49,10 @@ export const products = pgTable("products", {
   active: boolean("active").notNull().default(true),
   categoryId: integer("category_id"),
   subcategoryId: integer("subcategory_id"),
+  brand: text("brand"),
+  weight: text("weight"),
+  dimensions: text("dimensions"),
+  specifications: text("specifications"),
   saleEndsAt: timestamp("sale_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });

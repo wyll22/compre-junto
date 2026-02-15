@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft, ShoppingCart, Users, Clock, MapPin, Truck,
-  Minus, Plus, Loader2, Package, ShieldCheck,
+  Minus, Plus, Loader2, Package, ShieldCheck, Info, Weight, Ruler, Tag, AlertTriangle,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/hooks/use-auth";
@@ -202,10 +202,34 @@ export default function ProductDetail() {
               </h1>
             </div>
 
+            {product.stock <= 0 && (
+              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+                <span className="text-sm font-medium text-destructive">Produto esgotado</span>
+              </div>
+            )}
+
+            {product.stock > 0 && product.stock <= 5 && (
+              <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 rounded-md p-3">
+                <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                <span className="text-sm font-medium text-orange-600 dark:text-orange-400">Ultimas {product.stock} unidades!</span>
+              </div>
+            )}
+
+            {product.brand && (
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Marca: <strong className="text-foreground">{product.brand}</strong></span>
+              </div>
+            )}
+
             {product.description && (
-              <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-product-description">
-                {product.description}
-              </p>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-1">Descricao</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line" data-testid="text-product-description">
+                  {product.description}
+                </p>
+              </div>
             )}
 
             <Card>
@@ -275,39 +299,88 @@ export default function ProductDetail() {
 
             {saleMode === "agora" && (
               <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">Quantidade:</span>
-                  <div className="flex items-center border border-border rounded-md">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setQty(Math.max(1, qty - 1))}
-                      disabled={qty <= 1}
-                      data-testid="button-qty-minus"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <span className="w-10 text-center font-medium text-foreground" data-testid="text-qty">{qty}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setQty(qty + 1)}
-                      data-testid="button-qty-plus"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+                {product.stock > 0 ? (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">Quantidade:</span>
+                      <div className="flex items-center border border-border rounded-md">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setQty(Math.max(1, qty - 1))}
+                          disabled={qty <= 1}
+                          data-testid="button-qty-minus"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <span className="w-10 text-center font-medium text-foreground" data-testid="text-qty">{qty}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setQty(Math.min(product.stock, qty + 1))}
+                          disabled={qty >= product.stock}
+                          data-testid="button-qty-plus"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <span className="text-xs text-muted-foreground">({product.stock} disponiveis)</span>
+                    </div>
 
-                <Button
-                  data-testid="button-add-cart"
-                  onClick={handleAddToCart}
-                  className="w-full font-bold"
-                >
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Adicionar ao carrinho - R$ {(displayPrice * qty).toFixed(2)}
-                </Button>
+                    <Button
+                      data-testid="button-add-cart"
+                      onClick={handleAddToCart}
+                      className="w-full font-bold"
+                    >
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Adicionar ao carrinho - R$ {(displayPrice * qty).toFixed(2)}
+                    </Button>
+                  </>
+                ) : (
+                  <Button disabled className="w-full font-bold" data-testid="button-out-of-stock">
+                    Produto esgotado
+                  </Button>
+                )}
               </div>
+            )}
+
+            {(product.specifications || product.weight || product.dimensions) && (
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    <Info className="w-4 h-4 text-primary" />
+                    Especificacoes Tecnicas
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    {product.brand && (
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground">Marca:</span>
+                        <span className="text-foreground font-medium">{product.brand}</span>
+                      </div>
+                    )}
+                    {product.weight && (
+                      <div className="flex items-center gap-2">
+                        <Weight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground">Peso:</span>
+                        <span className="text-foreground font-medium">{product.weight}</span>
+                      </div>
+                    )}
+                    {product.dimensions && (
+                      <div className="flex items-center gap-2">
+                        <Ruler className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground">Dimensoes:</span>
+                        <span className="text-foreground font-medium">{product.dimensions}</span>
+                      </div>
+                    )}
+                    {product.specifications && (
+                      <div className="pt-1 border-t border-border">
+                        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{product.specifications}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t border-border">

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-export function useProducts(params?: { category?: string; search?: string; saleMode?: string; categoryId?: number; subcategoryId?: number }) {
+export function useProducts(params?: { category?: string; search?: string; saleMode?: string; categoryId?: number; subcategoryId?: number; brand?: string; minPrice?: number; maxPrice?: number }) {
   return useQuery({
     queryKey: ["/api/products", params],
     queryFn: async () => {
@@ -21,6 +21,15 @@ export function useProducts(params?: { category?: string; search?: string; saleM
       }
       if (params?.saleMode) {
         url.searchParams.append("saleMode", params.saleMode);
+      }
+      if (params?.brand) {
+        url.searchParams.append("brand", params.brand);
+      }
+      if (params?.minPrice !== undefined) {
+        url.searchParams.append("minPrice", String(params.minPrice));
+      }
+      if (params?.maxPrice !== undefined) {
+        url.searchParams.append("maxPrice", String(params.maxPrice));
       }
       const res = await fetch(url.toString(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch products");
