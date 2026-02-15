@@ -489,9 +489,26 @@ function DashboardTab() {
   );
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  editor: "Editor",
+  author: "Autor",
+  user: "Cliente",
+};
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  admin: "Acesso total ao sistema",
+  editor: "Pode editar, publicar e excluir conteudo",
+  author: "Pode criar conteudo (artigos, midia)",
+  user: "Apenas visualizacao e compras",
+};
+
 function ClientsTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingUser, setViewingUser] = useState<any>(null);
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: allUsers, isLoading } = useQuery({
     queryKey: ["/api/admin/users"],
@@ -501,7 +518,34 @@ function ClientsTab() {
     },
   });
 
+  const roleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
+      const res = await fetch(`/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ role }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Erro ao alterar papel");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Papel atualizado", description: `Usuario atualizado para ${ROLE_LABELS[variables.role] || variables.role}` });
+      if (viewingUser?.id === variables.userId) {
+        setViewingUser((prev: any) => prev ? { ...prev, role: variables.role } : null);
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
   const users = ((allUsers ?? []) as any[]).filter((u: any) => {
+    if (roleFilter !== "all" && u.role !== roleFilter) return false;
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -512,20 +556,54 @@ function ClientsTab() {
     );
   });
 
+  const roleCounts = ((allUsers ?? []) as any[]).reduce((acc: Record<string, number>, u: any) => {
+    acc[u.role] = (acc[u.role] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
     <>
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-        <h2 className="text-lg font-bold text-foreground">Clientes ({users.length})</h2>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            data-testid="input-search-clients"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por nome, email, telefone..."
-            className="pl-10"
-          />
+        <h2 className="text-lg font-bold text-foreground">Usuarios ({users.length})</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 flex-wrap">
+            {["all", "admin", "editor", "author", "user"].map((r) => (
+              <Button
+                key={r}
+                data-testid={`filter-role-${r}`}
+                variant={roleFilter === r ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRoleFilter(r)}
+                className="flex-shrink-0"
+              >
+                {r === "all" ? "Todos" : ROLE_LABELS[r]}
+                {r !== "all" && roleCounts[r] ? ` (${roleCounts[r]})` : r === "all" ? ` (${(allUsers ?? []).length})` : ""}
+              </Button>
+            ))}
+          </div>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              data-testid="input-search-clients"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nome, email, telefone..."
+              className="pl-10"
+            />
+          </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        {(["admin", "editor", "author", "user"] as const).map((role) => (
+          <Card key={role}>
+            <CardContent className="pt-4 pb-3 px-4">
+              <p className="text-xs text-muted-foreground">{ROLE_LABELS[role]}s</p>
+              <p className="text-xl font-bold">{roleCounts[role] || 0}</p>
+              <p className="text-[10px] text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <Card>
@@ -537,16 +615,16 @@ function ClientsTab() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead>Papel</TableHead>
                   <TableHead>Cadastro</TableHead>
-                  <TableHead className="text-right">Detalhes</TableHead>
+                  <TableHead className="text-right">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></TableCell></TableRow>
                 ) : users.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum cliente encontrado.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum usuario encontrado.</TableCell></TableRow>
                 ) : (
                   users.map((u: any) => (
                     <TableRow key={u.id} data-testid={`row-user-${u.id}`}>
@@ -559,9 +637,18 @@ function ClientsTab() {
                       <TableCell className="text-sm">{u.email}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{u.phone || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={u.role === "admin" ? "default" : "secondary"} className="text-[10px]">
-                          {u.role === "admin" ? "Admin" : "Cliente"}
-                        </Badge>
+                        <select
+                          data-testid={`select-role-${u.id}`}
+                          value={u.role}
+                          onChange={(e) => roleMutation.mutate({ userId: u.id, role: e.target.value })}
+                          disabled={roleMutation.isPending}
+                          className="text-xs border rounded-md px-2 py-1 bg-background text-foreground border-border"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="editor">Editor</option>
+                          <option value="author">Autor</option>
+                          <option value="user">Cliente</option>
+                        </select>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString("pt-BR") : "-"}
@@ -583,7 +670,7 @@ function ClientsTab() {
       <Dialog open={viewingUser !== null} onOpenChange={(open) => !open && setViewingUser(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Detalhes do Cliente</DialogTitle>
+            <DialogTitle>Detalhes do Usuario</DialogTitle>
           </DialogHeader>
           {viewingUser && (
             <div className="space-y-4">
@@ -612,9 +699,22 @@ function ClientsTab() {
                 )}
                 <div className="flex items-center gap-2">
                   <UserCircle className="w-4 h-4 text-muted-foreground" />
-                  <Badge variant={viewingUser.role === "admin" ? "default" : "secondary"} className="text-[10px]">
-                    {viewingUser.role === "admin" ? "Administrador" : "Cliente"}
-                  </Badge>
+                  <span className="text-muted-foreground mr-1">Papel:</span>
+                  <select
+                    data-testid="select-role-detail"
+                    value={viewingUser.role}
+                    onChange={(e) => roleMutation.mutate({ userId: viewingUser.id, role: e.target.value })}
+                    disabled={roleMutation.isPending}
+                    className="text-xs border rounded-md px-2 py-1 bg-background text-foreground border-border"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="editor">Editor</option>
+                    <option value="author">Autor</option>
+                    <option value="user">Cliente</option>
+                  </select>
+                </div>
+                <div className="p-2 bg-muted rounded-md text-xs text-muted-foreground">
+                  {ROLE_DESCRIPTIONS[viewingUser.role] || "Sem descricao"}
                 </div>
               </div>
 
@@ -1176,10 +1276,126 @@ function SystemTab() {
         </CardContent>
       </Card>
 
+      <AnalyticsSection />
+
       <p className="text-xs text-muted-foreground text-center">
         Atualizado automaticamente a cada 30 segundos
       </p>
     </div>
+  );
+}
+
+function AnalyticsSection() {
+  const { data: analytics, isLoading } = useQuery({
+    queryKey: ["/api/admin/analytics"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/analytics", { credentials: "include" });
+      return await res.json();
+    },
+    refetchInterval: 60000,
+  });
+
+  if (isLoading || !analytics) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const topPages = analytics.topPages || [];
+  const topReferrers = analytics.topReferrers || [];
+  const dailyViews = analytics.dailyViews || [];
+  const maxViews = Math.max(...dailyViews.map((d: any) => d.views || 0), 1);
+
+  return (
+    <>
+      <h3 className="text-base font-bold text-foreground">Analise de Trafego (30 dias)</h3>
+
+      {dailyViews.length > 0 && (
+        <Card data-testid="card-daily-views">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Visualizacoes por Dia</CardTitle>
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-[2px] h-32">
+              {dailyViews.map((d: any, i: number) => {
+                const height = Math.max((d.views / maxViews) * 100, 4);
+                const dateLabel = new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center group relative" title={`${dateLabel}: ${d.views} visitas (${d.unique_visitors} unicos)`}>
+                    <div className="w-full bg-primary/80 rounded-t-sm transition-all" style={{ height: `${height}%` }} />
+                    {i % Math.max(1, Math.floor(dailyViews.length / 7)) === 0 && (
+                      <span className="text-[8px] text-muted-foreground mt-1 leading-none">{dateLabel}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Card data-testid="card-top-pages">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Paginas Mais Visitadas</CardTitle>
+            <Eye className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {topPages.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem dados ainda</p>
+            ) : (
+              <div className="space-y-2 text-sm max-h-[250px] overflow-y-auto">
+                {topPages.map((p: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-xs text-muted-foreground w-5 flex-shrink-0">{i + 1}.</span>
+                      <span className="truncate text-foreground text-xs">{p.page || "/"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs font-medium">{p.views}</span>
+                      <span className="text-[10px] text-muted-foreground">({p.unique_visitors} un.)</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-top-referrers">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Origens de Trafego</CardTitle>
+            <Globe className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {topReferrers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem dados de origem ainda</p>
+            ) : (
+              <div className="space-y-2 text-sm max-h-[250px] overflow-y-auto">
+                {topReferrers.map((r: any, i: number) => {
+                  let label = r.referrer;
+                  try { label = new URL(r.referrer).hostname; } catch {}
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="text-xs text-muted-foreground w-5 flex-shrink-0">{i + 1}.</span>
+                        <span className="truncate text-foreground text-xs">{label}</span>
+                      </div>
+                      <span className="text-xs font-medium flex-shrink-0">{r.visits}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
 

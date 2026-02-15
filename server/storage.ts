@@ -168,6 +168,7 @@ export interface IStorage {
   changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean>;
   resetPasswordByToken(token: string, newPassword: string): Promise<boolean>;
   createPasswordResetToken(email: string): Promise<{ token: string; userName: string } | null>;
+  updateUserRole(id: number, role: string): Promise<UserRow | null>;
   getUserByEmail(email: string): Promise<UserRow | null>;
 
   createOrder(input: { userId: number; items: any; total: string; fulfillmentType: string; pickupPointId?: number | null }): Promise<OrderRow>;
@@ -861,6 +862,14 @@ class DatabaseStorage implements IStorage {
     const result = await pool.query(
       `SELECT ${USER_SELECT} FROM users WHERE id = $1 LIMIT 1`,
       [id],
+    );
+    return (result.rows[0] as UserRow | undefined) ?? null;
+  }
+
+  async updateUserRole(id: number, role: string): Promise<UserRow | null> {
+    const result = await pool.query(
+      `UPDATE users SET role = $1 WHERE id = $2 RETURNING ${USER_SELECT}`,
+      [role, id],
     );
     return (result.rows[0] as UserRow | undefined) ?? null;
   }

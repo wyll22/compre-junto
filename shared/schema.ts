@@ -208,11 +208,15 @@ export const siteVisits = pgTable("site_visits", {
   id: serial("id").primaryKey(),
   visitorId: text("visitor_id").notNull(),
   page: text("page").default("/"),
+  referrer: text("referrer").default(""),
   userAgent: text("user_agent").default(""),
   ipAddress: text("ip_address").default(""),
   userId: integer("user_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const userRoles = ["admin", "editor", "author", "user"] as const;
+export type UserRole = typeof userRoles[number];
 
 export const articles = pgTable("articles", {
   id: serial("id").primaryKey(),

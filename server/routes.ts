@@ -149,6 +149,17 @@ async function requireAdmin(req: Request, res: Response): Promise<number | null>
   return userId;
 }
 
+async function requireRole(req: Request, res: Response, roles: string[]): Promise<number | null> {
+  const userId = requireAuth(req, res);
+  if (userId === null) return null;
+  const user = await storage.getUserById(userId);
+  if (!user || !roles.includes(user.role)) {
+    res.status(403).json({ message: "Acesso negado" });
+    return null;
+  }
+  return userId;
+}
+
 async function auditLog(req: Request, userId: number, action: string, entity: string, entityId?: number, details?: any) {
   try {
     const user = await storage.getUserById(userId);
@@ -985,6 +996,62 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/admin/users/:id/role", async (req: Request, res: Response) => {
+    const adminId = await requireAdmin(req, res);
+    if (adminId === null) return;
+    try {
+      const { role } = req.body;
+      const validRoles = ["admin", "editor", "author", "user"];
+      if (!role || !validRoles.includes(role)) {
+        return res.status(400).json({ message: "Papel invalido. Use: admin, editor, author, user" });
+      }
+      const targetId = Number(req.params.id);
+      if (targetId === adminId && role !== "admin") {
+        return res.status(400).json({ message: "Voce nao pode remover seu proprio papel de admin" });
+      }
+      const updated = await storage.updateUserRole(targetId, role);
+      if (!updated) return res.status(404).json({ message: "Usuario nao encontrado" });
+      await auditLog(req, adminId, "update_role", "users", targetId, { newRole: role });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao atualizar papel" });
+    }
+  });
+
+  app.get("/api/admin/analytics", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const [topPages, topReferrers, dailyViews] = await Promise.all([
+        pool.query(`
+          SELECT page, COUNT(*)::int as views, COUNT(DISTINCT visitor_id)::int as unique_visitors
+          FROM site_visits
+          WHERE created_at > NOW() - INTERVAL '30 days'
+          GROUP BY page ORDER BY views DESC LIMIT 15
+        `),
+        pool.query(`
+          SELECT referrer, COUNT(*)::int as visits
+          FROM site_visits
+          WHERE referrer IS NOT NULL AND referrer != '' AND created_at > NOW() - INTERVAL '30 days'
+          GROUP BY referrer ORDER BY visits DESC LIMIT 10
+        `),
+        pool.query(`
+          SELECT DATE(created_at) as date, COUNT(*)::int as views, COUNT(DISTINCT visitor_id)::int as unique_visitors
+          FROM site_visits
+          WHERE created_at > NOW() - INTERVAL '30 days'
+          GROUP BY DATE(created_at) ORDER BY date ASC
+        `),
+      ]);
+      res.json({
+        topPages: topPages.rows,
+        topReferrers: topReferrers.rows,
+        dailyViews: dailyViews.rows,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar analytics" });
+    }
+  });
+
   app.patch("/api/members/:id/reserve-status", async (req: Request, res: Response) => {
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
@@ -1003,7 +1070,7 @@ export async function registerRoutes(
 
   app.post("/api/track-visit", async (req: Request, res: Response) => {
     try {
-      const { visitorId, page } = req.body;
+      const { visitorId, page, referrer } = req.body;
       if (!visitorId || typeof visitorId !== "string") {
         return res.status(400).json({ message: "visitorId obrigatorio" });
       }
@@ -1011,8 +1078,8 @@ export async function registerRoutes(
       const userAgent = req.headers["user-agent"] || "";
       const userId = (req.session as any)?.userId || null;
       await pool.query(
-        `INSERT INTO site_visits (visitor_id, page, user_agent, ip_address, user_id) VALUES ($1, $2, $3, $4, $5)`,
-        [visitorId.slice(0, 100), (page || "/").slice(0, 500), userAgent.slice(0, 500), ip.slice(0, 100), userId]
+        `INSERT INTO site_visits (visitor_id, page, referrer, user_agent, ip_address, user_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [visitorId.slice(0, 100), (page || "/").slice(0, 500), (referrer || "").slice(0, 500), userAgent.slice(0, 500), ip.slice(0, 100), userId]
       );
       res.json({ ok: true });
     } catch (err) {
@@ -1145,7 +1212,7 @@ export async function registerRoutes(
 
   app.get("/api/articles/:slug", async (req: Request, res: Response) => {
     try {
-      const article = await storage.getArticleBySlug(req.params.slug);
+      const article = await storage.getArticleBySlug(String(req.params.slug));
       if (!article) return res.status(404).json({ message: "Artigo nao encontrado" });
       const isAdmin = req.session?.userId && (await storage.getUserById(req.session.userId))?.role === "admin";
       if (!article.published && !isAdmin) return res.status(404).json({ message: "Artigo nao encontrado" });
@@ -1156,7 +1223,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/articles", async (req: Request, res: Response) => {
-    const userId = await requireAdmin(req, res);
+    const userId = await requireRole(req, res, ["admin", "editor", "author"]);
     if (userId === null) return;
     try {
       const parsed = createArticleSchema.safeParse(req.body);
@@ -1169,7 +1236,7 @@ export async function registerRoutes(
   });
 
   app.put("/api/articles/:id", async (req: Request, res: Response) => {
-    const userId = await requireAdmin(req, res);
+    const userId = await requireRole(req, res, ["admin", "editor"]);
     if (userId === null) return;
     try {
       const parsed = createArticleSchema.partial().safeParse(req.body);
@@ -1183,7 +1250,7 @@ export async function registerRoutes(
   });
 
   app.delete("/api/articles/:id", async (req: Request, res: Response) => {
-    const userId = await requireAdmin(req, res);
+    const userId = await requireRole(req, res, ["admin", "editor"]);
     if (userId === null) return;
     try {
       await storage.deleteArticle(Number(req.params.id));
@@ -1233,7 +1300,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/media/upload", async (req: Request, res: Response) => {
-    const userId = await requireAdmin(req, res);
+    const userId = await requireRole(req, res, ["admin", "editor", "author"]);
     if (userId === null) return;
     upload.single("file")(req, res, async (err: any) => {
       if (err) return res.status(400).json({ message: err.message || "Erro no upload" });
@@ -1254,7 +1321,7 @@ export async function registerRoutes(
   });
 
   app.delete("/api/media/:id", async (req: Request, res: Response) => {
-    const userId = await requireAdmin(req, res);
+    const userId = await requireRole(req, res, ["admin", "editor"]);
     if (userId === null) return;
     try {
       const asset = await storage.deleteMediaAsset(Number(req.params.id));

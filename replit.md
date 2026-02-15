@@ -13,6 +13,16 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-15: User roles & analytics enhancements
+  - User roles: admin, editor, author, user with distinct permissions
+  - Role management: admin can change user roles from Clientes tab with role filter and count cards
+  - Role-based access: articles/media/navigation routes use requireRole for granular permissions
+  - Author can create content, Editor can edit/publish/delete, Admin has full access
+  - Analytics dashboard: top pages, traffic sources/referrers, daily pageview chart (30 days)
+  - Referrer tracking added to site_visits table and visitor tracking
+  - Per-article SEO: dynamic title, meta description, og:image on blog pages
+  - API: PATCH /api/admin/users/:id/role, GET /api/admin/analytics
+
 - 2026-02-14: CMS features (Blog, Media Library, Dynamic Navigation)
   - Blog/Articles: articles table, full CRUD API, admin "Artigos" tab with title/slug/content/excerpt/image/published
   - Public blog pages: /blog (list) and /blog/:slug (detail) with SEO-friendly URLs

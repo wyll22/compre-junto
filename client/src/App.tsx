@@ -38,7 +38,7 @@ function VisitTracker() {
     fetch("/api/track-visit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visitorId, page: location }),
+      body: JSON.stringify({ visitorId, page: location, referrer: document.referrer || "" }),
       credentials: "include",
     }).catch(() => {});
   }, [location]);

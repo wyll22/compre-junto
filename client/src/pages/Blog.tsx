@@ -8,9 +8,43 @@ import { Footer } from "@/components/Footer";
 import { BrandLogo } from "@/components/BrandLogo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
+
+function usePageMeta(title: string, description?: string, image?: string) {
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = title;
+
+    const setMeta = (name: string, content: string, property?: boolean) => {
+      const attr = property ? "property" : "name";
+      let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    };
+
+    if (description) {
+      setMeta("description", description);
+      setMeta("og:description", description, true);
+      setMeta("twitter:description", description);
+    }
+    setMeta("og:title", title, true);
+    setMeta("twitter:title", title);
+    if (image) {
+      setMeta("og:image", image, true);
+      setMeta("twitter:image", image);
+    }
+
+    return () => { document.title = prevTitle; };
+  }, [title, description, image]);
+}
 
 export function BlogList() {
   const { data: user } = useAuth();
+  usePageMeta("Blog | Compra Junto Formosa", "Acompanhe as novidades, dicas e noticias do Compra Junto Formosa.");
   const { data: articles, isLoading } = useQuery<any[]>({
     queryKey: ["/api/articles", "published"],
     queryFn: async () => {
@@ -108,6 +142,12 @@ export function BlogPost() {
       return res.json();
     },
   });
+
+  usePageMeta(
+    article ? `${article.title} | Compra Junto Formosa` : "Blog | Compra Junto Formosa",
+    article?.excerpt || article?.content?.slice(0, 160) || undefined,
+    article?.imageUrl || undefined,
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
