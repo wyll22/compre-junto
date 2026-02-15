@@ -580,12 +580,15 @@ export async function registerRoutes(
     const product = await storage.getProduct(Number(req.params.id));
     if (!product || !product.approved) return res.json([]);
     const limit = Math.min(Number(req.query.limit) || 8, 20);
-    const mode = req.query.mode as string | undefined;
     const catId = product.categoryId;
-    if (!catId) return res.json([]);
-    const allProducts = await storage.getProducts(undefined, undefined, mode || undefined, catId);
+    let allProducts: any[];
+    if (catId) {
+      allProducts = await storage.getProducts(undefined, undefined, undefined, catId);
+    } else {
+      allProducts = await storage.getProducts();
+    }
     const related = allProducts
-      .filter(p => p.id !== product.id && p.active && p.approved && p.stock > 0)
+      .filter((p: any) => p.id !== product.id && Number(p.stock) > 0)
       .slice(0, limit);
     res.json(related);
   });
