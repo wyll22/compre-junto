@@ -225,7 +225,7 @@ export interface IStorage {
 
   getFilterTypes(activeOnly?: boolean): Promise<any[]>;
   getFilterType(id: number): Promise<any | null>;
-  createFilterType(input: { name: string; slug: string; inputType?: string; sortOrder?: number; active?: boolean }): Promise<any>;
+  createFilterType(input: { name: string; slug: string; inputType?: string; sortOrder?: number; active?: boolean; categoryIds?: number[] }): Promise<any>;
   updateFilterType(id: number, input: any): Promise<any | null>;
   deleteFilterType(id: number): Promise<void>;
 
@@ -1539,7 +1539,7 @@ class DatabaseStorage implements IStorage {
   async getFilterTypes(activeOnly: boolean = false): Promise<any[]> {
     const where = activeOnly ? "WHERE active = true" : "";
     const result = await pool.query(
-      `SELECT id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, created_at AS "createdAt"
+      `SELECT id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, category_ids AS "categoryIds", created_at AS "createdAt"
        FROM filter_types ${where} ORDER BY sort_order ASC, name ASC`
     );
     return result.rows;
@@ -1547,18 +1547,18 @@ class DatabaseStorage implements IStorage {
 
   async getFilterType(id: number): Promise<any | null> {
     const result = await pool.query(
-      `SELECT id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, created_at AS "createdAt"
+      `SELECT id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, category_ids AS "categoryIds", created_at AS "createdAt"
        FROM filter_types WHERE id = $1 LIMIT 1`, [id]
     );
     return result.rows[0] ?? null;
   }
 
-  async createFilterType(input: { name: string; slug: string; inputType?: string; sortOrder?: number; active?: boolean }): Promise<any> {
+  async createFilterType(input: { name: string; slug: string; inputType?: string; sortOrder?: number; active?: boolean; categoryIds?: number[] }): Promise<any> {
     const result = await pool.query(
-      `INSERT INTO filter_types (name, slug, input_type, sort_order, active)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active`,
-      [input.name, input.slug, input.inputType ?? "select", input.sortOrder ?? 0, input.active !== false]
+      `INSERT INTO filter_types (name, slug, input_type, sort_order, active, category_ids)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, category_ids AS "categoryIds"`,
+      [input.name, input.slug, input.inputType ?? "select", input.sortOrder ?? 0, input.active !== false, input.categoryIds ?? null]
     );
     return result.rows[0];
   }
@@ -1572,11 +1572,12 @@ class DatabaseStorage implements IStorage {
     if (input.inputType !== undefined) { fields.push(`input_type = $${idx++}`); values.push(input.inputType); }
     if (input.sortOrder !== undefined) { fields.push(`sort_order = $${idx++}`); values.push(input.sortOrder); }
     if (input.active !== undefined) { fields.push(`active = $${idx++}`); values.push(input.active); }
+    if (input.categoryIds !== undefined) { fields.push(`category_ids = $${idx++}`); values.push(input.categoryIds); }
     if (fields.length === 0) return this.getFilterType(id);
     values.push(id);
     const result = await pool.query(
       `UPDATE filter_types SET ${fields.join(", ")} WHERE id = $${idx}
-       RETURNING id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active`,
+       RETURNING id, name, slug, input_type AS "inputType", sort_order AS "sortOrder", active, category_ids AS "categoryIds"`,
       values
     );
     return result.rows[0] ?? null;
@@ -1696,6 +1697,7 @@ class DatabaseStorage implements IStorage {
 
     const dynamicRes = await pool.query(
       `SELECT ft.id AS "filterTypeId", ft.name AS "filterTypeName", ft.slug AS "filterTypeSlug", ft.input_type AS "inputType",
+              ft.category_ids AS "categoryIds",
               fo.id AS "optionId", fo.label AS "optionLabel", fo.value AS "optionValue",
               COUNT(DISTINCT pf.product_id)::int AS count
        FROM filter_types ft
@@ -1703,18 +1705,24 @@ class DatabaseStorage implements IStorage {
        LEFT JOIN product_filters pf ON pf.filter_option_id = fo.id
        LEFT JOIN products p ON p.id = pf.product_id AND p.active = true
        WHERE ft.active = true
-       GROUP BY ft.id, ft.name, ft.slug, ft.input_type, fo.id, fo.label, fo.value
+       GROUP BY ft.id, ft.name, ft.slug, ft.input_type, ft.category_ids, fo.id, fo.label, fo.value
        ORDER BY ft.sort_order ASC, fo.sort_order ASC`
     );
 
     const dynamicFilters: Record<string, any> = {};
     for (const row of dynamicRes.rows) {
+      const catIds: number[] | null = row.categoryIds;
+      if (catIds && catIds.length > 0 && params?.categoryId) {
+        if (!catIds.includes(params.categoryId)) continue;
+      }
+      if (catIds && catIds.length > 0 && !params?.categoryId) continue;
       if (!dynamicFilters[row.filterTypeId]) {
         dynamicFilters[row.filterTypeId] = {
           id: row.filterTypeId,
           name: row.filterTypeName,
           slug: row.filterTypeSlug,
           inputType: row.inputType,
+          categoryIds: catIds,
           options: [],
         };
       }

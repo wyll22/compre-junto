@@ -639,9 +639,9 @@ export async function registerRoutes(
   app.post("/api/admin/filter-types", async (req: Request, res: Response) => {
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
-    const { name, slug, inputType, sortOrder, active } = req.body;
+    const { name, slug, inputType, sortOrder, active, categoryIds } = req.body;
     if (!name || !slug) return res.status(400).json({ message: "Nome e slug obrigatorios" });
-    const ft = await storage.createFilterType({ name, slug, inputType, sortOrder, active });
+    const ft = await storage.createFilterType({ name, slug, inputType, sortOrder, active, categoryIds });
     await auditLog(req, userId, "criar", "filtro", ft.id, { name });
     res.status(201).json(ft);
   });

@@ -260,6 +260,7 @@ export const filterTypes = pgTable("filter_types", {
   inputType: text("input_type").notNull().default("select"),
   sortOrder: integer("sort_order").notNull().default(0),
   active: boolean("active").notNull().default(true),
+  categoryIds: integer("category_ids").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

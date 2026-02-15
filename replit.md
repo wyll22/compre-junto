@@ -13,6 +13,17 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-15: Mercado Livre-style responsive filter system
+  - Mobile: horizontal filter chips bar (Categorias dropdown, Marca dropdown, Filtros bottom sheet) like Mercado Livre
+  - Desktop: sidebar filter panel (250px, sticky) with accordion sections
+  - Filters only appear after search or category selection (not on initial homepage)
+  - Category-linked filters: filter types can be linked to specific categories via category_ids column
+  - Shoe sizes filter (34-44) linked to Moda & Calcados/Botinas/Calcados categories
+  - Clothing sizes filter (PP-EG) linked to Moda & Calcados/Roupas/Uniformes categories
+  - Admin: category linking multi-select in filter type form, categories column in filter types table
+  - MobileFilterBar component: Popover dropdowns for categories/brands, Sheet for advanced filters
+  - FilterSidebar + MobileFilterBar exported separately for proper responsive layout
+
 - 2026-02-15: Advanced filters, product specs & stock management
   - Advanced filters on Home page: brand dropdown, price range (min/max), collapsible filter panel
   - Active filter badges with individual remove buttons and "clear all" option

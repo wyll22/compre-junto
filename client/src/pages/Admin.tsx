@@ -2039,8 +2039,25 @@ function FiltersTab() {
 
   const [typeDialogOpen, setTypeDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<any>(null);
-  const [typeForm, setTypeForm] = useState({ name: "", slug: "", inputType: "select", sortOrder: "0", active: true });
+  const [typeForm, setTypeForm] = useState({ name: "", slug: "", inputType: "select", sortOrder: "0", active: true, categoryIds: [] as number[] });
   const [slugManual, setSlugManual] = useState(false);
+
+  const { data: allCategories } = useQuery<any[]>({
+    queryKey: ["/api/categories", "all-for-filters"],
+    queryFn: async () => {
+      const res = await fetch("/api/categories");
+      if (!res.ok) return [];
+      const all = await res.json();
+      const topLevel = all.filter((c: any) => !c.parentId);
+      const result: any[] = [];
+      topLevel.forEach((parent: any) => {
+        result.push(parent);
+        const children = all.filter((c: any) => c.parentId === parent.id).sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+        children.forEach((child: any) => result.push({ ...child, name: `  ${parent.name} > ${child.name}` }));
+      });
+      return result;
+    },
+  });
 
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [editingOption, setEditingOption] = useState<any>(null);
@@ -2052,7 +2069,7 @@ function FiltersTab() {
   const openNewType = () => {
     setEditingType(null);
     setSlugManual(false);
-    setTypeForm({ name: "", slug: "", inputType: "select", sortOrder: "0", active: true });
+    setTypeForm({ name: "", slug: "", inputType: "select", sortOrder: "0", active: true, categoryIds: [] });
     setTypeDialogOpen(true);
   };
 
@@ -2065,6 +2082,7 @@ function FiltersTab() {
       inputType: ft.inputType || "select",
       sortOrder: String(ft.sortOrder || 0),
       active: ft.active !== false,
+      categoryIds: ft.categoryIds || [],
     });
     setTypeDialogOpen(true);
   };
@@ -2166,6 +2184,7 @@ function FiltersTab() {
       inputType: typeForm.inputType,
       sortOrder: Number(typeForm.sortOrder),
       active: typeForm.active,
+      categoryIds: typeForm.categoryIds.length > 0 ? typeForm.categoryIds : null,
     });
   };
 
@@ -2204,6 +2223,7 @@ function FiltersTab() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Slug</TableHead>
                       <TableHead>Tipo Input</TableHead>
+                      <TableHead>Categorias</TableHead>
                       <TableHead>Ordem</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Acoes</TableHead>
@@ -2211,13 +2231,19 @@ function FiltersTab() {
                   </TableHeader>
                   <TableBody>
                     {!filterTypes || filterTypes.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum tipo de filtro cadastrado.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">Nenhum tipo de filtro cadastrado.</TableCell></TableRow>
                     ) : (
                       filterTypes.map((ft: any) => (
                         <TableRow key={ft.id} data-testid={`row-filter-type-${ft.id}`}>
                           <TableCell className="font-medium text-sm">{ft.name}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{ft.slug}</TableCell>
                           <TableCell className="text-sm">{ft.inputType}</TableCell>
+                          <TableCell className="text-sm">
+                            {ft.categoryIds && ft.categoryIds.length > 0
+                              ? ft.categoryIds.map((cId: number) => (allCategories || []).find((c: any) => c.id === cId)?.name || cId).join(", ")
+                              : <span className="text-muted-foreground">Todas</span>
+                            }
+                          </TableCell>
                           <TableCell className="text-sm">{ft.sortOrder}</TableCell>
                           <TableCell>
                             <Badge variant={ft.active ? "default" : "secondary"} className="text-[10px]">{ft.active ? "Ativo" : "Inativo"}</Badge>
@@ -2369,6 +2395,34 @@ function FiltersTab() {
             <div className="space-y-1.5">
               <Label>Ordem</Label>
               <Input data-testid="input-filter-type-order" type="number" value={typeForm.sortOrder} onChange={(e) => setTypeForm((f) => ({ ...f, sortOrder: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Categorias vinculadas (opcional)</Label>
+              <p className="text-xs text-muted-foreground">Se vazio, o filtro aparece para todas as categorias. Se selecionado, aparece apenas nas categorias escolhidas.</p>
+              <div className="max-h-40 overflow-y-auto border border-input rounded-md p-2 space-y-1">
+                {(allCategories || []).map((cat: any) => {
+                  const isChecked = typeForm.categoryIds.includes(cat.id);
+                  return (
+                    <label key={cat.id} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+                      <input
+                        type="checkbox"
+                        data-testid={`checkbox-filter-category-${cat.id}`}
+                        checked={isChecked}
+                        onChange={() => {
+                          setTypeForm((f) => ({
+                            ...f,
+                            categoryIds: isChecked
+                              ? f.categoryIds.filter((id) => id !== cat.id)
+                              : [...f.categoryIds, cat.id],
+                          }));
+                        }}
+                        className="rounded border-input"
+                      />
+                      <span>{cat.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Switch data-testid="switch-filter-type-active" checked={typeForm.active} onCheckedChange={(checked) => setTypeForm((f) => ({ ...f, active: checked }))} />

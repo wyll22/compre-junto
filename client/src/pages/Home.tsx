@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Footer } from "@/components/Footer";
 import { NotificationBell } from "@/components/NotificationBell";
-import { FilterSidebar } from "@/components/FilterSidebar";
+import { FilterSidebar, MobileFilterBar } from "@/components/FilterSidebar";
 
 type CategoryItem = {
   id: number;
@@ -592,6 +592,23 @@ export default function Home() {
           </div>
         )}
 
+        <MobileFilterBar
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={handleSelectCategory}
+          selectedBrand={filterBrand}
+          onSelectBrand={setFilterBrand}
+          minPrice={filterMinPrice}
+          maxPrice={filterMaxPrice}
+          onMinPriceChange={setFilterMinPrice}
+          onMaxPriceChange={setFilterMaxPrice}
+          selectedFilterOptions={selectedFilterOptions}
+          onToggleFilterOption={handleToggleFilterOption}
+          onClearAllFilters={handleClearAllFilters}
+          saleMode={saleMode}
+          searchTerm={searchTerm}
+          isFiltering={!!(searchTerm || selectedCategoryId !== null)}
+        />
+
         <div className="flex gap-6">
           <FilterSidebar
             selectedCategoryId={selectedCategoryId}
@@ -607,6 +624,7 @@ export default function Home() {
             onClearAllFilters={handleClearAllFilters}
             saleMode={saleMode}
             searchTerm={searchTerm}
+            isFiltering={!!(searchTerm || selectedCategoryId !== null)}
           />
 
           <div className="flex-1 min-w-0 space-y-4">
