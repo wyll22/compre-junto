@@ -15,7 +15,7 @@ import {
   registerSchema, loginSchema, changePasswordSchema, profileUpdateSchema,
   createProductSchema, createCategorySchema, createBannerSchema, createVideoSchema,
   createOrderSchema, createPickupPointSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
-  insertArticleSchema, insertNavigationLinkSchema,
+  insertArticleSchema, insertNavigationLinkSchema, createSponsorBannerSchema, createPartnerUserSchema,
 } from "@shared/schema";
 
 function stripHtmlTags(str: string): string {
@@ -1509,6 +1509,109 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao excluir link" });
+    }
+  });
+
+  app.get("/api/sponsor-banners", async (_req: Request, res: Response) => {
+    try {
+      const banners = await storage.getSponsorBanners(true);
+      res.json(banners);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/sponsor-banners", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const banners = await storage.getSponsorBanners(false);
+      res.json(banners);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/sponsor-banners", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createSponsorBannerSchema.safeParse(sanitizeInput(req.body));
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const banner = await storage.createSponsorBanner(parsed.data);
+      await auditLog(req, userId, "criar", "sponsor_banner", banner.id);
+      res.status(201).json(banner);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/admin/sponsor-banners/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createSponsorBannerSchema.partial().safeParse(sanitizeInput(req.body));
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const banner = await storage.updateSponsorBanner(Number(req.params.id), parsed.data);
+      if (!banner) return res.status(404).json({ message: "Banner nao encontrado" });
+      await auditLog(req, userId, "atualizar", "sponsor_banner", banner.id);
+      res.json(banner);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/admin/sponsor-banners/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      await storage.deleteSponsorBanner(Number(req.params.id));
+      await auditLog(req, userId, "excluir", "sponsor_banner", Number(req.params.id));
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/partners", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const parsed = createPartnerUserSchema.safeParse(sanitizeInput(req.body));
+      if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
+      const existing = await storage.getUserByEmail(parsed.data.email);
+      if (existing) return res.status(409).json({ message: "Email ja cadastrado" });
+      const partner = await storage.createPartnerUser(parsed.data);
+      await auditLog(req, userId, "criar_parceiro", "user", partner.id, { pickupPointId: parsed.data.pickupPointId });
+      res.status(201).json(partner);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao criar parceiro" });
+    }
+  });
+
+  app.get("/api/partner/orders", async (req: Request, res: Response) => {
+    const userId = await requireRole(req, res, ["parceiro", "admin"]);
+    if (userId === null) return;
+    try {
+      const user = await storage.getUserById(userId);
+      if (!user || !user.pickupPointId) return res.status(400).json({ message: "Parceiro sem ponto de retirada vinculado" });
+      const orders = await storage.getPartnerOrders(user.pickupPointId);
+      res.json(orders);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/partner/pickup-point", async (req: Request, res: Response) => {
+    const userId = await requireRole(req, res, ["parceiro", "admin"]);
+    if (userId === null) return;
+    try {
+      const user = await storage.getUserById(userId);
+      if (!user || !user.pickupPointId) return res.status(400).json({ message: "Sem ponto vinculado" });
+      const point = await storage.getPickupPoint(user.pickupPointId);
+      res.json(point);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 

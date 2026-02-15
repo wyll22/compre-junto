@@ -86,8 +86,15 @@ export default function Home() {
     },
   });
 
+  const { data: sponsorBanners } = useQuery({
+    queryKey: ["/api/sponsor-banners"],
+  });
+
   const activeBanners = (banners ?? []) as any[];
   const activeVideos = (videos ?? []) as any[];
+  const activeSponsorBanners = (sponsorBanners ?? []) as any[];
+  const sidebarSponsors = activeSponsorBanners.filter((b: any) => b.position === "sidebar");
+  const inlineSponsors = activeSponsorBanners.filter((b: any) => b.position === "inline");
   const cats = (topCategories ?? []) as CategoryItem[];
   const subs = (subcategories ?? []) as CategoryItem[];
 
@@ -338,6 +345,11 @@ export default function Home() {
                   {user.role === "admin" && (
                     <Link href="/admin">
                       <Badge className="bg-[#D4A62A] text-[#1F2937] text-[10px] cursor-pointer">Admin</Badge>
+                    </Link>
+                  )}
+                  {user.role === "parceiro" && (
+                    <Link href="/parceiro">
+                      <Badge className="bg-[#D4A62A] text-[#1F2937] text-[10px] cursor-pointer" data-testid="badge-partner-panel">Parceiro</Badge>
                     </Link>
                   )}
                 </div>
@@ -692,7 +704,42 @@ export default function Home() {
                 </AnimatePresence>
               </motion.div>
             )}
+
+            {inlineSponsors.length > 0 && (
+              <div className="mt-4 md:hidden">
+                {inlineSponsors.map((sponsor: any) => (
+                  <a
+                    key={sponsor.id}
+                    href={sponsor.linkUrl || "#"}
+                    target={sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"}
+                    rel="noopener noreferrer"
+                    className="block rounded-md overflow-hidden border border-border hover-elevate mb-3"
+                    data-testid={`sponsor-inline-${sponsor.id}`}
+                  >
+                    <img src={sponsor.imageUrl} alt={sponsor.title || "Patrocinador"} className="w-full h-auto object-cover" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
+
+          {sidebarSponsors.length > 0 && (
+            <aside className="hidden lg:block w-[200px] flex-shrink-0 space-y-3 sticky top-4 self-start z-10">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 text-center">Publicidade</p>
+              {sidebarSponsors.map((sponsor: any) => (
+                <a
+                  key={sponsor.id}
+                  href={sponsor.linkUrl || "#"}
+                  target={sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"}
+                  rel="noopener noreferrer"
+                  className="block rounded-md overflow-hidden border border-border hover-elevate"
+                  data-testid={`sponsor-sidebar-${sponsor.id}`}
+                >
+                  <img src={sponsor.imageUrl} alt={sponsor.title || "Patrocinador"} className="w-full h-auto object-cover" />
+                </a>
+              ))}
+            </aside>
+          )}
         </div>
 
         {!searchTerm && activeVideos.length > 0 && (

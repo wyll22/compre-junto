@@ -17,6 +17,7 @@ import Entregas from "@/pages/Entregas";
 import Contato from "@/pages/Contato";
 import ProductDetail from "@/pages/ProductDetail";
 import { BlogList, BlogPost } from "@/pages/Blog";
+import Partner from "@/pages/Partner";
 
 function getVisitorId() {
   let id = localStorage.getItem("cjf_visitor_id");
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/contato" component={Contato} />
       <Route path="/blog" component={BlogList} />
       <Route path="/blog/:slug" component={BlogPost} />
+      <Route path="/parceiro" component={Partner} />
       <Route component={NotFound} />
     </Switch>
   );

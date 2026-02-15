@@ -20,6 +20,7 @@ export const users = pgTable("users", {
   addressDistrict: text("address_district").default(""),
   addressCity: text("address_city").default(""),
   addressState: text("address_state").default(""),
+  pickupPointId: integer("pickup_point_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -219,7 +220,7 @@ export const siteVisits = pgTable("site_visits", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const userRoles = ["admin", "editor", "author", "user"] as const;
+export const userRoles = ["admin", "editor", "author", "parceiro", "user"] as const;
 export type UserRole = typeof userRoles[number];
 
 export const articles = pgTable("articles", {
@@ -286,6 +287,38 @@ export const filterUsage = pgTable("filter_usage", {
   filterOptionId: integer("filter_option_id"),
   count: integer("count").notNull().default(0),
   lastUsedAt: timestamp("last_used_at").defaultNow(),
+});
+
+export const sponsorBanners = pgTable("sponsor_banners", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull().default(""),
+  imageUrl: text("image_url").notNull(),
+  linkUrl: text("link_url").notNull().default(""),
+  position: text("position").notNull().default("sidebar"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSponsorBannerSchema = createInsertSchema(sponsorBanners).omit({ id: true, createdAt: true });
+export type SponsorBanner = typeof sponsorBanners.$inferSelect;
+export type InsertSponsorBanner = z.infer<typeof insertSponsorBannerSchema>;
+
+export const createSponsorBannerSchema = z.object({
+  title: z.string().max(300).optional().default(""),
+  imageUrl: z.string().url().max(2000),
+  linkUrl: z.string().max(2000).optional().default(""),
+  position: z.enum(["sidebar", "inline"]).default("sidebar"),
+  sortOrder: z.coerce.number().int().min(0).optional().default(0),
+  active: z.boolean().optional().default(true),
+});
+
+export const createPartnerUserSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
+  email: z.string().email("Email invalido").max(200),
+  password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres").max(128),
+  phone: z.string().max(30).optional().default(""),
+  pickupPointId: z.coerce.number().int(),
 });
 
 export const insertFilterTypeSchema = createInsertSchema(filterTypes).omit({ id: true, createdAt: true });

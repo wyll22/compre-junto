@@ -89,6 +89,7 @@ type UserRow = {
   addressDistrict: string | null;
   addressCity: string | null;
   addressState: string | null;
+  pickupPointId: number | null;
   createdAt?: Date | string | null;
 };
 
@@ -125,6 +126,17 @@ type PickupPointRow = {
   hours: string | null;
   active: boolean;
   sortOrder: number;
+  createdAt?: Date | string | null;
+};
+
+type SponsorBannerRow = {
+  id: number;
+  title: string;
+  imageUrl: string;
+  linkUrl: string;
+  position: string;
+  sortOrder: number;
+  active: boolean;
   createdAt?: Date | string | null;
 };
 
@@ -240,6 +252,14 @@ export interface IStorage {
   getFilterCatalog(params?: { categoryId?: number; subcategoryId?: number; search?: string; saleMode?: string }): Promise<any>;
   trackFilterUsage(filterTypeId: number, filterOptionId?: number): Promise<void>;
 
+  getSponsorBanners(activeOnly?: boolean): Promise<SponsorBannerRow[]>;
+  createSponsorBanner(input: any): Promise<SponsorBannerRow>;
+  updateSponsorBanner(id: number, input: any): Promise<SponsorBannerRow | null>;
+  deleteSponsorBanner(id: number): Promise<void>;
+
+  createPartnerUser(input: { name: string; email: string; password: string; phone?: string; pickupPointId: number }): Promise<UserRow>;
+  getPartnerOrders(pickupPointId: number): Promise<(OrderRow & { userName: string; userEmail: string; userPhone: string | null })[]>;
+
   seedProducts(): Promise<void>;
 }
 
@@ -353,7 +373,7 @@ const PICKUP_POINT_SELECT = `
   created_at AS "createdAt"
 `;
 
-const USER_SELECT = `id, name, display_name AS "displayName", email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", address_cep AS "addressCep", address_street AS "addressStreet", address_number AS "addressNumber", address_complement AS "addressComplement", address_district AS "addressDistrict", address_city AS "addressCity", address_state AS "addressState", created_at AS "createdAt"`;
+const USER_SELECT = `id, name, display_name AS "displayName", email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", address_cep AS "addressCep", address_street AS "addressStreet", address_number AS "addressNumber", address_complement AS "addressComplement", address_district AS "addressDistrict", address_city AS "addressCity", address_state AS "addressState", pickup_point_id AS "pickupPointId", created_at AS "createdAt"`;
 
 class DatabaseStorage implements IStorage {
   async getCategories(parentId?: number | null): Promise<CategoryRow[]> {
@@ -1789,6 +1809,75 @@ class DatabaseStorage implements IStorage {
         [filterTypeId, filterOptionId ?? null]
       );
     }
+  }
+
+  async getSponsorBanners(activeOnly?: boolean): Promise<SponsorBannerRow[]> {
+    const where = activeOnly ? "WHERE active = true" : "";
+    const result = await pool.query(
+      `SELECT id, title, image_url AS "imageUrl", link_url AS "linkUrl", position, sort_order AS "sortOrder", active, created_at AS "createdAt" FROM sponsor_banners ${where} ORDER BY sort_order ASC, id ASC`
+    );
+    return result.rows;
+  }
+
+  async createSponsorBanner(input: any): Promise<SponsorBannerRow> {
+    const result = await pool.query(
+      `INSERT INTO sponsor_banners (title, image_url, link_url, position, sort_order, active)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, title, image_url AS "imageUrl", link_url AS "linkUrl", position, sort_order AS "sortOrder", active, created_at AS "createdAt"`,
+      [input.title || "", input.imageUrl, input.linkUrl || "", input.position || "sidebar", input.sortOrder ?? 0, input.active !== false]
+    );
+    return result.rows[0];
+  }
+
+  async updateSponsorBanner(id: number, input: any): Promise<SponsorBannerRow | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    for (const [key, value] of Object.entries(input)) {
+      const col = key.replace(/([A-Z])/g, "_$1").toLowerCase();
+      fields.push(`${col} = $${idx}`);
+      values.push(value);
+      idx++;
+    }
+    if (fields.length === 0) return null;
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE sponsor_banners SET ${fields.join(", ")} WHERE id = $${idx}
+       RETURNING id, title, image_url AS "imageUrl", link_url AS "linkUrl", position, sort_order AS "sortOrder", active, created_at AS "createdAt"`,
+      values
+    );
+    return result.rows[0] || null;
+  }
+
+  async deleteSponsorBanner(id: number): Promise<void> {
+    await pool.query(`DELETE FROM sponsor_banners WHERE id = $1`, [id]);
+  }
+
+  async createPartnerUser(input: { name: string; email: string; password: string; phone?: string; pickupPointId: number }): Promise<UserRow> {
+    const hashedPassword = await bcrypt.hash(input.password, 12);
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password, phone, role, pickup_point_id)
+       VALUES ($1, $2, $3, $4, 'parceiro', $5)
+       RETURNING ${USER_SELECT}`,
+      [input.name, input.email, hashedPassword, input.phone || "", input.pickupPointId]
+    );
+    return result.rows[0];
+  }
+
+  async getPartnerOrders(pickupPointId: number): Promise<(OrderRow & { userName: string; userEmail: string; userPhone: string | null })[]> {
+    const result = await pool.query(
+      `SELECT o.id, o.user_id AS "userId", o.items, o.total, o.status,
+              o.fulfillment_type AS "fulfillmentType", o.pickup_point_id AS "pickupPointId",
+              o.status_changed_at AS "statusChangedAt", o.pickup_deadline AS "pickupDeadline",
+              o.created_at AS "createdAt",
+              u.name AS "userName", u.email AS "userEmail", u.phone AS "userPhone"
+       FROM orders o
+       JOIN users u ON o.user_id = u.id
+       WHERE o.pickup_point_id = $1
+       ORDER BY o.created_at DESC`,
+      [pickupPointId]
+    );
+    return result.rows;
   }
 }
 

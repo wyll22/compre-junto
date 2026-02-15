@@ -33,7 +33,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation" | "filters";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation" | "filters" | "sponsors" | "partners";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -2535,6 +2535,361 @@ function AdminTabBar({ tabs, tab, setTab }: { tabs: { key: string; label: string
   );
 }
 
+function SponsorBannersTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: sponsorBanners, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/sponsor-banners"],
+  });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [form, setForm] = useState({ title: "", imageUrl: "", linkUrl: "", position: "sidebar", sortOrder: "0", active: true });
+
+  const openNew = () => {
+    setEditing(null);
+    setForm({ title: "", imageUrl: "", linkUrl: "", position: "sidebar", sortOrder: "0", active: true });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (sb: any) => {
+    setEditing(sb);
+    setForm({
+      title: sb.title || "",
+      imageUrl: sb.imageUrl || "",
+      linkUrl: sb.linkUrl || "",
+      position: sb.position || "sidebar",
+      sortOrder: String(sb.sortOrder || 0),
+      active: sb.active !== false,
+    });
+    setDialogOpen(true);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editing) {
+        const res = await apiRequest("PUT", `/api/admin/sponsor-banners/${editing.id}`, data);
+        return await res.json();
+      }
+      const res = await apiRequest("POST", "/api/admin/sponsor-banners", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsor-banners"] });
+      toast({ title: editing ? "Patrocinador atualizado!" : "Patrocinador criado!" });
+      setDialogOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/sponsor-banners/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsor-banners"] });
+      toast({ title: "Patrocinador removido!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      const res = await apiRequest("PUT", `/api/admin/sponsor-banners/${id}`, { active });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsor-banners"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveMutation.mutate({ ...form, sortOrder: Number(form.sortOrder) });
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+        <h2 className="text-lg font-semibold" data-testid="text-sponsor-banners-title">Patrocinadores</h2>
+        <Button data-testid="button-new-sponsor-banner" onClick={openNew}><Plus className="w-4 h-4 mr-1.5" />Novo Patrocinador</Button>
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Imagem</TableHead>
+              <TableHead>Titulo</TableHead>
+              <TableHead>Link</TableHead>
+              <TableHead>Posicao</TableHead>
+              <TableHead>Ordem</TableHead>
+              <TableHead>Ativo</TableHead>
+              <TableHead>Acoes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(sponsorBanners || []).length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nenhum patrocinador cadastrado</TableCell></TableRow>
+            ) : (
+              (sponsorBanners || []).map((sb: any) => (
+                <TableRow key={sb.id} data-testid={`row-sponsor-banner-${sb.id}`}>
+                  <TableCell>
+                    {sb.imageUrl ? (
+                      <img src={sb.imageUrl} alt={sb.title || "Sponsor"} className="w-16 h-10 object-cover rounded" data-testid={`img-sponsor-banner-${sb.id}`} />
+                    ) : (
+                      <div className="w-16 h-10 bg-muted rounded flex items-center justify-center"><Image className="w-4 h-4 text-muted-foreground" /></div>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-sponsor-title-${sb.id}`}>{sb.title || "-"}</TableCell>
+                  <TableCell>
+                    {sb.linkUrl ? (
+                      <a href={sb.linkUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 underline truncate max-w-[200px] block" data-testid={`link-sponsor-${sb.id}`}>
+                        {sb.linkUrl}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" data-testid={`badge-sponsor-position-${sb.id}`}>
+                      {sb.position === "sidebar" ? "Lateral" : "Inline"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell data-testid={`text-sponsor-order-${sb.id}`}>{sb.sortOrder}</TableCell>
+                  <TableCell>
+                    <Switch
+                      data-testid={`switch-sponsor-active-${sb.id}`}
+                      checked={sb.active}
+                      onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: sb.id, active: checked })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" data-testid={`button-edit-sponsor-${sb.id}`} onClick={() => openEdit(sb)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" data-testid={`button-delete-sponsor-${sb.id}`}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remover patrocinador?</AlertDialogTitle>
+                            <AlertDialogDescription>Esta acao nao pode ser desfeita.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction data-testid={`button-confirm-delete-sponsor-${sb.id}`} onClick={() => deleteMutation.mutate(sb.id)}>Remover</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => !saveMutation.isPending && !open && setDialogOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>{editing ? "Editar Patrocinador" : "Novo Patrocinador"}</DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Titulo</Label>
+              <Input data-testid="input-sponsor-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL da Imagem</Label>
+              <Input data-testid="input-sponsor-image-url" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} required placeholder="https://..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL do Link</Label>
+              <Input data-testid="input-sponsor-link-url" value={form.linkUrl} onChange={(e) => setForm({ ...form, linkUrl: e.target.value })} placeholder="https://... (opcional)" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Posicao</Label>
+                <select data-testid="select-sponsor-position" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                  <option value="sidebar">Lateral</option>
+                  <option value="inline">Inline</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Ordem</Label>
+                <Input data-testid="input-sponsor-sort-order" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="sponsor-active" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="rounded" data-testid="input-sponsor-active" />
+              <Label htmlFor="sponsor-active">Ativo</Label>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button data-testid="button-save-sponsor" type="submit" className="flex-1" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                Salvar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function PartnersTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: allUsers, isLoading: usersLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/users"],
+  });
+  const { data: pickupPoints } = useQuery<any[]>({
+    queryKey: ["/api/pickup-points"],
+  });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", pickupPointId: "" });
+
+  const partners = (allUsers || []).filter((u: any) => u.role === "parceiro");
+
+  const getPickupPointName = (ppId: number | null) => {
+    if (!ppId || !pickupPoints) return "-";
+    const pp = pickupPoints.find((p: any) => p.id === ppId);
+    return pp ? pp.name : "-";
+  };
+
+  const openNew = () => {
+    setForm({ name: "", email: "", password: "", phone: "", pickupPointId: "" });
+    setDialogOpen(true);
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/admin/partners", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Parceiro criado com sucesso!" });
+      setDialogOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMutation.mutate({
+      ...form,
+      pickupPointId: form.pickupPointId ? Number(form.pickupPointId) : undefined,
+    });
+  };
+
+  if (usersLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+        <h2 className="text-lg font-semibold" data-testid="text-partners-title">Parceiros</h2>
+        <Button data-testid="button-new-partner" onClick={openNew}><Plus className="w-4 h-4 mr-1.5" />Novo Parceiro</Button>
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Telefone</TableHead>
+              <TableHead>Ponto de Retirada</TableHead>
+              <TableHead>Criado em</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {partners.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum parceiro cadastrado</TableCell></TableRow>
+            ) : (
+              partners.map((p: any) => (
+                <TableRow key={p.id} data-testid={`row-partner-${p.id}`}>
+                  <TableCell data-testid={`text-partner-name-${p.id}`}>{p.name}</TableCell>
+                  <TableCell data-testid={`text-partner-email-${p.id}`}>{p.email}</TableCell>
+                  <TableCell data-testid={`text-partner-phone-${p.id}`}>{p.phone || "-"}</TableCell>
+                  <TableCell data-testid={`text-partner-pickup-${p.id}`}>
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                      {getPickupPointName(p.pickupPointId)}
+                    </div>
+                  </TableCell>
+                  <TableCell data-testid={`text-partner-created-${p.id}`}>
+                    {p.createdAt ? new Date(p.createdAt).toLocaleDateString("pt-BR") : "-"}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => !createMutation.isPending && !open && setDialogOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Novo Parceiro</DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input data-testid="input-partner-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input data-testid="input-partner-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Senha</Label>
+              <Input data-testid="input-partner-password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Telefone</Label>
+              <Input data-testid="input-partner-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ponto de Retirada</Label>
+              <select data-testid="select-partner-pickup-point" value={form.pickupPointId} onChange={(e) => setForm({ ...form, pickupPointId: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" required>
+                <option value="">Selecionar...</option>
+                {(pickupPoints || []).filter((pp: any) => pp.active).map((pp: any) => (
+                  <option key={pp.id} value={String(pp.id)}>{pp.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button data-testid="button-save-partner" type="submit" className="flex-1" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
+                Criar Parceiro
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function Admin() {
   const { data: user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -2763,6 +3118,8 @@ export default function Admin() {
     { key: "articles", label: "Artigos", icon: FileText },
     { key: "media", label: "Midia", icon: Upload },
     { key: "filters", label: "Filtros", icon: Filter },
+    { key: "sponsors", label: "Patrocinadores", icon: Globe },
+    { key: "partners", label: "Parceiros", icon: MapPin },
     { key: "navigation", label: "Navegacao", icon: Link2 },
     { key: "system", label: "Sistema", icon: Monitor },
   ];
@@ -3508,6 +3865,10 @@ export default function Admin() {
         {tab === "media" && <MediaTab />}
 
         {tab === "filters" && <FiltersTab />}
+
+        {tab === "sponsors" && <SponsorBannersTab />}
+
+        {tab === "partners" && <PartnersTab />}
 
         {tab === "navigation" && <NavigationTab />}
 

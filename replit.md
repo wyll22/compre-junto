@@ -13,6 +13,23 @@ Default admin credentials: admin@comprajuntoformosa.com / admin123
 
 ## Recent Changes
 
+- 2026-02-15: Partner system and sponsor banners
+  - Partner role ("parceiro"): new user role for pickup point stores/markets
+  - Partners linked to pickup points via pickup_point_id on users table
+  - Admin creates partner accounts from "Parceiros" tab with name, email, password, pickup point assignment
+  - Partner dashboard at /parceiro: shows orders assigned to their pickup point with customer details
+  - Partner can see order items, customer name/email/phone, status, totals
+  - Status filter cards: Pendentes, Prontos p/ Retirada, Retirados with click-to-filter
+  - Order detail dialog with full customer info and item list
+  - "Parceiro" badge in header for partner users linking to dashboard
+  - Sponsor banners: sponsor_banners table with title, image, link, position (sidebar/inline)
+  - Desktop: sidebar sponsor ads (200px) to the right of product grid, sticky, with "Publicidade" label
+  - Mobile: inline sponsor banners between product grid and other sections
+  - Admin "Patrocinadores" tab: full CRUD for sponsor banners with position selector
+  - Clickable banners open links in new tab (external) or same tab (internal)
+  - Clean integration without cluttering the site
+  - API: GET /api/sponsor-banners, CRUD /api/admin/sponsor-banners, POST /api/admin/partners, GET /api/partner/orders, GET /api/partner/pickup-point
+
 - 2026-02-15: Mercado Livre-style responsive filter system
   - Mobile: horizontal filter chips bar (Categorias dropdown, Marca dropdown, Filtros bottom sheet) like Mercado Livre
   - Desktop: sidebar filter panel (250px, sticky) with accordion sections
@@ -142,7 +159,7 @@ The project is organized as a monorepo containing three main components:
 - **Database**: PostgreSQL.
 - **ORM/Schema**: Drizzle ORM with `drizzle-zod` for schema generation.
 - **Migrations**: Drizzle Kit.
-- **Core Tables**: `users`, `categories`, `products`, `groups`, `members`, `banners`, `videos`, `orders`, `order_status_history`, `order_settings`, `pickup_points`, `audit_logs`, `articles`, `media_assets`, `navigation_links`, `site_visits`.
+- **Core Tables**: `users`, `categories`, `products`, `groups`, `members`, `banners`, `videos`, `orders`, `order_status_history`, `order_settings`, `pickup_points`, `audit_logs`, `articles`, `media_assets`, `navigation_links`, `site_visits`, `sponsor_banners`.
 
 ### Feature Specifications
 - **Dual Sale Modes**: "Compra em Grupo" (group buying) and "Compre Agora" (individual purchase).
