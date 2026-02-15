@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil, Smartphone, CreditCard } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil, Smartphone, CreditCard, Sparkles, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +20,72 @@ interface CartItem {
   price: string | number;
   qty: number;
   fulfillmentType?: string;
+}
+
+function CartCrossSelling({ cartItems, onAddToCart }: { cartItems: CartItem[]; onAddToCart: (product: any) => void }) {
+  const productIds = cartItems.map(i => i.productId);
+  const firstProductId = productIds[0];
+
+  const { data: suggestions } = useQuery<any[]>({
+    queryKey: ["/api/products", firstProductId, "related", "cross-sell"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${firstProductId}/related?limit=6`);
+      if (!res.ok) return [];
+      return await res.json();
+    },
+    enabled: !!firstProductId,
+  });
+
+  const filtered = useMemo(() => {
+    if (!suggestions) return [];
+    return suggestions.filter((p: any) => !productIds.includes(p.id)).slice(0, 4);
+  }, [suggestions, productIds]);
+
+  if (filtered.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-primary" />
+        Aproveite e leve tambem
+      </h3>
+      <div className="grid grid-cols-2 gap-2.5">
+        {filtered.map((item: any) => {
+          const price = Number(item.nowPrice || item.originalPrice);
+          return (
+            <Card key={item.id} className="overflow-visible" data-testid={`card-cross-sell-${item.id}`}>
+              <CardContent className="p-0">
+                <Link href={`/produto/${item.id}`}>
+                  <img
+                    src={item.imageUrl || "https://via.placeholder.com/200x200?text=Sem+Imagem"}
+                    alt={item.name}
+                    className="w-full aspect-square object-cover rounded-t-md"
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200?text=Sem+Imagem"; }}
+                  />
+                </Link>
+                <div className="p-2">
+                  <Link href={`/produto/${item.id}`}>
+                    <p className="text-xs font-medium text-foreground line-clamp-2 mb-1">{item.name}</p>
+                  </Link>
+                  <p className="text-sm font-bold text-primary mb-1.5">R$ {price.toFixed(2)}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs"
+                    data-testid={`button-cross-sell-add-${item.id}`}
+                    onClick={() => onAddToCart(item)}
+                  >
+                    <ShoppingCart className="w-3 h-3 mr-1" />
+                    Adicionar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddressSaved: () => void }) {
@@ -619,6 +685,29 @@ export default function Cart() {
           </Card>
         ))}
       </div>
+
+      <CartCrossSelling
+        cartItems={cart}
+        onAddToCart={(product: any) => {
+          const price = Number(product.nowPrice || product.originalPrice);
+          const newItem: CartItem = {
+            productId: product.id,
+            name: product.name,
+            imageUrl: product.imageUrl || "",
+            price: price.toString(),
+            qty: 1,
+            fulfillmentType: product.fulfillmentType || "delivery",
+          };
+          const existing = cart.find(i => i.productId === product.id);
+          if (existing) {
+            const newCart = cart.map(i => i.productId === product.id ? { ...i, qty: i.qty + 1 } : i);
+            saveCart(newCart);
+          } else {
+            saveCart([...cart, newItem]);
+          }
+          toast({ title: "Adicionado!", description: `${product.name} adicionado ao carrinho.` });
+        }}
+      />
 
       {cartFulfillmentType === "pickup" && (
         <Card className="mt-4">

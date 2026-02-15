@@ -17,6 +17,124 @@ import { useToast } from "@/hooks/use-toast";
 import { JoinGroupDialog } from "@/components/JoinGroupDialog";
 import { Footer } from "@/components/Footer";
 
+function RelatedProducts({ productId, saleMode, categoryId }: { productId: number; saleMode: string; categoryId?: number }) {
+  const { data: related, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/products", productId, "related", saleMode],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${productId}/related?limit=8&mode=${saleMode}`);
+      if (!res.ok) return [];
+      return await res.json();
+    },
+    enabled: !!productId && !!categoryId,
+  });
+
+  const { data: openGroups } = useQuery<any[]>({
+    queryKey: ["/api/groups", "open", categoryId],
+    queryFn: async () => {
+      const res = await fetch(`/api/groups?status=aberto`);
+      if (!res.ok) return [];
+      return await res.json();
+    },
+    enabled: saleMode === "grupo" && !!categoryId,
+  });
+
+  const relatedGroups = useMemo(() => {
+    if (!openGroups || !categoryId) return [];
+    return openGroups
+      .filter((g: any) => g.productCategoryId === categoryId && g.productId !== productId)
+      .slice(0, 6);
+  }, [openGroups, categoryId, productId]);
+
+  const items = related || [];
+  if (items.length === 0 && relatedGroups.length === 0 && !isLoading) return null;
+
+  return (
+    <div className="px-4 md:px-6 py-6 border-t border-border">
+      {saleMode === "grupo" && relatedGroups.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-display font-bold text-foreground mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Grupos Abertos Parecidos
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {relatedGroups.map((group: any) => (
+              <Link key={group.id} href={`/produto/${group.productId}`}>
+                <Card className="hover-elevate overflow-visible" data-testid={`card-related-group-${group.id}`}>
+                  <CardContent className="p-3">
+                    {group.productImageUrl && (
+                      <img
+                        src={group.productImageUrl}
+                        alt={group.productName || "Produto"}
+                        className="w-full aspect-square object-cover rounded-md mb-2"
+                        onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200?text=Sem+Imagem"; }}
+                      />
+                    )}
+                    <p className="text-sm font-medium text-foreground line-clamp-2 mb-1">{group.productName}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs text-primary font-bold">
+                        R$ {Number(group.productGroupPrice || 0).toFixed(2)}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {group.currentPeople}/{group.minPeople}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <div>
+          <h2 className="text-lg font-display font-bold text-foreground mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-primary" />
+            {saleMode === "grupo" ? "Produtos Relacionados" : "Voce tambem pode gostar"}
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {items.map((item: any) => {
+              const price = saleMode === "grupo"
+                ? Number(item.groupPrice || item.originalPrice)
+                : Number(item.nowPrice || item.originalPrice);
+              const origPrice = Number(item.originalPrice);
+              const discount = origPrice > price ? Math.round(((origPrice - price) / origPrice) * 100) : 0;
+              return (
+                <Link key={item.id} href={`/produto/${item.id}`}>
+                  <Card className="hover-elevate overflow-visible" data-testid={`card-related-product-${item.id}`}>
+                    <CardContent className="p-0">
+                      <div className="relative">
+                        {discount > 0 && (
+                          <Badge className="absolute top-2 left-2 z-10 bg-destructive text-destructive-foreground text-[10px]">
+                            -{discount}%
+                          </Badge>
+                        )}
+                        <img
+                          src={item.imageUrl || "https://via.placeholder.com/200x200?text=Sem+Imagem"}
+                          alt={item.name}
+                          className="w-full aspect-square object-cover rounded-t-md"
+                          onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200?text=Sem+Imagem"; }}
+                        />
+                      </div>
+                      <div className="p-2.5">
+                        <p className="text-sm font-medium text-foreground line-clamp-2 mb-1">{item.name}</p>
+                        {discount > 0 && (
+                          <span className="text-xs text-muted-foreground line-through">R$ {origPrice.toFixed(2)}</span>
+                        )}
+                        <p className="text-sm font-bold text-primary">R$ {price.toFixed(2)}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function isOpenStatus(status: unknown) {
   const s = String(status ?? "").toLowerCase().trim();
   return s === "aberto" || s === "open";
@@ -389,6 +507,8 @@ export default function ProductDetail() {
             </div>
           </div>
         </div>
+
+        <RelatedProducts productId={product.id} saleMode={saleMode} categoryId={product.categoryId} />
       </main>
 
       <Footer />

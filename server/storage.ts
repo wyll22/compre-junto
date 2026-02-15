@@ -721,7 +721,8 @@ class DatabaseStorage implements IStorage {
     const result = await pool.query(
       `SELECT g.id, g.product_id AS "productId", g.current_people AS "currentPeople",
               g.min_people AS "minPeople", g.status, g.created_at AS "createdAt",
-              p.name AS "productName", p.image_url AS "productImageUrl"
+              p.name AS "productName", p.image_url AS "productImageUrl",
+              p.group_price AS "productGroupPrice", p.category_id AS "productCategoryId"
        FROM groups g
        LEFT JOIN products p ON p.id = g.product_id
        ${where} ORDER BY g.id DESC`,
