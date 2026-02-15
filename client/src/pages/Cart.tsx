@@ -29,7 +29,7 @@ function CartCrossSelling({ cartItems, onAddToCart }: { cartItems: CartItem[]; o
   const { data: suggestions } = useQuery<any[]>({
     queryKey: ["/api/products", firstProductId, "related", "cross-sell"],
     queryFn: async () => {
-      const res = await fetch(`/api/products/${firstProductId}/related?limit=6`);
+      const res = await fetch(`/api/products/${firstProductId}/related?limit=6&mode=agora`);
       if (!res.ok) return [];
       return await res.json();
     },
