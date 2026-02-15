@@ -33,7 +33,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation" | "filters" | "sponsors" | "partners";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation" | "filters" | "sponsors" | "approvals" | "partners";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -2752,6 +2752,121 @@ function SponsorBannersTab() {
   );
 }
 
+function ProductApprovalsTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: pendingProducts, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/pending-products"],
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      await apiRequest("POST", `/api/admin/products/${productId}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Produto aprovado!", description: "O produto agora esta visivel na loja." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      await apiRequest("POST", `/api/admin/products/${productId}/reject`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-products"] });
+      toast({ title: "Produto rejeitado", description: "O produto foi removido." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const items = pendingProducts || [];
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-4" data-testid="text-approvals-title">
+        Produtos Aguardando Aprovacao ({items.length})
+      </h2>
+
+      {items.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">
+            <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p>Nenhum produto pendente de aprovacao</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {items.map((product: any) => (
+            <Card key={product.id} data-testid={`card-pending-product-${product.id}`}>
+              <CardContent className="p-4">
+                <div className="flex gap-4 flex-wrap">
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-20 h-20 rounded-md object-cover flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <h3 className="font-semibold text-foreground">{product.name}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{product.description}</p>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span>Categoria: {product.category}</span>
+                      <span>Preco: R$ {Number(product.originalPrice).toFixed(2)}</span>
+                      <span>Grupo: R$ {Number(product.groupPrice).toFixed(2)}</span>
+                      <span>Estoque: {product.stock}</span>
+                      {product.brand && <span>Marca: {product.brand}</span>}
+                    </div>
+                    {product.creatorName && (
+                      <p className="text-xs text-muted-foreground">
+                        Enviado por: <span className="font-medium">{product.creatorName}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2 justify-center">
+                    <Button
+                      size="sm"
+                      data-testid={`button-approve-product-${product.id}`}
+                      onClick={() => approveMutation.mutate(product.id)}
+                      disabled={approveMutation.isPending}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      Aprovar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid={`button-reject-product-${product.id}`}
+                      onClick={() => rejectMutation.mutate(product.id)}
+                      disabled={rejectMutation.isPending}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Rejeitar
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PartnersTab() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -3119,6 +3234,7 @@ export default function Admin() {
     { key: "media", label: "Midia", icon: Upload },
     { key: "filters", label: "Filtros", icon: Filter },
     { key: "sponsors", label: "Patrocinadores", icon: Globe },
+    { key: "approvals", label: "Aprovacoes", icon: CheckCircle2 },
     { key: "partners", label: "Parceiros", icon: MapPin },
     { key: "navigation", label: "Navegacao", icon: Link2 },
     { key: "system", label: "Sistema", icon: Monitor },
@@ -3867,6 +3983,8 @@ export default function Admin() {
         {tab === "filters" && <FiltersTab />}
 
         {tab === "sponsors" && <SponsorBannersTab />}
+
+        {tab === "approvals" && <ProductApprovalsTab />}
 
         {tab === "partners" && <PartnersTab />}
 

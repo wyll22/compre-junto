@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Mail, Phone, Lock, User2, Smile, KeyRound, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Phone, Lock, User2, Smile, KeyRound, CheckCircle2, Circle, Check } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +68,27 @@ export default function Login() {
           toast({ title: "Erro", description: "Senha deve ter pelo menos 8 caracteres", variant: "destructive" });
           return;
         }
+        if (!/[A-Z]/.test(password)) {
+          toast({ title: "Erro", description: "Senha deve conter pelo menos uma letra maiuscula", variant: "destructive" });
+          return;
+        }
+        if (!/[a-z]/.test(password)) {
+          toast({ title: "Erro", description: "Senha deve conter pelo menos uma letra minuscula", variant: "destructive" });
+          return;
+        }
+        if (!/[0-9]/.test(password)) {
+          toast({ title: "Erro", description: "Senha deve conter pelo menos um numero", variant: "destructive" });
+          return;
+        }
+        if (!/[^A-Za-z0-9]/.test(password)) {
+          toast({ title: "Erro", description: "Senha deve conter pelo menos um caractere especial (!@#$%...)", variant: "destructive" });
+          return;
+        }
+        const phoneDigits = phone.replace(/\D/g, "");
+        if (phoneDigits.length > 0 && phoneDigits.length !== 11) {
+          toast({ title: "Erro", description: "Telefone deve ter 11 digitos (DDD + 9 digitos)", variant: "destructive" });
+          return;
+        }
         await register.mutateAsync({
           name: name.trim(),
           email: email.trim(),
@@ -81,8 +102,12 @@ export default function Login() {
           toast({ title: "Erro", description: "Informe seu email ou telefone", variant: "destructive" });
           return;
         }
-        await login.mutateAsync({ identifier: identifier.trim(), password });
+        const loginResult = await login.mutateAsync({ identifier: identifier.trim(), password });
         toast({ title: "Login realizado!", description: "Bem-vindo de volta!" });
+        if (loginResult?.role === "parceiro") {
+          setLocation("/parceiro");
+          return;
+        }
       }
       setLocation(redirect);
     } catch (err: any) {
@@ -335,9 +360,10 @@ export default function Login() {
                             placeholder="(61) 99999-9999"
                             className="pl-10"
                             inputMode="tel"
+                            maxLength={15}
                           />
                         </div>
-                        <p className="text-[11px] text-muted-foreground">Voce podera fazer login com o celular tambem.</p>
+                        <p className="text-[11px] text-muted-foreground">DDD (2 digitos) + numero (9 digitos) = 11 digitos. Ex: (61) 99999-9999</p>
                       </div>
 
                       <div className="space-y-1.5">
@@ -350,12 +376,31 @@ export default function Login() {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Minimo 8 caracteres"
+                            placeholder="Crie uma senha segura"
                             className="pl-10"
                             required
                             minLength={8}
                           />
                         </div>
+                        {viewMode === "register" && password.length > 0 && (
+                          <div className="space-y-0.5 mt-1">
+                            <p className={`text-[11px] flex items-center gap-1 ${password.length >= 8 ? "text-green-600" : "text-muted-foreground"}`}>
+                              {password.length >= 8 ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />} Minimo 8 caracteres
+                            </p>
+                            <p className={`text-[11px] flex items-center gap-1 ${/[A-Z]/.test(password) ? "text-green-600" : "text-muted-foreground"}`}>
+                              {/[A-Z]/.test(password) ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />} Uma letra maiuscula
+                            </p>
+                            <p className={`text-[11px] flex items-center gap-1 ${/[a-z]/.test(password) ? "text-green-600" : "text-muted-foreground"}`}>
+                              {/[a-z]/.test(password) ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />} Uma letra minuscula
+                            </p>
+                            <p className={`text-[11px] flex items-center gap-1 ${/[0-9]/.test(password) ? "text-green-600" : "text-muted-foreground"}`}>
+                              {/[0-9]/.test(password) ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />} Um numero
+                            </p>
+                            <p className={`text-[11px] flex items-center gap-1 ${/[^A-Za-z0-9]/.test(password) ? "text-green-600" : "text-muted-foreground"}`}>
+                              {/[^A-Za-z0-9]/.test(password) ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />} Um caractere especial (!@#$%...)
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </>
                   ) : (

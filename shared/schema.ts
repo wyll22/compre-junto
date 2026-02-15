@@ -55,6 +55,8 @@ export const products = pgTable("products", {
   dimensions: text("dimensions"),
   specifications: text("specifications"),
   saleEndsAt: timestamp("sale_ends_at"),
+  createdBy: integer("created_by"),
+  approved: boolean("approved").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -313,11 +315,25 @@ export const createSponsorBannerSchema = z.object({
   active: z.boolean().optional().default(true),
 });
 
+export const passwordSchema = z.string()
+  .min(8, "Senha deve ter pelo menos 8 caracteres")
+  .max(128)
+  .refine(v => /[A-Z]/.test(v), "Senha deve conter pelo menos uma letra maiuscula")
+  .refine(v => /[a-z]/.test(v), "Senha deve conter pelo menos uma letra minuscula")
+  .refine(v => /[0-9]/.test(v), "Senha deve conter pelo menos um numero")
+  .refine(v => /[^A-Za-z0-9]/.test(v), "Senha deve conter pelo menos um caractere especial (!@#$%...)");
+
+export const phoneSchema = z.string()
+  .transform(v => v.replace(/\D/g, ""))
+  .refine(v => v === "" || v.length === 11, "Telefone deve ter 11 digitos (DDD + 9 digitos)")
+  .optional()
+  .default("");
+
 export const createPartnerUserSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
   email: z.string().email("Email invalido").max(200),
-  password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres").max(128),
-  phone: z.string().max(30).optional().default(""),
+  password: passwordSchema,
+  phone: phoneSchema,
   pickupPointId: z.coerce.number().int(),
 });
 
@@ -383,8 +399,8 @@ export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export const registerSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(200),
   email: z.string().email("Email invalido").max(200),
-  password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres").max(128),
-  phone: z.string().max(30).optional().default(""),
+  password: passwordSchema,
+  phone: phoneSchema,
   displayName: z.string().max(100).optional().default(""),
 });
 
@@ -396,7 +412,7 @@ export const loginSchema = z.object({
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Senha atual obrigatoria").max(128),
-  newPassword: z.string().min(8, "Nova senha deve ter pelo menos 8 caracteres").max(128),
+  newPassword: passwordSchema,
 });
 
 export const profileUpdateSchema = z.object({

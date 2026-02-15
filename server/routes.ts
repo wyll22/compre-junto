@@ -16,6 +16,7 @@ import {
   createProductSchema, createCategorySchema, createBannerSchema, createVideoSchema,
   createOrderSchema, createPickupPointSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
   insertArticleSchema, insertNavigationLinkSchema, createSponsorBannerSchema, createPartnerUserSchema,
+  passwordSchema,
 } from "@shared/schema";
 
 function stripHtmlTags(str: string): string {
@@ -362,8 +363,9 @@ export async function registerRoutes(
       if (!token || typeof token !== "string") {
         return res.status(400).json({ message: "Token invalido" });
       }
-      if (!password || typeof password !== "string" || password.length < 8) {
-        return res.status(400).json({ message: "Senha deve ter pelo menos 8 caracteres" });
+      const pwParsed = passwordSchema.safeParse(password);
+      if (!pwParsed.success) {
+        return res.status(400).json({ message: pwParsed.error.errors[0]?.message || "Senha invalida" });
       }
       const success = await storage.resetPasswordByToken(token, password);
       if (!success) {
@@ -554,7 +556,8 @@ export async function registerRoutes(
               stock, reserve_fee AS "reserveFee", category, sale_mode AS "saleMode",
               category_id AS "categoryId", subcategory_id AS "subcategoryId",
               brand, weight, dimensions, specifications,
-              active, created_at AS "createdAt"
+              active, created_by AS "createdBy", approved,
+              created_at AS "createdAt"
        FROM products ORDER BY id DESC`,
     );
     res.json(result.rows);
@@ -563,6 +566,13 @@ export async function registerRoutes(
   app.get("/api/products/:id", async (req: Request, res: Response) => {
     const product = await storage.getProduct(Number(req.params.id));
     if (!product) return res.status(404).json({ message: "Produto nao encontrado" });
+    if (!product.approved) {
+      const userId = (req.session as any)?.userId;
+      const user = userId ? await storage.getUser(userId) : null;
+      if (!user || (user.role !== "admin" && user.role !== "editor" && product.createdBy !== user.id)) {
+        return res.status(404).json({ message: "Produto nao encontrado" });
+      }
+    }
     res.json(product);
   });
 
@@ -1610,6 +1620,79 @@ export async function registerRoutes(
       if (!user || !user.pickupPointId) return res.status(400).json({ message: "Sem ponto vinculado" });
       const point = await storage.getPickupPoint(user.pickupPointId);
       res.json(point);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/partner/products", async (req: Request, res: Response) => {
+    const userId = await requireRole(req, res, ["parceiro"]);
+    if (userId === null) return;
+    try {
+      const products = await storage.getPartnerProducts(userId);
+      res.json(products);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/partner/products", async (req: Request, res: Response) => {
+    const userId = await requireRole(req, res, ["parceiro"]);
+    if (userId === null) return;
+    try {
+      const parsed = createProductSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parseZodError(parsed.error) });
+      }
+      const product = await storage.createPartnerProduct(userId, parsed.data);
+      res.status(201).json(product);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erro ao cadastrar produto" });
+    }
+  });
+
+  app.get("/api/partner/sales", async (req: Request, res: Response) => {
+    const userId = await requireRole(req, res, ["parceiro"]);
+    if (userId === null) return;
+    try {
+      const sales = await storage.getPartnerSales(userId);
+      res.json(sales);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/pending-products", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const products = await storage.getPendingProducts();
+      res.json(products);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/products/:id/approve", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      const product = await storage.approveProduct(Number(req.params.id));
+      if (!product) return res.status(404).json({ message: "Produto nao encontrado" });
+      await auditLog(req, userId, "aprovar_produto", "produto", product.id, { name: product.name });
+      res.json(product);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/products/:id/reject", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    try {
+      await storage.rejectProduct(Number(req.params.id));
+      await auditLog(req, userId, "rejeitar_produto", "produto", Number(req.params.id), {});
+      res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

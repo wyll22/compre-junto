@@ -259,6 +259,12 @@ export interface IStorage {
 
   createPartnerUser(input: { name: string; email: string; password: string; phone?: string; pickupPointId: number }): Promise<UserRow>;
   getPartnerOrders(pickupPointId: number): Promise<(OrderRow & { userName: string; userEmail: string; userPhone: string | null })[]>;
+  getPartnerProducts(userId: number): Promise<ProductRow[]>;
+  createPartnerProduct(userId: number, input: any): Promise<ProductRow>;
+  getPartnerSales(userId: number): Promise<any[]>;
+  approveProduct(productId: number): Promise<ProductRow | null>;
+  rejectProduct(productId: number): Promise<void>;
+  getPendingProducts(): Promise<(ProductRow & { creatorName?: string })[]>;
 
   seedProducts(): Promise<void>;
 }
@@ -294,6 +300,8 @@ const PRODUCT_SELECT = `
   dimensions,
   specifications,
   sale_ends_at AS "saleEndsAt",
+  created_by AS "createdBy",
+  approved,
   created_at AS "createdAt"
 `;
 
@@ -492,7 +500,7 @@ class DatabaseStorage implements IStorage {
 
   async getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number; filterOptionIds?: number[] }): Promise<ProductRow[]> {
     const values: unknown[] = [];
-    const conditions: string[] = ["p.active = true"];
+    const conditions: string[] = ["p.active = true", "p.approved = true"];
     let needsCategoryJoin = false;
 
     if (search?.trim()) {
@@ -559,7 +567,7 @@ class DatabaseStorage implements IStorage {
 
   async getProductBrands(): Promise<string[]> {
     const result = await pool.query(
-      `SELECT DISTINCT brand FROM products WHERE active = true AND brand IS NOT NULL AND brand != '' ORDER BY brand ASC`,
+      `SELECT DISTINCT brand FROM products WHERE active = true AND approved = true AND brand IS NOT NULL AND brand != '' ORDER BY brand ASC`,
     );
     return result.rows.map((r: any) => r.brand);
   }
@@ -573,7 +581,7 @@ class DatabaseStorage implements IStorage {
        FROM products p
        LEFT JOIN categories c1 ON p.category_id = c1.id
        LEFT JOIN categories c2 ON p.subcategory_id = c2.id
-       WHERE p.active = true AND (
+       WHERE p.active = true AND p.approved = true AND (
          p.name ILIKE $1 OR COALESCE(p.description, '') ILIKE $1
          OR COALESCE(p.category, '') ILIKE $1 OR COALESCE(p.brand, '') ILIKE $1
          OR COALESCE(p.specifications, '') ILIKE $1
@@ -1876,6 +1884,81 @@ class DatabaseStorage implements IStorage {
        WHERE o.pickup_point_id = $1
        ORDER BY o.created_at DESC`,
       [pickupPointId]
+    );
+    return result.rows;
+  }
+
+  async getPartnerProducts(userId: number): Promise<ProductRow[]> {
+    const result = await pool.query(
+      `SELECT ${PRODUCT_SELECT} FROM products WHERE created_by = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+    return result.rows as ProductRow[];
+  }
+
+  async createPartnerProduct(userId: number, input: any): Promise<ProductRow> {
+    const result = await pool.query(
+      `INSERT INTO products (name, description, image_url, original_price, group_price, now_price, min_people, stock, reserve_fee, category, sale_mode, fulfillment_type, active, category_id, subcategory_id, brand, weight, dimensions, specifications, created_by, approved)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, $13, $14, $15, $16, $17, $18, $19, false)
+       RETURNING ${PRODUCT_SELECT}`,
+      [
+        input.name, input.description, input.imageUrl,
+        input.originalPrice, input.groupPrice, input.nowPrice || null,
+        input.minPeople || 10, input.stock || 100, input.reserveFee || "0",
+        input.category, input.saleMode || "grupo", input.fulfillmentType || "pickup",
+        input.categoryId || null, input.subcategoryId || null,
+        input.brand || null, input.weight || null, input.dimensions || null, input.specifications || null,
+        userId
+      ]
+    );
+    return result.rows[0] as ProductRow;
+  }
+
+  async getPartnerSales(userId: number): Promise<any[]> {
+    const result = await pool.query(
+      `SELECT o.id, o.user_id AS "userId", o.items, o.total, o.status,
+              o.fulfillment_type AS "fulfillmentType", o.pickup_point_id AS "pickupPointId",
+              o.created_at AS "createdAt",
+              u.name AS "buyerName", u.email AS "buyerEmail", u.phone AS "buyerPhone"
+       FROM orders o
+       JOIN users u ON o.user_id = u.id
+       WHERE o.items::text LIKE ANY(
+         SELECT '%"id":' || p.id || ',%' FROM products p WHERE p.created_by = $1
+       )
+       ORDER BY o.created_at DESC`,
+      [userId]
+    );
+    return result.rows;
+  }
+
+  async approveProduct(productId: number): Promise<ProductRow | null> {
+    const result = await pool.query(
+      `UPDATE products SET approved = true WHERE id = $1 RETURNING ${PRODUCT_SELECT}`,
+      [productId]
+    );
+    return result.rows[0] || null;
+  }
+
+  async rejectProduct(productId: number): Promise<void> {
+    await pool.query(`DELETE FROM products WHERE id = $1 AND approved = false`, [productId]);
+  }
+
+  async getPendingProducts(): Promise<(ProductRow & { creatorName?: string })[]> {
+    const result = await pool.query(
+      `SELECT p.id, p.name, p.description, p.image_url AS "imageUrl",
+              p.original_price AS "originalPrice", p.group_price AS "groupPrice",
+              p.now_price AS "nowPrice", p.min_people AS "minPeople", p.stock,
+              p.reserve_fee AS "reserveFee", p.category, p.sale_mode AS "saleMode",
+              p.fulfillment_type AS "fulfillmentType", p.active,
+              p.category_id AS "categoryId", p.subcategory_id AS "subcategoryId",
+              p.brand, p.weight, p.dimensions, p.specifications,
+              p.sale_ends_at AS "saleEndsAt", p.created_by AS "createdBy",
+              p.approved, p.created_at AS "createdAt",
+              u.name AS "creatorName"
+       FROM products p
+       LEFT JOIN users u ON p.created_by = u.id
+       WHERE p.approved = false
+       ORDER BY p.created_at DESC`
     );
     return result.rows;
   }
