@@ -652,7 +652,7 @@ export default function Home() {
           isFiltering={!!(searchTerm || selectedCategoryId !== null)}
         />
 
-        <div ref={productsRef} className="flex gap-6">
+        <div ref={productsRef} className="flex gap-6 items-start">
           <FilterSidebar
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={handleSelectCategory}
@@ -724,7 +724,7 @@ export default function Home() {
           </div>
 
           {sidebarSponsors.length > 0 && (
-            <aside className="hidden lg:block w-[200px] flex-shrink-0 space-y-3 sticky top-4 self-start z-10">
+            <aside className="hidden lg:block w-[200px] flex-shrink-0 space-y-3 sticky top-20 z-10">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 text-center">Publicidade</p>
               {sidebarSponsors.map((sponsor: any) => (
                 <a
