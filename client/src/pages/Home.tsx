@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronRight, UserCircle, Grid3X3 } from "lucide-react";
+import { Search, ShoppingCart, Loader2, Users, ShoppingBag, User, LogOut, ChevronRight, UserCircle, Grid3X3, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
@@ -165,6 +165,17 @@ export default function Home() {
     fetchSuggestions(value);
   }, [fetchSuggestions]);
 
+  const productsRef = useRef<HTMLDivElement>(null);
+
+  const handleSearchSubmit = useCallback(() => {
+    setShowSuggestions(false);
+    if (searchTerm.trim().length > 0) {
+      setTimeout(() => {
+        productsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [searchTerm]);
+
   const [, navigate] = useLocation();
   const handleSuggestionClick = useCallback((product: any) => {
     setShowSuggestions(false);
@@ -241,12 +252,22 @@ export default function Home() {
                 data-testid="input-search"
                 type="text"
                 placeholder="O que voce procura?"
-                className="pl-10 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25 focus:border-white/40"
+                className="pl-10 pr-8 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25 focus:border-white/40"
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearchSubmit(); } }}
                 autoComplete="off"
               />
+              {searchTerm && (
+                <button
+                  data-testid="button-clear-search"
+                  onClick={() => { setSearchTerm(""); setSuggestions([]); setShowSuggestions(false); }}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                >
+                  <X className="h-4 w-4 text-white/60 hover:text-white" />
+                </button>
+              )}
               {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
                   {suggestionsLoading ? (
@@ -339,12 +360,22 @@ export default function Home() {
                 data-testid="input-search-mobile"
                 type="text"
                 placeholder="O que voce procura?"
-                className="pl-10 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25"
+                className="pl-10 pr-8 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25"
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearchSubmit(); } }}
                 autoComplete="off"
               />
+              {searchTerm && (
+                <button
+                  data-testid="button-clear-search-mobile"
+                  onClick={() => { setSearchTerm(""); setSuggestions([]); setShowSuggestions(false); }}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
+                >
+                  <X className="h-4 w-4 text-white/60 hover:text-white" />
+                </button>
+              )}
               {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
                   {suggestionsLoading ? (
@@ -542,7 +573,7 @@ export default function Home() {
       </Dialog>
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 w-full">
-        {activeBanners.length > 0 && (
+        {!searchTerm && activeBanners.length > 0 && (
           <div className="mb-6 relative rounded-md overflow-hidden" data-testid="banner-carousel">
             <div className="relative aspect-[3/1] sm:aspect-[4/1] bg-muted">
               {activeBanners.map((banner: any, i: number) => (
@@ -578,7 +609,7 @@ export default function Home() {
           </div>
         )}
 
-        {saleMode === "grupo" && (
+        {!searchTerm && saleMode === "grupo" && (
           <div className="mb-6 rounded-md brand-gradient p-6 text-white shadow-md relative overflow-hidden">
             <div className="relative z-10 max-w-lg">
               <h2 className="text-2xl md:text-3xl font-display font-bold mb-2">
@@ -609,7 +640,7 @@ export default function Home() {
           isFiltering={!!(searchTerm || selectedCategoryId !== null)}
         />
 
-        <div className="flex gap-6">
+        <div ref={productsRef} className="flex gap-6">
           <FilterSidebar
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={handleSelectCategory}
@@ -664,7 +695,7 @@ export default function Home() {
           </div>
         </div>
 
-        {activeVideos.length > 0 && (
+        {!searchTerm && activeVideos.length > 0 && (
           <section className="mt-10">
             <h2 className="text-xl font-display font-bold text-foreground mb-4">Videos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

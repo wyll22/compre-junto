@@ -422,6 +422,7 @@ class DatabaseStorage implements IStorage {
 
   async seedCategories(): Promise<void> {
     try {
+      await pool.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
       const countRes = await pool.query(`SELECT COUNT(*)::int AS total FROM categories`);
       if (countRes.rows[0]?.total > 0) return;
 
@@ -471,53 +472,66 @@ class DatabaseStorage implements IStorage {
 
   async getProducts(category?: string, search?: string, saleMode?: string, categoryId?: number, subcategoryId?: number, filters?: { brand?: string; minPrice?: number; maxPrice?: number; filterOptionIds?: number[] }): Promise<ProductRow[]> {
     const values: unknown[] = [];
-    const conditions: string[] = ["active = true"];
+    const conditions: string[] = ["p.active = true"];
+    let needsCategoryJoin = false;
 
     if (search?.trim()) {
-      values.push(`%${search.trim()}%`);
-      conditions.push(`name ILIKE $${values.length}`);
+      const st = search.trim();
+      values.push(`%${st}%`);
+      const si = values.length;
+      values.push(st);
+      const ti = values.length;
+      conditions.push(`(p.name ILIKE $${si} OR COALESCE(p.description, '') ILIKE $${si} OR COALESCE(p.category, '') ILIKE $${si} OR COALESCE(p.brand, '') ILIKE $${si} OR COALESCE(p.specifications, '') ILIKE $${si} OR COALESCE(c1.name, '') ILIKE $${si} OR COALESCE(c2.name, '') ILIKE $${si} OR word_similarity($${ti}, p.name) > 0.3 OR word_similarity($${ti}, COALESCE(p.category, '')) > 0.3 OR word_similarity($${ti}, COALESCE(c1.name, '')) > 0.3 OR word_similarity($${ti}, COALESCE(c2.name, '')) > 0.3)`);
+      needsCategoryJoin = true;
     }
 
     if (category && category.toLowerCase() !== "todos") {
       values.push(category);
-      conditions.push(`category = $${values.length}`);
+      conditions.push(`p.category = $${values.length}`);
     }
 
     if (saleMode) {
       values.push(saleMode);
-      conditions.push(`sale_mode = $${values.length}`);
+      conditions.push(`p.sale_mode = $${values.length}`);
     }
 
     if (categoryId) {
       values.push(categoryId);
-      conditions.push(`category_id = $${values.length}`);
+      conditions.push(`p.category_id = $${values.length}`);
     }
     if (subcategoryId) {
       values.push(subcategoryId);
-      conditions.push(`subcategory_id = $${values.length}`);
+      conditions.push(`p.subcategory_id = $${values.length}`);
     }
 
     if (filters?.brand) {
       values.push(filters.brand);
-      conditions.push(`brand = $${values.length}`);
+      conditions.push(`p.brand = $${values.length}`);
     }
     if (filters?.minPrice !== undefined) {
       values.push(filters.minPrice);
-      conditions.push(`COALESCE(now_price, original_price)::numeric >= $${values.length}`);
+      conditions.push(`COALESCE(p.now_price, p.original_price)::numeric >= $${values.length}`);
     }
     if (filters?.maxPrice !== undefined) {
       values.push(filters.maxPrice);
-      conditions.push(`COALESCE(now_price, original_price)::numeric <= $${values.length}`);
+      conditions.push(`COALESCE(p.now_price, p.original_price)::numeric <= $${values.length}`);
     }
 
     if (filters?.filterOptionIds && filters.filterOptionIds.length > 0) {
       values.push(filters.filterOptionIds);
-      conditions.push(`id IN (SELECT product_id FROM product_filters WHERE filter_option_id = ANY($${values.length}))`);
+      conditions.push(`p.id IN (SELECT product_id FROM product_filters WHERE filter_option_id = ANY($${values.length}))`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const categoryJoins = needsCategoryJoin
+      ? `LEFT JOIN categories c1 ON p.category_id = c1.id LEFT JOIN categories c2 ON p.subcategory_id = c2.id`
+      : "";
+    const pSelect = PRODUCT_SELECT.trim().split('\n').map(col => {
+      const c = col.trim().replace(/,$/, '').trim();
+      return c ? `p.${c}` : '';
+    }).filter(Boolean).join(', ');
     const result = await pool.query(
-      `SELECT ${PRODUCT_SELECT} FROM products ${where} ORDER BY id DESC`,
+      `SELECT ${pSelect} FROM products p ${categoryJoins} ${where} ORDER BY p.id DESC`,
       values,
     );
     return result.rows as ProductRow[];
@@ -531,14 +545,31 @@ class DatabaseStorage implements IStorage {
   }
 
   async searchProductsSuggestions(term: string, limit: number = 8): Promise<{ id: number; name: string; imageUrl: string | null; groupPrice: string | null; nowPrice: string | null; saleMode: string }[]> {
+    const t = term.trim();
+    const like = `%${t}%`;
+    const prefix = `${t}%`;
     const result = await pool.query(
-      `SELECT id, name, image_url AS "imageUrl", group_price AS "groupPrice", now_price AS "nowPrice", sale_mode AS "saleMode"
-       FROM products WHERE active = true AND (name ILIKE $1 OR COALESCE(description, '') ILIKE $1 OR COALESCE(category, '') ILIKE $1 OR COALESCE(brand, '') ILIKE $1 OR COALESCE(specifications, '') ILIKE $1)
+      `SELECT p.id, p.name, p.image_url AS "imageUrl", p.group_price AS "groupPrice", p.now_price AS "nowPrice", p.sale_mode AS "saleMode"
+       FROM products p
+       LEFT JOIN categories c1 ON p.category_id = c1.id
+       LEFT JOIN categories c2 ON p.subcategory_id = c2.id
+       WHERE p.active = true AND (
+         p.name ILIKE $1 OR COALESCE(p.description, '') ILIKE $1
+         OR COALESCE(p.category, '') ILIKE $1 OR COALESCE(p.brand, '') ILIKE $1
+         OR COALESCE(p.specifications, '') ILIKE $1
+         OR COALESCE(c1.name, '') ILIKE $1 OR COALESCE(c2.name, '') ILIKE $1
+         OR word_similarity($2, p.name) > 0.3
+         OR word_similarity($2, COALESCE(p.category, '')) > 0.3
+         OR word_similarity($2, COALESCE(c1.name, '')) > 0.3
+         OR word_similarity($2, COALESCE(c2.name, '')) > 0.3
+       )
+       GROUP BY p.id
        ORDER BY
-         CASE WHEN name ILIKE $2 THEN 0 ELSE 1 END,
-         name ASC
-       LIMIT $3`,
-      [`%${term.trim()}%`, `${term.trim()}%`, limit],
+         CASE WHEN p.name ILIKE $3 THEN 0 WHEN p.name ILIKE $1 THEN 1 ELSE 2 END,
+         GREATEST(word_similarity($2, p.name), word_similarity($2, COALESCE(p.category, ''))) DESC,
+         p.name ASC
+       LIMIT $4`,
+      [like, t, prefix, limit],
     );
     return result.rows;
   }
