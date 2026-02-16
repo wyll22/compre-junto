@@ -191,12 +191,12 @@ export async function registerRoutes(
   }));
 
   const allowedOrigins = process.env.NODE_ENV === "production"
-    ? [process.env.APP_DOMAIN || "https://comprajuntoformosa.replit.app"].filter(Boolean)
+    ? [process.env.APP_DOMAIN].filter(Boolean) as string[]
     : ["http://localhost:5000", "http://0.0.0.0:5000"];
 
   app.use(cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || (process.env.NODE_ENV !== "production" && origin.includes(".replit.app"))) {
         callback(null, true);
       } else {
         callback(null, false);
