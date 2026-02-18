@@ -272,6 +272,18 @@ function AddressTab({ user }: { user: AuthUser }) {
       toast({ title: "CEP invalido", description: "Informe um CEP com 8 digitos", variant: "destructive" });
       return;
     }
+
+    // Validação para Formosa-GO (CEP 73750-000 a 73799-999)
+    const cepNum = parseInt(digits);
+    if (cepNum < 73750000 || cepNum > 73799999) {
+      toast({ 
+        title: "Região não atendida", 
+        description: "No momento atendemos apenas a região de Formosa-GO e arredores (CEPs 73750-XXX a 73799-XXX).", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setCepLoading(true);
     try {
       const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
