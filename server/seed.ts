@@ -1,4 +1,4 @@
-import { storage } from "./server/storage";
+import { storage } from "./storage";
 
 async function main() {
   try {
