@@ -1,3 +1,0 @@
-# Wyll
-
-Auth test commit.
