@@ -51,6 +51,37 @@ function parseZodError(error: z.ZodError): string {
   return error.errors.map(e => e.message).join("; ");
 }
 
+function parseAllowedOrigins(): string[] {
+  const appDomain = process.env.APP_DOMAIN?.trim();
+  const customOrigins = process.env.CORS_ALLOWED_ORIGINS
+    ? process.env.CORS_ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean)
+    : [];
+
+  const origins = new Set<string>();
+  if (appDomain) origins.add(appDomain.replace(/\/+$/, ""));
+  for (const origin of customOrigins) origins.add(origin.replace(/\/+$/, ""));
+
+  if (process.env.NODE_ENV !== "production") {
+    origins.add("http://localhost:5000");
+    origins.add("http://0.0.0.0:5000");
+    origins.add("http://127.0.0.1:5000");
+  }
+
+  if (process.env.NODE_ENV === "production" && origins.size === 0) {
+    throw new Error("APP_DOMAIN (or CORS_ALLOWED_ORIGINS) is required in production");
+  }
+
+  return Array.from(origins);
+}
+
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET is required in production");
+  }
+  return secret || crypto.randomBytes(64).toString("hex");
+}
+
 const rateLimitStore = new Map<string, { count: number; windowStart: number; lockedUntil: number }>();
 
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
@@ -190,9 +221,7 @@ export async function registerRoutes(
     crossOriginEmbedderPolicy: false,
   }));
 
-  const allowedOrigins = process.env.NODE_ENV === "production"
-    ? [process.env.APP_DOMAIN].filter(Boolean) as string[]
-    : ["http://localhost:5000", "http://0.0.0.0:5000"];
+  const allowedOrigins = parseAllowedOrigins();
 
   app.use(cors({
     origin: (origin, callback) => {
@@ -213,13 +242,7 @@ export async function registerRoutes(
         pool: pool as any,
         createTableIfMissing: true,
       }),
-      secret: (() => {
-        const secret = process.env.SESSION_SECRET;
-        if (!secret && process.env.NODE_ENV === "production") {
-          throw new Error("SESSION_SECRET is required in production");
-        }
-        return secret || crypto.randomBytes(64).toString("hex");
-      })(),
+      secret: getSessionSecret(),
       resave: false,
       saveUninitialized: false,
       rolling: true,
@@ -245,7 +268,7 @@ export async function registerRoutes(
     if (process.env.NODE_ENV !== "production") return next();
     const origin = req.headers.origin;
     const referer = req.headers.referer;
-    const allowedHost = (process.env.APP_DOMAIN || "https://comprajuntoformosa.replit.app").replace(/\/+$/, "");
+    const allowedHost = allowedOrigins[0];
     if (origin) {
       if (origin !== allowedHost) {
         return res.status(403).json({ message: "Origem invalida" });
@@ -347,10 +370,7 @@ export async function registerRoutes(
       }
       recordAttempt(resetKey);
 
-      const result = await storage.createPasswordResetToken(email.trim());
-      if (result) {
-        console.log(`[PASSWORD RESET] Token para ${email}: ${result.token}`);
-      }
+      await storage.createPasswordResetToken(email.trim());
       res.json({ message: "Se o email estiver cadastrado, voce recebera instrucoes para redefinir sua senha." });
     } catch (err: any) {
       res.status(500).json({ message: "Erro ao processar solicitacao" });
@@ -568,7 +588,7 @@ export async function registerRoutes(
     if (!product) return res.status(404).json({ message: "Produto nao encontrado" });
     if (!product.approved) {
       const userId = (req.session as any)?.userId;
-      const user = userId ? await storage.getUser(userId) : null;
+      const user = userId ? await storage.getUserById(userId) : null;
       if (!user || (user.role !== "admin" && user.role !== "editor" && product.createdBy !== user.id)) {
         return res.status(404).json({ message: "Produto nao encontrado" });
       }

@@ -31,6 +31,9 @@ type ProductRow = {
   weight: string | null;
   dimensions: string | null;
   specifications: string | null;
+  saleEndsAt?: Date | string | null;
+  createdBy?: number | null;
+  approved?: boolean;
   createdAt?: Date | string | null;
 };
 
