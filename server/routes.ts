@@ -51,6 +51,15 @@ function parseZodError(error: z.ZodError): string {
   return error.errors.map(e => e.message).join("; ");
 }
 
+function normalizeOrigin(value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    return trimmed;
+  }
+}
+
 function parseAllowedOrigins(): string[] {
   const appDomain = process.env.APP_DOMAIN?.trim();
   const customOrigins = process.env.CORS_ALLOWED_ORIGINS
@@ -58,8 +67,8 @@ function parseAllowedOrigins(): string[] {
     : [];
 
   const origins = new Set<string>();
-  if (appDomain) origins.add(appDomain.replace(/\/+$/, ""));
-  for (const origin of customOrigins) origins.add(origin.replace(/\/+$/, ""));
+  if (appDomain) origins.add(normalizeOrigin(appDomain));
+  for (const origin of customOrigins) origins.add(normalizeOrigin(origin));
 
   if (process.env.NODE_ENV !== "production") {
     origins.add("http://localhost:5000");
@@ -225,7 +234,8 @@ export async function registerRoutes(
 
   app.use(cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || (process.env.NODE_ENV !== "production" && origin.includes(".replit.app"))) {
+      const normalizedOrigin = origin ? normalizeOrigin(origin) : "";
+      if (!origin || allowedOrigins.includes(normalizedOrigin) || (process.env.NODE_ENV !== "production" && origin.includes(".replit.app"))) {
         callback(null, true);
       } else {
         callback(null, false);
@@ -268,7 +278,7 @@ export async function registerRoutes(
     if (process.env.NODE_ENV !== "production") return next();
     const origin = req.headers.origin;
     const referer = req.headers.referer;
-    const isAllowed = (candidate: string) => allowedOrigins.includes(candidate.replace(/\/+$/, ""));
+    const isAllowed = (candidate: string) => allowedOrigins.includes(normalizeOrigin(candidate));
 
     if (origin) {
       if (!isAllowed(origin)) {
