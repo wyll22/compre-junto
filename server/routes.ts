@@ -268,15 +268,23 @@ export async function registerRoutes(
     if (process.env.NODE_ENV !== "production") return next();
     const origin = req.headers.origin;
     const referer = req.headers.referer;
-    const allowedHost = allowedOrigins[0];
+    const isAllowed = (candidate: string) => allowedOrigins.includes(candidate.replace(/\/+$/, ""));
+
     if (origin) {
-      if (origin !== allowedHost) {
+      if (!isAllowed(origin)) {
         return res.status(403).json({ message: "Origem invalida" });
       }
       return next();
     }
     if (referer) {
-      if (!referer.startsWith(allowedHost + "/") && referer !== allowedHost) {
+      const refererOrigin = (() => {
+        try {
+          return new URL(referer).origin;
+        } catch {
+          return "";
+        }
+      })();
+      if (!refererOrigin || !isAllowed(refererOrigin)) {
         return res.status(403).json({ message: "Origem invalida" });
       }
       return next();

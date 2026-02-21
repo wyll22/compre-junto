@@ -3,6 +3,15 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
+const normalizeFulfillmentType = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "pickup" || normalized === "delivery") {
+    return normalized;
+  }
+  return value;
+};
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -440,7 +449,7 @@ export const createProductSchema = z.object({
   reserveFee: z.union([z.string(), z.number()]).transform(String).optional().default("0"),
   category: z.string().min(1).max(200),
   saleMode: z.enum(["grupo", "agora"]).default("grupo"),
-  fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
+  fulfillmentType: z.preprocess(normalizeFulfillmentType, z.enum(["pickup", "delivery"]).default("pickup")),
   active: z.boolean().optional().default(true),
   categoryId: z.coerce.number().int().nullable().optional(),
   subcategoryId: z.coerce.number().int().nullable().optional(),
@@ -474,7 +483,7 @@ export const createVideoSchema = z.object({
 export const createOrderSchema = z.object({
   items: z.array(z.any()).min(1, "Carrinho vazio"),
   total: z.union([z.string(), z.number()]).transform(String),
-  fulfillmentType: z.enum(["pickup", "delivery"]),
+  fulfillmentType: z.preprocess(normalizeFulfillmentType, z.enum(["pickup", "delivery"])),
   pickupPointId: z.coerce.number().int().nullable().optional(),
 });
 
