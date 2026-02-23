@@ -169,8 +169,10 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
             <img
               src={product.imageUrl || "https://via.placeholder.com/400x400?text=Sem+Imagem"}
               alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
+              width="400"
+              height="400"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x400?text=Sem+Imagem";
               }}

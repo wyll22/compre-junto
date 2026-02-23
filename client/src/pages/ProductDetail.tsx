@@ -66,6 +66,9 @@ function RelatedProducts({ productId, saleMode, categoryId }: { productId: numbe
                         src={group.productImageUrl}
                         alt={group.productName || "Produto"}
                         className="w-full aspect-square object-cover rounded-md mb-2"
+                        loading="lazy"
+                        width="200"
+                        height="200"
                         onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200?text=Sem+Imagem"; }}
                       />
                     )}
@@ -113,6 +116,9 @@ function RelatedProducts({ productId, saleMode, categoryId }: { productId: numbe
                           src={item.imageUrl || "https://via.placeholder.com/200x200?text=Sem+Imagem"}
                           alt={item.name}
                           className="w-full aspect-square object-cover rounded-t-md"
+                          loading="lazy"
+                          width="200"
+                          height="200"
                           onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200?text=Sem+Imagem"; }}
                         />
                       </div>
@@ -295,6 +301,9 @@ export default function ProductDetail() {
               alt={product.name}
               className="w-full aspect-square object-cover md:rounded-md"
               data-testid="img-product"
+              loading="eager"
+              width="600"
+              height="600"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "https://via.placeholder.com/600x600?text=Sem+Imagem";
               }}

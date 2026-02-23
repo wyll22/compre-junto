@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Admin from "@/pages/Admin";
@@ -28,24 +28,29 @@ function getVisitorId() {
   return id;
 }
 
-function VisitTracker() {
+const VisitTracker = memo(function VisitTracker() {
   const [location] = useLocation();
   const lastTracked = useRef("");
 
   useEffect(() => {
     if (location === lastTracked.current) return;
     lastTracked.current = location;
-    const visitorId = getVisitorId();
-    fetch("/api/track-visit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visitorId, page: location, referrer: document.referrer || "" }),
-      credentials: "include",
-    }).catch(() => {});
+    
+    const timer = setTimeout(() => {
+      const visitorId = getVisitorId();
+      fetch("/api/track-visit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visitorId, page: location, referrer: document.referrer || "" }),
+        credentials: "include",
+      }).catch(() => {});
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [location]);
 
   return null;
-}
+});
 
 function Router() {
   return (

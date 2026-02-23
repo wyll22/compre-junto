@@ -60,6 +60,9 @@ function CartCrossSelling({ cartItems, onAddToCart }: { cartItems: CartItem[]; o
                     src={item.imageUrl || "https://via.placeholder.com/200x200?text=Sem+Imagem"}
                     alt={item.name}
                     className="w-full aspect-square object-cover rounded-t-md"
+                    loading="lazy"
+                    width="200"
+                    height="200"
                     onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200?text=Sem+Imagem"; }}
                   />
                 </Link>

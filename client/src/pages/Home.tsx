@@ -1,7 +1,7 @@
 import { useProducts } from "@/hooks/use-products";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { ProductCard } from "@/components/ProductCard";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
 import { Footer } from "@/components/Footer";
 import { NotificationBell } from "@/components/NotificationBell";
 import { FilterSidebar, MobileFilterBar } from "@/components/FilterSidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type CategoryItem = {
   id: number;
@@ -25,6 +26,44 @@ type CategoryItem = {
   sortOrder: number;
   active: boolean;
 };
+
+const BannerSection = memo(({ banners, currentIndex, setIndex }: any) => {
+  if (!banners?.length) return null;
+  return (
+    <section className="mb-6 rounded-xl overflow-hidden shadow-lg relative aspect-[21/9] sm:aspect-[24/7] bg-muted">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={banners[currentIndex].id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4 }}
+          className="absolute inset-0"
+        >
+          <img
+            src={banners[currentIndex].imageUrl}
+            alt={banners[currentIndex].title || "Banner"}
+            className="w-full h-full object-cover"
+            loading="eager"
+            width="1200"
+            height="400"
+          />
+        </motion.div>
+      </AnimatePresence>
+      {banners.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {banners.map((_: any, i: number) => (
+            <button
+              key={i}
+              onClick={() => setIndex(i)}
+              className={`w-2 h-2 rounded-full transition-all ${i === currentIndex ? "bg-white w-4" : "bg-white/40"}`}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+});
 
 export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -41,23 +80,22 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  
   const searchRef = useRef<HTMLDivElement>(null);
   const searchMobileRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const productsRef = useRef<HTMLDivElement>(null);
 
+  const [, navigate] = useLocation();
   const { data: user } = useAuth();
   const logout = useLogout();
 
-  const { data: topCategories } = useQuery<CategoryItem[]>({
+  const { data: topCategories = [] } = useQuery<CategoryItem[]>({
     queryKey: ["/api/categories", "top"],
-    queryFn: async () => {
-      const res = await fetch("/api/categories?parentId=null");
-      if (!res.ok) return [];
-      return await res.json();
-    },
+    staleTime: 1000 * 60 * 10,
   });
 
-  const { data: subcategories } = useQuery<CategoryItem[]>({
+  const { data: subcategories = [] } = useQuery<CategoryItem[]>({
     queryKey: ["/api/categories", "sub", selectedCategoryId],
     queryFn: async () => {
       if (!selectedCategoryId) return [];
@@ -66,58 +104,32 @@ export default function Home() {
       return await res.json();
     },
     enabled: selectedCategoryId !== null,
+    staleTime: 1000 * 60 * 5,
   });
 
-  const { data: banners } = useQuery({
+  const { data: banners = [] } = useQuery({
     queryKey: ["/api/banners", "active"],
-    queryFn: async () => {
-      const res = await fetch("/api/banners?active=true");
-      if (!res.ok) return [];
-      return await res.json();
-    },
+    staleTime: 1000 * 60 * 5,
   });
 
-  const { data: videos } = useQuery({
-    queryKey: ["/api/videos", "active"],
-    queryFn: async () => {
-      const res = await fetch("/api/videos?active=true");
-      if (!res.ok) return [];
-      return await res.json();
-    },
-  });
-
-  const { data: sponsorBanners } = useQuery({
+  const { data: sponsorBanners = [] } = useQuery({
     queryKey: ["/api/sponsor-banners"],
+    staleTime: 1000 * 60 * 5,
   });
 
-  const activeBanners = (banners ?? []) as any[];
-  const activeVideos = (videos ?? []) as any[];
-  const activeSponsorBanners = (sponsorBanners ?? []) as any[];
-  const sidebarSponsors = activeSponsorBanners.filter((b: any) => b.position === "sidebar");
-  const inlineSponsors = activeSponsorBanners.filter((b: any) => b.position === "inline");
-  const cats = (topCategories ?? []) as CategoryItem[];
-  const subs = (subcategories ?? []) as CategoryItem[];
-
-  const MOBILE_VISIBLE_COUNT = 5;
-  const ofertasCat = cats.find((c) => c.slug === "ofertas");
-  const nonOfertasCats = cats.filter((c) => c.slug !== "ofertas");
-  const visibleCats = [
-    ...nonOfertasCats.slice(0, ofertasCat ? MOBILE_VISIBLE_COUNT - 1 : MOBILE_VISIBLE_COUNT),
-    ...(ofertasCat ? [ofertasCat] : []),
-  ];
-  const hasMoreCats = cats.length > visibleCats.length;
-
+  const sidebarSponsors = sponsorBanners.filter((b: any) => b.position === "sidebar");
+  const cats = topCategories as CategoryItem[];
   const selectedCategoryName = selectedCategoryId
     ? cats.find((c) => c.id === selectedCategoryId)?.name ?? "Categoria"
     : "Todos";
 
   useEffect(() => {
-    if (activeBanners.length <= 1) return;
+    if (banners.length <= 1) return;
     const interval = setInterval(() => {
-      setBannerIdx((prev) => (prev + 1) % activeBanners.length);
-    }, 5000);
+      setBannerIdx((prev) => (prev + 1) % banners.length);
+    }, 6000);
     return () => clearInterval(interval);
-  }, [activeBanners.length]);
+  }, [banners.length]);
 
   useEffect(() => {
     const updateCartCount = () => {
@@ -127,25 +139,18 @@ export default function Home() {
           const cart = JSON.parse(savedCart);
           const count = cart.reduce((acc: number, item: any) => acc + item.qty, 0);
           setCartCount(count);
-        } catch {
-          setCartCount(0);
-        }
-      } else {
-        setCartCount(0);
-      }
+        } catch { setCartCount(0); }
+      } else { setCartCount(0); }
     };
     updateCartCount();
-    window.addEventListener("storage", updateCartCount);
     window.addEventListener("cart-updated", updateCartCount);
-    return () => {
-      window.removeEventListener("storage", updateCartCount);
-      window.removeEventListener("cart-updated", updateCartCount);
-    };
+    return () => window.removeEventListener("cart-updated", updateCartCount);
   }, []);
 
-  const fetchSuggestions = useCallback((term: string) => {
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    if (term.trim().length < 2) {
+    if (value.trim().length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -153,67 +158,31 @@ export default function Home() {
     setSuggestionsLoading(true);
     debounceTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/products/suggestions?q=${encodeURIComponent(term)}`);
+        const res = await fetch(`/api/products/suggestions?q=${encodeURIComponent(value)}`);
         if (res.ok) {
           const data = await res.json();
           setSuggestions(data);
           setShowSuggestions(data.length > 0);
         }
-      } catch {
-        setSuggestions([]);
-      } finally {
-        setSuggestionsLoading(false);
-      }
-    }, 300);
+      } finally { setSuggestionsLoading(false); }
+    }, 350);
   }, []);
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchTerm(value);
-    fetchSuggestions(value);
-  }, [fetchSuggestions]);
+  const { data: products = [], isLoading } = useProducts({
+    search: searchTerm,
+    saleMode,
+    categoryId: selectedCategoryId ?? undefined,
+    subcategoryId: selectedSubcategoryId ?? undefined,
+    brand: filterBrand || undefined,
+    minPrice: filterMinPrice ? Number(filterMinPrice) : undefined,
+    maxPrice: filterMaxPrice ? Number(filterMaxPrice) : undefined,
+    filterOptionIds: selectedFilterOptions.length > 0 ? selectedFilterOptions : undefined,
+  });
 
-  const productsRef = useRef<HTMLDivElement>(null);
-
-  const handleSearchSubmit = useCallback(() => {
-    setShowSuggestions(false);
-    if (searchTerm.trim().length > 0) {
-      setTimeout(() => {
-        productsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-    }
-  }, [searchTerm]);
-
-  const [, navigate] = useLocation();
-  const handleSuggestionClick = useCallback((product: any) => {
-    setShowSuggestions(false);
-    setSearchTerm("");
-    setSuggestions([]);
-    navigate(`/produto/${product.id}`);
-  }, [navigate]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        searchRef.current && !searchRef.current.contains(e.target as Node) &&
-        searchMobileRef.current && !searchMobileRef.current.contains(e.target as Node)
-      ) {
-        setShowSuggestions(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    };
-  }, []);
-
-  const handleToggleFilterOption = useCallback((optionId: number) => {
-    setSelectedFilterOptions((prev) =>
-      prev.includes(optionId) ? prev.filter((id) => id !== optionId) : [...prev, optionId]
-    );
+  const handleSelectCategory = useCallback((catId: number | null) => {
+    setSelectedCategoryId(catId);
+    setSelectedSubcategoryId(null);
+    setShowAllCategories(false);
   }, []);
 
   const handleClearAllFilters = useCallback(() => {
@@ -225,30 +194,30 @@ export default function Home() {
     setSelectedFilterOptions([]);
   }, []);
 
-  const { data: products, isLoading, error } = useProducts({
-    search: searchTerm,
-    saleMode,
-    categoryId: selectedCategoryId ?? undefined,
-    subcategoryId: selectedSubcategoryId ?? undefined,
-    brand: filterBrand || undefined,
-    minPrice: filterMinPrice ? Number(filterMinPrice) : undefined,
-    maxPrice: filterMaxPrice ? Number(filterMaxPrice) : undefined,
-    filterOptionIds: selectedFilterOptions.length > 0 ? selectedFilterOptions : undefined,
-  });
+  const toggleFilterOption = useCallback((id: number) => {
+    setSelectedFilterOptions(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }, []);
 
-  const handleSelectCategory = (catId: number | null) => {
-    setSelectedCategoryId(catId);
-    setSelectedSubcategoryId(null);
-    setShowAllCategories(false);
-  };
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node) &&
+          searchMobileRef.current && !searchMobileRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       <header className="brand-gradient sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-3">
           <div className="flex items-center justify-between gap-3">
-            <Link href="/" data-testid="link-brand-logo">
-              <BrandLogo size="header" />
+            <Link href="/">
+              <BrandLogo size="header" className="h-8 sm:h-10 w-auto" />
             </Link>
 
             <div className="relative flex-1 max-w-md hidden sm:block" ref={searchRef}>
@@ -256,27 +225,16 @@ export default function Home() {
                 <Search className="h-4 w-4 text-white/60" />
               </div>
               <Input
-                data-testid="input-search"
                 type="text"
                 placeholder="O que voce procura?"
-                className="pl-10 pr-8 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25 focus:border-white/40"
+                className="pl-10 pr-8 bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25 h-10 rounded-full"
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearchSubmit(); } }}
                 autoComplete="off"
               />
-              {searchTerm && (
-                <button
-                  data-testid="button-clear-search"
-                  onClick={() => { setSearchTerm(""); setSuggestions([]); setShowSuggestions(false); }}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
-                >
-                  <X className="h-4 w-4 text-white/60 hover:text-white" />
-                </button>
-              )}
-              {showSuggestions && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto overflow-x-hidden">
                   {suggestionsLoading ? (
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -285,27 +243,20 @@ export default function Home() {
                     suggestions.map((item: any) => (
                       <button
                         key={item.id}
-                        data-testid={`suggestion-${item.id}`}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover-elevate transition-colors"
-                        onClick={() => handleSuggestionClick(item)}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-accent/50 transition-colors border-b last:border-0"
+                        onClick={() => {
+                          setShowSuggestions(false);
+                          setSearchTerm("");
+                          navigate(`/produto/${item.id}`);
+                        }}
                       >
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded-md flex-shrink-0" />
-                        ) : (
-                          <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
-                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
+                        <div className="w-10 h-10 bg-muted rounded flex-shrink-0">
+                          {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover rounded" />}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.saleMode === "grupo" && item.groupPrice ? `R$ ${Number(item.groupPrice).toFixed(2)}` : ""}
-                            {item.saleMode === "agora" && item.nowPrice ? `R$ ${Number(item.nowPrice).toFixed(2)}` : ""}
-                          </p>
+                          <p className="text-xs text-muted-foreground">R$ {Number(item.groupPrice || item.nowPrice || 0).toFixed(2)}</p>
                         </div>
-                        <Badge variant="outline" className="text-[10px] flex-shrink-0">
-                          {item.saleMode === "grupo" ? "Grupo" : "Agora"}
-                        </Badge>
                       </button>
                     ))
                   )}
@@ -316,48 +267,23 @@ export default function Home() {
             <div className="flex items-center gap-1">
               <NotificationBell />
               <Link href="/carrinho">
-                <Button
-                  data-testid="button-cart"
-                  variant="ghost"
-                  size="icon"
-                  className="relative text-white"
-                >
+                <Button variant="ghost" size="icon" className="relative text-white h-9 w-9">
                   <ShoppingCart className="w-5 h-5" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-[#D4A62A] text-[#1F2937] text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full border-2 border-white shadow-sm leading-none px-0.5">
+                    <span className="absolute top-0 right-0 bg-[#D4A62A] text-[#1F2937] text-[10px] font-bold min-w-[16px] h-[16px] flex items-center justify-center rounded-full border border-white">
                       {cartCount}
                     </span>
                   )}
                 </Button>
               </Link>
-
-              {user ? (
-                <div className="flex items-center gap-1">
-                  <span className="text-white/80 text-xs hidden sm:inline mr-1">Ola, {(user.displayName || user.name).split(" ")[0]}</span>
-                  <Link href="/minha-conta">
-                    <Button data-testid="button-account" variant="ghost" size="icon" className="text-white">
-                      <UserCircle className="w-5 h-5" />
-                    </Button>
-                  </Link>
-                  <Button data-testid="button-logout" variant="ghost" size="icon" className="text-white" onClick={() => logout.mutate()}>
-                    <LogOut className="w-4 h-4" />
-                  </Button>
-                  {user.role === "admin" && (
-                    <Link href="/admin">
-                      <Badge className="bg-[#D4A62A] text-[#1F2937] text-[10px] cursor-pointer">Admin</Badge>
-                    </Link>
-                  )}
-                  {user.role === "parceiro" && (
-                    <Link href="/parceiro">
-                      <Badge className="bg-[#D4A62A] text-[#1F2937] text-[10px] cursor-pointer" data-testid="badge-partner-panel">Parceiro</Badge>
-                    </Link>
-                  )}
-                </div>
-              ) : (
-                <Link href="/login">
-                  <Button data-testid="button-login" variant="ghost" size="icon" className="text-white">
-                    <User className="w-5 h-5" />
-                  </Button>
+              <Link href={user ? "/minha-conta" : "/login"}>
+                <Button variant="ghost" size="icon" className="text-white h-9 w-9">
+                  <UserCircle className="w-5 h-5" />
+                </Button>
+              </Link>
+              {user?.role === "admin" && (
+                <Link href="/admin" className="hidden sm:block">
+                  <Badge className="bg-[#D4A62A] text-[#1F2937] cursor-pointer">Admin</Badge>
                 </Link>
               )}
             </div>
@@ -365,217 +291,198 @@ export default function Home() {
 
           <div className="sm:hidden mt-2" ref={searchMobileRef}>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                <Search className="h-4 w-4 text-white/60" />
-              </div>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60" />
               <Input
-                data-testid="input-search-mobile"
                 type="text"
                 placeholder="O que voce procura?"
-                className="pl-10 pr-8 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25"
+                className="pl-10 pr-8 bg-white/15 border-white/20 text-white placeholder:text-white/60 h-10 rounded-full"
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearchSubmit(); } }}
-                autoComplete="off"
               />
-              {searchTerm && (
-                <button
-                  data-testid="button-clear-search-mobile"
-                  onClick={() => { setSearchTerm(""); setSuggestions([]); setShowSuggestions(false); }}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
-                >
-                  <X className="h-4 w-4 text-white/60 hover:text-white" />
-                </button>
-              )}
-              {showSuggestions && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
-                  {suggestionsLoading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    suggestions.map((item: any) => (
-                      <button
-                        key={item.id}
-                        data-testid={`suggestion-mobile-${item.id}`}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover-elevate transition-colors"
-                        onClick={() => handleSuggestionClick(item)}
-                      >
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} className="w-9 h-9 object-cover rounded-md flex-shrink-0" />
-                        ) : (
-                          <div className="w-9 h-9 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
-                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.saleMode === "grupo" && item.groupPrice ? `R$ ${Number(item.groupPrice).toFixed(2)}` : ""}
-                            {item.saleMode === "agora" && item.nowPrice ? `R$ ${Number(item.nowPrice).toFixed(2)}` : ""}
-                          </p>
-                        </div>
-                      </button>
-                    ))
-                  )}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto">
+                  {suggestions.map((item: any) => (
+                    <button
+                      key={item.id}
+                      className="w-full flex items-center gap-3 px-3 py-3 text-left border-b last:border-0"
+                      onClick={() => {
+                        setShowSuggestions(false);
+                        setSearchTerm("");
+                        navigate(`/produto/${item.id}`);
+                      }}
+                    >
+                      <div className="w-8 h-8 bg-muted rounded flex-shrink-0" />
+                      <div className="flex-1 min-w-0 text-sm">{item.name}</div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex gap-0">
-              <button
-                data-testid="button-mode-grupo"
-                onClick={() => setSaleMode("grupo")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
-                  saleMode === "grupo"
-                    ? "text-white border-[#D4A62A] border-b-[3px]"
-                    : "text-white/60 border-transparent border-b-[3px]"
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                Compra em Grupo
-              </button>
-              <button
-                data-testid="button-mode-agora"
-                onClick={() => setSaleMode("agora")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
-                  saleMode === "agora"
-                    ? "text-white border-[#D4A62A] border-b-[3px]"
-                    : "text-white/60 border-transparent border-b-[3px]"
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Compre Agora
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-background">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2 py-3">
-              <button
-                data-testid="button-category-todos"
-                onClick={() => handleSelectCategory(null)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  selectedCategoryId === null
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-foreground/70 border border-border"
-                }`}
-              >
-                Todos
-              </button>
-
-              <div className="hidden sm:flex items-center gap-2 overflow-x-auto hide-scrollbar">
-                {cats.map((cat) => (
-                  <button
-                    key={cat.id}
-                    data-testid={`button-category-${cat.slug}`}
-                    onClick={() => handleSelectCategory(cat.id)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      selectedCategoryId === cat.id
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-card text-foreground/70 border border-border"
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex sm:hidden items-center gap-2 overflow-x-auto hide-scrollbar flex-1">
-                {visibleCats.map((cat) => (
-                  <button
-                    key={cat.id}
-                    data-testid={`button-category-${cat.slug}`}
-                    onClick={() => handleSelectCategory(cat.id)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      selectedCategoryId === cat.id
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-card text-foreground/70 border border-border"
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-                {hasMoreCats && (
-                  <button
-                    data-testid="button-ver-mais-categorias"
-                    onClick={() => setShowAllCategories(true)}
-                    className="whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium bg-card text-foreground/70 border border-border flex items-center gap-1"
-                  >
-                    Ver mais
-                    <Grid3X3 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {selectedCategoryId && subs.length > 0 && (
-              <div className="flex items-center gap-2 pb-3 overflow-x-auto hide-scrollbar">
-                <button
-                  data-testid="button-subcategory-all"
-                  onClick={() => setSelectedSubcategoryId(null)}
-                  className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                    selectedSubcategoryId === null
-                      ? "bg-[#D4A62A] text-[#1F2937] shadow-sm"
-                      : "bg-card text-foreground/60 border border-border"
-                  }`}
-                >
-                  Todas
-                </button>
-                {subs.map((sub) => (
-                  <button
-                    key={sub.id}
-                    data-testid={`button-subcategory-${sub.slug}`}
-                    onClick={() => setSelectedSubcategoryId(sub.id)}
-                    className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      selectedSubcategoryId === sub.id
-                        ? "bg-[#D4A62A] text-[#1F2937] shadow-sm"
-                        : "bg-card text-foreground/60 border border-border"
-                    }`}
-                  >
-                    {sub.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <Dialog open={showAllCategories} onOpenChange={setShowAllCategories}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Categorias</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white/10 backdrop-blur-sm border-t border-white/10">
+          <div className="max-w-7xl mx-auto px-4 flex">
             <button
-              data-testid="button-modal-category-todos"
+              onClick={() => setSaleMode("grupo")}
+              className={`flex-1 py-3 text-sm font-bold transition-all border-b-[3px] ${saleMode === "grupo" ? "text-white border-[#D4A62A]" : "text-white/60 border-transparent"}`}
+            >
+              <Users className="w-4 h-4 inline mr-2" />
+              Compra em Grupo
+            </button>
+            <button
+              onClick={() => setSaleMode("agora")}
+              className={`flex-1 py-3 text-sm font-bold transition-all border-b-[3px] ${saleMode === "agora" ? "text-white border-[#D4A62A]" : "text-white/60 border-transparent"}`}
+            >
+              <ShoppingBag className="w-4 h-4 inline mr-2" />
+              Compre Agora
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-background border-b shadow-sm overflow-x-auto hide-scrollbar">
+          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2">
+            <button
               onClick={() => handleSelectCategory(null)}
-              className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
-                selectedCategoryId === null
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card text-foreground/70 border border-border hover-elevate"
-              }`}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${selectedCategoryId === null ? "bg-primary text-white" : "bg-white border text-foreground/70 hover:bg-gray-50"}`}
             >
               Todos
             </button>
             {cats.map((cat) => (
               <button
                 key={cat.id}
-                data-testid={`button-modal-category-${cat.slug}`}
                 onClick={() => handleSelectCategory(cat.id)}
-                className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
-                  selectedCategoryId === cat.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card text-foreground/70 border border-border hover-elevate"
-                }`}
+                className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${selectedCategoryId === cat.id ? "bg-primary text-white" : "bg-white border text-foreground/70 hover:bg-gray-50"}`}
+              >
+                {cat.name}
+              </button>
+            ))}
+            {cats.length > 5 && (
+              <button onClick={() => setShowAllCategories(true)} className="p-1.5 text-muted-foreground"><Grid3X3 className="w-4 h-4" /></button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full">
+        <div className="flex flex-col lg:flex-row gap-6">
+          <aside className="w-64 hidden lg:block">
+            <FilterSidebar
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={handleSelectCategory}
+              selectedBrand={filterBrand}
+              onSelectBrand={setFilterBrand}
+              minPrice={filterMinPrice}
+              maxPrice={filterMaxPrice}
+              onMinPriceChange={setFilterMinPrice}
+              onMaxPriceChange={setFilterMaxPrice}
+              selectedFilterOptions={selectedFilterOptions}
+              onToggleFilterOption={toggleFilterOption}
+              onClearAllFilters={handleClearAllFilters}
+              saleMode={saleMode}
+              searchTerm={searchTerm}
+              isFiltering={true}
+            />
+            {sidebarSponsors.length > 0 && (
+              <div className="mt-8 space-y-4 sticky top-40">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase text-center">Patrocinadores</p>
+                {sidebarSponsors.map((s: any) => (
+                  <a key={s.id} href={s.linkUrl || "#"} className="block rounded-lg overflow-hidden border shadow-sm transition-transform hover:scale-[1.02]">
+                    <img src={s.imageUrl} alt={s.name} className="w-full h-auto" loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </aside>
+
+          <div className="flex-1 min-w-0 space-y-6">
+            <MobileFilterBar
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={handleSelectCategory}
+              selectedBrand={filterBrand}
+              onSelectBrand={setFilterBrand}
+              minPrice={filterMinPrice}
+              maxPrice={filterMaxPrice}
+              onMinPriceChange={setFilterMinPrice}
+              onMaxPriceChange={setFilterMaxPrice}
+              selectedFilterOptions={selectedFilterOptions}
+              onToggleFilterOption={toggleFilterOption}
+              onClearAllFilters={handleClearAllFilters}
+              saleMode={saleMode}
+              searchTerm={searchTerm}
+              isFiltering={true}
+            />
+
+            {!searchTerm && !selectedCategoryId && <BannerSection banners={banners} currentIndex={bannerIdx} setIndex={setBannerIdx} />}
+
+            {selectedCategoryId && subcategories.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-2">
+                <button
+                  onClick={() => setSelectedSubcategoryId(null)}
+                  className={`whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold ${selectedSubcategoryId === null ? "bg-[#D4A62A] text-[#1F2937]" : "bg-white border text-foreground/60"}`}
+                >
+                  Todas
+                </button>
+                {subcategories.map((sub) => (
+                  <button
+                    key={sub.id}
+                    onClick={() => setSelectedSubcategoryId(sub.id)}
+                    className={`whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold ${selectedSubcategoryId === sub.id ? "bg-[#D4A62A] text-[#1F2937]" : "bg-white border text-foreground/60"}`}
+                  >
+                    {sub.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div ref={productsRef} className="scroll-mt-40">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold flex items-center gap-2">
+                  {selectedCategoryName}
+                  <Badge variant="secondary" className="font-normal">{products.length}</Badge>
+                </h2>
+              </div>
+
+              {isLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="bg-card rounded-lg border p-3 space-y-3">
+                      <Skeleton className="aspect-square w-full rounded-md" />
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : products.length === 0 ? (
+                <div className="text-center py-20 bg-muted/20 rounded-xl border border-dashed">
+                  <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+                  <p className="text-muted-foreground">Nenhum produto encontrado.</p>
+                  <Button variant="link" onClick={handleClearAllFilters}>Limpar filtros</Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+                  {products.map((p: any) => (
+                    <ProductCard key={p.id} product={p} saleMode={saleMode} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+
+      <Dialog open={showAllCategories} onOpenChange={setShowAllCategories}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Categorias</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-2 py-4">
+            {cats.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => handleSelectCategory(cat.id)}
+                className={`p-3 rounded-lg border text-sm text-left ${selectedCategoryId === cat.id ? "bg-primary/10 border-primary font-bold" : "bg-card"}`}
               >
                 {cat.name}
               </button>
@@ -583,187 +490,6 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 w-full">
-        {!searchTerm && activeBanners.length > 0 && (
-          <div className="mb-6 relative rounded-md overflow-hidden" data-testid="banner-carousel">
-            <div className="relative aspect-[3/1] sm:aspect-[4/1] bg-muted">
-              {activeBanners.map((banner: any, i: number) => (
-                <div
-                  key={banner.id}
-                  className={`absolute inset-0 transition-opacity duration-500 ${i === bannerIdx ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-                >
-                  {banner.linkUrl ? (
-                    <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-                      <img src={banner.imageUrl} alt={banner.title || "Banner"} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    </a>
-                  ) : (
-                    <img src={banner.imageUrl} alt={banner.title || "Banner"} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  )}
-                </div>
-              ))}
-            </div>
-            {activeBanners.length > 1 && (
-              <>
-                <button onClick={() => setBannerIdx((prev) => (prev - 1 + activeBanners.length) % activeBanners.length)} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1" data-testid="button-banner-prev">
-                  <ChevronRight className="w-5 h-5 rotate-180" />
-                </button>
-                <button onClick={() => setBannerIdx((prev) => (prev + 1) % activeBanners.length)} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1" data-testid="button-banner-next">
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-                  {activeBanners.map((_: any, i: number) => (
-                    <button key={i} onClick={() => setBannerIdx(i)} className={`w-2 h-2 rounded-full transition-all ${i === bannerIdx ? "bg-white scale-125" : "bg-white/50"}`} />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {!searchTerm && saleMode === "grupo" && (
-          <div className="mb-6 rounded-md brand-gradient p-6 text-white shadow-md relative overflow-hidden">
-            <div className="relative z-10 max-w-lg">
-              <h2 className="text-2xl md:text-3xl font-display font-bold mb-2">
-                Economize comprando em grupo
-              </h2>
-              <p className="text-white/85 text-sm mb-4">
-                Junte-se a outros compradores e desbloqueie precos de atacado. Quanto mais gente, menor o preco!
-              </p>
-            </div>
-            <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
-          </div>
-        )}
-
-        <MobileFilterBar
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={handleSelectCategory}
-          selectedBrand={filterBrand}
-          onSelectBrand={setFilterBrand}
-          minPrice={filterMinPrice}
-          maxPrice={filterMaxPrice}
-          onMinPriceChange={setFilterMinPrice}
-          onMaxPriceChange={setFilterMaxPrice}
-          selectedFilterOptions={selectedFilterOptions}
-          onToggleFilterOption={handleToggleFilterOption}
-          onClearAllFilters={handleClearAllFilters}
-          saleMode={saleMode}
-          searchTerm={searchTerm}
-          isFiltering={!!(searchTerm || selectedCategoryId !== null)}
-        />
-
-        <div ref={productsRef} className="flex gap-6 items-start">
-          <FilterSidebar
-            selectedCategoryId={selectedCategoryId}
-            onSelectCategory={handleSelectCategory}
-            selectedBrand={filterBrand}
-            onSelectBrand={setFilterBrand}
-            minPrice={filterMinPrice}
-            maxPrice={filterMaxPrice}
-            onMinPriceChange={setFilterMinPrice}
-            onMaxPriceChange={setFilterMaxPrice}
-            selectedFilterOptions={selectedFilterOptions}
-            onToggleFilterOption={handleToggleFilterOption}
-            onClearAllFilters={handleClearAllFilters}
-            saleMode={saleMode}
-            searchTerm={searchTerm}
-            isFiltering={!!(searchTerm || selectedCategoryId !== null)}
-          />
-
-          <div className="flex-1 min-w-0 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-xl font-display font-bold text-foreground">
-                {searchTerm ? `Resultados para "${searchTerm}"` : selectedCategoryName}
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {products?.length || 0} produtos
-              </span>
-            </div>
-
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
-                <p className="text-muted-foreground text-sm">Carregando produtos...</p>
-              </div>
-            ) : error ? (
-              <div className="text-center py-16 bg-card rounded-md border border-border">
-                <p className="text-destructive font-medium text-sm">Erro ao carregar produtos.</p>
-              </div>
-            ) : products?.length === 0 ? (
-              <div className="text-center py-16 bg-card rounded-md border border-dashed border-border">
-                <ShoppingBag className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-foreground">Nenhum produto encontrado</h3>
-                <p className="text-muted-foreground text-sm">Tente buscar por outro termo ou categoria.</p>
-              </div>
-            ) : (
-              <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4">
-                <AnimatePresence>
-                  {products?.map((product: any) => (
-                    <ProductCard key={product.id} product={product} saleMode={saleMode} />
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-            )}
-
-            {inlineSponsors.length > 0 && (
-              <div className="mt-4 md:hidden">
-                {inlineSponsors.map((sponsor: any) => (
-                  <a
-                    key={sponsor.id}
-                    href={sponsor.linkUrl || "#"}
-                    target={sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"}
-                    rel="noopener noreferrer"
-                    className="block rounded-md overflow-hidden border border-border hover-elevate mb-3"
-                    data-testid={`sponsor-inline-${sponsor.id}`}
-                  >
-                    <img src={sponsor.imageUrl} alt={sponsor.title || "Patrocinador"} className="w-full h-auto object-cover" />
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {sidebarSponsors.length > 0 && (
-            <aside className="hidden lg:block w-[200px] flex-shrink-0 space-y-3 sticky top-20 z-10">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 text-center">Publicidade</p>
-              {sidebarSponsors.map((sponsor: any) => (
-                <a
-                  key={sponsor.id}
-                  href={sponsor.linkUrl || "#"}
-                  target={sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"}
-                  rel="noopener noreferrer"
-                  className="block rounded-md overflow-hidden border border-border hover-elevate"
-                  data-testid={`sponsor-sidebar-${sponsor.id}`}
-                >
-                  <img src={sponsor.imageUrl} alt={sponsor.title || "Patrocinador"} className="w-full h-auto object-cover" />
-                </a>
-              ))}
-            </aside>
-          )}
-        </div>
-
-        {!searchTerm && activeVideos.length > 0 && (
-          <section className="mt-10">
-            <h2 className="text-xl font-display font-bold text-foreground mb-4">Videos</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeVideos.map((video: any) => (
-                <div key={video.id} className="rounded-md overflow-hidden bg-card border border-border" data-testid={`video-${video.id}`}>
-                  <div className="aspect-video">
-                    <iframe src={video.embedUrl} title={video.title || "Video"} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                  </div>
-                  {video.title && (
-                    <div className="p-2">
-                      <p className="text-sm font-medium truncate">{video.title}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-      </main>
-
-      <Footer />
     </div>
   );
 }
