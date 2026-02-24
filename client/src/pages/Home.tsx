@@ -299,6 +299,18 @@ export default function Home() {
     setShowAllCategories(false);
   };
 
+  const getCategoryButtonClass = (cat: CategoryItem, isSelected: boolean) => {
+    if (cat.slug !== "ofertas") {
+      return isSelected
+        ? "bg-primary text-primary-foreground shadow-sm"
+        : "bg-card text-foreground/70 border border-border";
+    }
+
+    return isSelected
+      ? "bg-[#D4A62A] text-[#1F2937] border-2 border-[#8A6D1D] shadow-md ring-2 ring-[#D4A62A]/35"
+      : "bg-[#FFE7A3] text-[#6B4F00] border-2 border-[#D4A62A] font-semibold shadow-sm hover:bg-[#FFD97A]";
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="brand-gradient sticky top-0 z-30 shadow-md">
@@ -346,62 +358,55 @@ export default function Home() {
                   <X className="h-4 w-4 text-white/60 hover:text-white" />
                 </button>
               )}
-              <AnimatePresence>
-                {showSuggestions && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-[100] max-h-80 overflow-y-auto"
-                  >
-                    {suggestionsLoading ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : (
-                      suggestions.map((item: any) => (
-                        <button
-                          key={item.id}
-                          data-testid={`suggestion-${item.id}`}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-accent transition-colors"
-                          onClick={() => handleSuggestionClick(item)}
-                        >
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-10 h-10 object-cover rounded-md flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
-                              <ShoppingBag className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.saleMode === "grupo" && item.groupPrice
-                                ? `R$ ${Number(item.groupPrice).toFixed(2)}`
-                                : ""}
-                              {item.saleMode === "agora" && item.nowPrice
-                                ? `R$ ${Number(item.nowPrice).toFixed(2)}`
-                                : ""}
-                            </p>
+              {showSuggestions && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                  {suggestionsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    suggestions.map((item: any) => (
+                      <button
+                        key={item.id}
+                        data-testid={`suggestion-${item.id}`}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover-elevate transition-colors"
+                        onClick={() => handleSuggestionClick(item)}
+                      >
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-10 h-10 object-cover rounded-md flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
+                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
                           </div>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] flex-shrink-0"
-                          >
-                            {item.saleMode === "grupo" ? "Grupo" : "Agora"}
-                          </Badge>
-                        </button>
-                      ))
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.saleMode === "grupo" && item.groupPrice
+                              ? `R$ ${Number(item.groupPrice).toFixed(2)}`
+                              : ""}
+                            {item.saleMode === "agora" && item.nowPrice
+                              ? `R$ ${Number(item.nowPrice).toFixed(2)}`
+                              : ""}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] flex-shrink-0"
+                        >
+                          {item.saleMode === "grupo" ? "Grupo" : "Agora"}
+                        </Badge>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-1">
@@ -614,11 +619,7 @@ export default function Home() {
                     key={cat.id}
                     data-testid={`button-category-${cat.slug}`}
                     onClick={() => handleSelectCategory(cat.id)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      selectedCategoryId === cat.id
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-card text-foreground/70 border border-border"
-                    }`}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${getCategoryButtonClass(cat, selectedCategoryId === cat.id)}`}
                   >
                     {cat.name}
                   </button>
@@ -631,11 +632,7 @@ export default function Home() {
                     key={cat.id}
                     data-testid={`button-category-${cat.slug}`}
                     onClick={() => handleSelectCategory(cat.id)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      selectedCategoryId === cat.id
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-card text-foreground/70 border border-border"
-                    }`}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${getCategoryButtonClass(cat, selectedCategoryId === cat.id)}`}
                   >
                     {cat.name}
                   </button>
@@ -710,8 +707,8 @@ export default function Home() {
                 onClick={() => handleSelectCategory(cat.id)}
                 className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
                   selectedCategoryId === cat.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card text-foreground/70 border border-border hover-elevate"
+                    ? getCategoryButtonClass(cat, true)
+                    : `${getCategoryButtonClass(cat, false)} hover-elevate`
                 }`}
               >
                 {cat.name}
@@ -731,7 +728,11 @@ export default function Home() {
               {activeBanners.map((banner: any, i: number) => (
                 <div
                   key={banner.id}
-                  className={`absolute inset-0 transition-opacity duration-500 ${i === bannerIdx ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                  className={`absolute inset-0 transition-opacity duration-500 ${
+                    i === bannerIdx
+                      ? "opacity-100"
+                      : "opacity-0 pointer-events-none"
+                  }`}
                 >
                   {banner.linkUrl ? (
                     <a
@@ -791,7 +792,9 @@ export default function Home() {
                     <button
                       key={i}
                       onClick={() => setBannerIdx(i)}
-                      className={`w-2 h-2 rounded-full transition-all ${i === bannerIdx ? "bg-white scale-125" : "bg-white/50"}`}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        i === bannerIdx ? "bg-white scale-125" : "bg-white/50"
+                      }`}
                     />
                   ))}
                 </div>
