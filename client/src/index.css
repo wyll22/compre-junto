@@ -101,7 +101,7 @@
   * {
     @apply border-border;
   }
-  
+
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
@@ -113,7 +113,12 @@
     text-rendering: optimizeLegibility;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-display);
     @apply font-bold tracking-tight;
   }
@@ -122,6 +127,7 @@
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -131,3 +137,31 @@
   background: linear-gradient(135deg, #0B6B3A 0%, #07512C 100%);
 }
 
+/* === Mobile fix: remove estouro lateral e força layout a caber === */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* qualquer container que esteja forçando largura */
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}

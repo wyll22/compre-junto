@@ -7,10 +7,32 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, Users, ShoppingBag, UserCircle, Loader2, Package,
-  LogOut, MapPin, Shield, ChevronDown, ChevronUp, Phone, Mail,
-  Lock, Save, Smile, CheckCircle2, Clock, Truck, XCircle, Search,
-  AlertTriangle, ArrowRight, History, PackageCheck, Timer,
+  ArrowLeft,
+  Users,
+  ShoppingBag,
+  UserCircle,
+  Loader2,
+  Package,
+  LogOut,
+  MapPin,
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  Phone,
+  Mail,
+  Lock,
+  Save,
+  Smile,
+  CheckCircle2,
+  Clock,
+  Truck,
+  XCircle,
+  Search,
+  AlertTriangle,
+  ArrowRight,
+  History,
+  PackageCheck,
+  Timer,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
@@ -47,16 +69,21 @@ const STATUS_ICONS: Record<string, any> = {
 
 const ORDER_STATUS_COLORS: Record<string, string> = {
   recebido: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  em_separacao: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  pronto_retirada: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  retirado: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  em_separacao:
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  pronto_retirada:
+    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  retirado:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   nao_retirado: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   cancelado: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
 };
 
 const ORDER_FLOW = ["recebido", "em_separacao", "pronto_retirada", "retirado"];
 
-function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+function statusVariant(
+  status: string,
+): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "aberto":
     case "recebido":
@@ -79,7 +106,8 @@ function formatPhoneBR(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
   if (digits.length <= 2) return digits;
   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  if (digits.length <= 10)
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
@@ -99,16 +127,43 @@ function UserAvatar({ user }: { user: AuthUser }) {
     .toUpperCase();
 
   return (
-    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xl font-bold shadow-md" data-testid="avatar-user">
+    <div
+      className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xl font-bold shadow-md"
+      data-testid="avatar-user"
+    >
       {initials}
     </div>
   );
 }
 
 const BRAZILIAN_STATES = [
-  "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN",
-  "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+  "AC",
+  "AL",
+  "AM",
+  "AP",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MG",
+  "MS",
+  "MT",
+  "PA",
+  "PB",
+  "PE",
+  "PI",
+  "PR",
+  "RJ",
+  "RN",
+  "RO",
+  "RR",
+  "RS",
+  "SC",
+  "SE",
+  "SP",
+  "TO",
 ];
 
 function ProfileTab({ user }: { user: AuthUser }) {
@@ -134,16 +189,28 @@ function ProfileTab({ user }: { user: AuthUser }) {
       toast({ title: "Perfil atualizado!" });
     },
     onError: (err: any) => {
-      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: parseApiError(err),
+        variant: "destructive",
+      });
     },
   });
 
   const handleSave = () => {
     if (!name.trim()) {
-      toast({ title: "Erro", description: "Nome e obrigatorio", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: "Nome e obrigatorio",
+        variant: "destructive",
+      });
       return;
     }
-    updateProfile.mutate({ name: name.trim(), displayName: displayName.trim(), phone: phone.trim() });
+    updateProfile.mutate({
+      name: name.trim(),
+      displayName: displayName.trim(),
+      phone: phone.trim(),
+    });
   };
 
   return (
@@ -153,9 +220,13 @@ function ProfileTab({ user }: { user: AuthUser }) {
           <div className="flex items-center gap-4 mb-6">
             <UserAvatar user={user} />
             <div>
-              <h3 className="font-bold text-lg text-foreground">{user.displayName || user.name}</h3>
+              <h3 className="font-bold text-lg text-foreground">
+                {user.displayName || user.name}
+              </h3>
               <p className="text-sm text-muted-foreground">{user.email}</p>
-              {user.phone && <p className="text-xs text-muted-foreground">{user.phone}</p>}
+              {user.phone && (
+                <p className="text-xs text-muted-foreground">{user.phone}</p>
+              )}
             </div>
           </div>
 
@@ -175,7 +246,9 @@ function ProfileTab({ user }: { user: AuthUser }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="profile-display">Apelido (como quer ser chamado)</Label>
+              <Label htmlFor="profile-display">
+                Apelido (como quer ser chamado)
+              </Label>
               <div className="relative">
                 <Smile className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -187,7 +260,9 @@ function ProfileTab({ user }: { user: AuthUser }) {
                   className="pl-10"
                 />
               </div>
-              <p className="text-[11px] text-muted-foreground">Esse apelido aparece no topo do app quando voce esta logado.</p>
+              <p className="text-[11px] text-muted-foreground">
+                Esse apelido aparece no topo do app quando voce esta logado.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -220,7 +295,11 @@ function ProfileTab({ user }: { user: AuthUser }) {
               disabled={updateProfile.isPending}
               className="w-full"
             >
-              {updateProfile.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Save className="w-4 h-4 mr-1.5" />}
+              {updateProfile.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+              ) : (
+                <Save className="w-4 h-4 mr-1.5" />
+              )}
               Salvar Dados
             </Button>
           </div>
@@ -262,24 +341,33 @@ function AddressTab({ user }: { user: AuthUser }) {
       toast({ title: "Endereco atualizado!" });
     },
     onError: (err: any) => {
-      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: parseApiError(err),
+        variant: "destructive",
+      });
     },
   });
 
   const lookupCep = async () => {
     const digits = cep.replace(/\D/g, "");
     if (digits.length !== 8) {
-      toast({ title: "CEP invalido", description: "Informe um CEP com 8 digitos", variant: "destructive" });
+      toast({
+        title: "CEP invalido",
+        description: "Informe um CEP com 8 digitos",
+        variant: "destructive",
+      });
       return;
     }
 
     // Validação para Formosa-GO (CEP 73750-000 a 73799-999)
     const cepNum = parseInt(digits);
     if (cepNum < 73750000 || cepNum > 73799999) {
-      toast({ 
-        title: "Região não atendida", 
-        description: "No momento atendemos apenas a região de Formosa-GO e arredores (CEPs 73750-XXX a 73799-XXX).", 
-        variant: "destructive" 
+      toast({
+        title: "Região não atendida",
+        description:
+          "No momento atendemos apenas a região de Formosa-GO e arredores (CEPs 73750-XXX a 73799-XXX).",
+        variant: "destructive",
       });
       return;
     }
@@ -345,7 +433,11 @@ function AddressTab({ user }: { user: AuthUser }) {
                 onClick={lookupCep}
                 disabled={cepLoading}
               >
-                {cepLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                {cepLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </div>
@@ -417,7 +509,9 @@ function AddressTab({ user }: { user: AuthUser }) {
               >
                 <option value="">--</option>
                 {BRAZILIAN_STATES.map((uf) => (
-                  <option key={uf} value={uf}>{uf}</option>
+                  <option key={uf} value={uf}>
+                    {uf}
+                  </option>
                 ))}
               </select>
             </div>
@@ -429,7 +523,11 @@ function AddressTab({ user }: { user: AuthUser }) {
             disabled={updateAddress.isPending}
             className="w-full"
           >
-            {updateAddress.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Save className="w-4 h-4 mr-1.5" />}
+            {updateAddress.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+            ) : (
+              <Save className="w-4 h-4 mr-1.5" />
+            )}
             Salvar Endereco
           </Button>
         </CardContent>
@@ -445,7 +543,10 @@ function SecurityTab() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const changePassword = useMutation({
-    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+    mutationFn: async (data: {
+      currentPassword: string;
+      newPassword: string;
+    }) => {
       const res = await apiRequest("POST", "/api/auth/password", data);
       return await res.json();
     },
@@ -456,21 +557,37 @@ function SecurityTab() {
       setConfirmPassword("");
     },
     onError: (err: any) => {
-      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: parseApiError(err),
+        variant: "destructive",
+      });
     },
   });
 
   const handleChangePassword = () => {
     if (!currentPassword) {
-      toast({ title: "Erro", description: "Informe sua senha atual", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: "Informe sua senha atual",
+        variant: "destructive",
+      });
       return;
     }
     if (newPassword.length < 8) {
-      toast({ title: "Erro", description: "Nova senha deve ter pelo menos 8 caracteres", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: "Nova senha deve ter pelo menos 8 caracteres",
+        variant: "destructive",
+      });
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast({ title: "Erro", description: "As senhas nao conferem", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: "As senhas nao conferem",
+        variant: "destructive",
+      });
       return;
     }
     changePassword.mutate({ currentPassword, newPassword });
@@ -540,7 +657,11 @@ function SecurityTab() {
             disabled={changePassword.isPending}
             className="w-full"
           >
-            {changePassword.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Lock className="w-4 h-4 mr-1.5" />}
+            {changePassword.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+            ) : (
+              <Lock className="w-4 h-4 mr-1.5" />
+            )}
             Alterar Senha
           </Button>
         </CardContent>
@@ -576,12 +697,22 @@ function PickupCountdown({ deadline }: { deadline: string }) {
   const isUrgent = hours < 12;
 
   return (
-    <div className={`mt-2 p-2 rounded-md text-xs ${isUrgent ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"}`}>
+    <div
+      className={`mt-2 p-2 rounded-md text-xs ${isUrgent ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"}`}
+    >
       <div className="flex items-center gap-1 font-medium">
         <Timer className="w-3.5 h-3.5" />
         Retire em {hours}h {minutes}min
       </div>
-      <p className="mt-0.5">Ate {deadlineDate.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
+      <p className="mt-0.5">
+        Ate{" "}
+        {deadlineDate.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </p>
     </div>
   );
 }
@@ -591,7 +722,9 @@ function OrderHistory({ orderId }: { orderId: number }) {
   const { data: history, isLoading } = useQuery({
     queryKey: ["/api/orders", orderId, "history"],
     queryFn: async () => {
-      const res = await fetch(`/api/orders/${orderId}/history`, { credentials: "include" });
+      const res = await fetch(`/api/orders/${orderId}/history`, {
+        credentials: "include",
+      });
       if (!res.ok) return [];
       return await res.json();
     },
@@ -609,24 +742,41 @@ function OrderHistory({ orderId }: { orderId: number }) {
       >
         <History className="w-3 h-3 mr-1" />
         {showHistory ? "Ocultar historico" : "Ver historico"}
-        {showHistory ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
+        {showHistory ? (
+          <ChevronUp className="w-3 h-3 ml-0.5" />
+        ) : (
+          <ChevronDown className="w-3 h-3 ml-0.5" />
+        )}
       </Button>
       {showHistory && (
         <div className="mt-2 space-y-2">
           {isLoading ? (
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           ) : !history || history.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Sem historico de alteracoes.</p>
+            <p className="text-xs text-muted-foreground">
+              Sem historico de alteracoes.
+            </p>
           ) : (
             (history as any[]).map((h: any) => (
               <div key={h.id} className="flex items-start gap-2 text-xs">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
                 <div>
-                  <span className="font-medium">{STATUS_LABELS[h.toStatus] || h.toStatus}</span>
-                  <span className="text-muted-foreground ml-1">
-                    {h.createdAt ? new Date(h.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                  <span className="font-medium">
+                    {STATUS_LABELS[h.toStatus] || h.toStatus}
                   </span>
-                  {h.reason && <p className="text-muted-foreground">{h.reason}</p>}
+                  <span className="text-muted-foreground ml-1">
+                    {h.createdAt
+                      ? new Date(h.createdAt).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : ""}
+                  </span>
+                  {h.reason && (
+                    <p className="text-muted-foreground">{h.reason}</p>
+                  )}
                 </div>
               </div>
             ))
@@ -662,10 +812,16 @@ function OrdersTab() {
       <Card>
         <CardContent className="py-12 text-center">
           <ShoppingBag className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <h3 className="font-bold text-foreground mb-1">Nenhum pedido ainda</h3>
-          <p className="text-muted-foreground text-sm mb-4">Faca sua primeira compra!</p>
+          <h3 className="font-bold text-foreground mb-1">
+            Nenhum pedido ainda
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            Faca sua primeira compra!
+          </p>
           <Link href="/">
-            <Button size="sm" data-testid="button-go-shopping">Ir as compras</Button>
+            <Button size="sm" data-testid="button-go-shopping">
+              Ir as compras
+            </Button>
           </Link>
         </CardContent>
       </Card>
@@ -693,20 +849,37 @@ function OrdersTab() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-sm text-foreground">Pedido #{order.id}</span>
-                      <Badge variant={statusVariant(order.status)} className="text-[10px]">
+                      <span className="font-bold text-sm text-foreground">
+                        Pedido #{order.id}
+                      </span>
+                      <Badge
+                        variant={statusVariant(order.status)}
+                        className="text-[10px]"
+                      >
                         {STATUS_LABELS[order.status] || order.status}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : ""}
-                      {" - "}{items.length} {items.length === 1 ? "item" : "itens"}
+                      {order.createdAt
+                        ? new Date(order.createdAt).toLocaleDateString(
+                            "pt-BR",
+                            { day: "2-digit", month: "long", year: "numeric" },
+                          )
+                        : ""}
+                      {" - "}
+                      {items.length} {items.length === 1 ? "item" : "itens"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-sm font-bold text-primary">R$ {Number(order.total).toFixed(2)}</span>
-                  {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                  <span className="text-sm font-bold text-primary">
+                    R$ {Number(order.total).toFixed(2)}
+                  </span>
+                  {isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  )}
                 </div>
               </button>
 
@@ -715,41 +888,64 @@ function OrdersTab() {
                   <div className="pt-3 mb-3">
                     <div className="flex items-center gap-1 overflow-x-auto pb-1">
                       {ORDER_FLOW.map((step, idx) => {
-                        const isTerminal = order.status === "nao_retirado" || order.status === "cancelado";
-                        const progressIdx = isTerminal ? ORDER_FLOW.indexOf("pronto_retirada") : ORDER_FLOW.indexOf(order.status);
-                        const isCompleted = progressIdx >= 0 ? idx <= progressIdx : false;
+                        const isTerminal =
+                          order.status === "nao_retirado" ||
+                          order.status === "cancelado";
+                        const progressIdx = isTerminal
+                          ? ORDER_FLOW.indexOf("pronto_retirada")
+                          : ORDER_FLOW.indexOf(order.status);
+                        const isCompleted =
+                          progressIdx >= 0 ? idx <= progressIdx : false;
                         const isCurrent = step === order.status;
                         const StepIcon = STATUS_ICONS[step] || Clock;
                         return (
                           <div key={step} className="flex items-center gap-1">
-                            <div className={`flex flex-col items-center min-w-[56px]`}>
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                                isCurrent ? "bg-primary text-primary-foreground" :
-                                isCompleted ? "bg-primary/20 text-primary" :
-                                "bg-muted text-muted-foreground"
-                              }`}>
+                            <div
+                              className={`flex flex-col items-center min-w-[56px]`}
+                            >
+                              <div
+                                className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                                  isCurrent
+                                    ? "bg-primary text-primary-foreground"
+                                    : isCompleted
+                                      ? "bg-primary/20 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                }`}
+                              >
                                 <StepIcon className="w-3.5 h-3.5" />
                               </div>
-                              <span className={`text-[9px] mt-0.5 text-center leading-tight ${isCurrent ? "font-bold text-primary" : "text-muted-foreground"}`}>
+                              <span
+                                className={`text-[9px] mt-0.5 text-center leading-tight ${isCurrent ? "font-bold text-primary" : "text-muted-foreground"}`}
+                              >
                                 {STATUS_LABELS[step]?.split(" ")[0] || step}
                               </span>
                             </div>
                             {idx < ORDER_FLOW.length - 1 && (
-                              <div className={`w-4 h-0.5 mt-[-12px] ${isCompleted && idx < progressIdx ? "bg-primary" : "bg-muted"}`} />
+                              <div
+                                className={`w-4 h-0.5 mt-[-12px] ${isCompleted && idx < progressIdx ? "bg-primary" : "bg-muted"}`}
+                              />
                             )}
                           </div>
                         );
                       })}
                     </div>
 
-                    {order.status === "pronto_retirada" && order.pickupDeadline && (
-                      <PickupCountdown deadline={order.pickupDeadline} />
-                    )}
+                    {order.status === "pronto_retirada" &&
+                      order.pickupDeadline && (
+                        <PickupCountdown deadline={order.pickupDeadline} />
+                      )}
 
-                    {(order.status === "nao_retirado" || order.status === "cancelado") && (
-                      <div className={`mt-2 p-2 rounded-md text-xs ${ORDER_STATUS_COLORS[order.status]}`}>
+                    {(order.status === "nao_retirado" ||
+                      order.status === "cancelado") && (
+                      <div
+                        className={`mt-2 p-2 rounded-md text-xs ${ORDER_STATUS_COLORS[order.status]}`}
+                      >
                         <div className="flex items-center gap-1 font-medium">
-                          {order.status === "nao_retirado" ? <AlertTriangle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                          {order.status === "nao_retirado" ? (
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                          ) : (
+                            <XCircle className="w-3.5 h-3.5" />
+                          )}
                           {STATUS_LABELS[order.status]}
                         </div>
                       </div>
@@ -761,15 +957,24 @@ function OrdersTab() {
                       <div key={idx} className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
                           <img
-                            src={item.imageUrl || "https://via.placeholder.com/40"}
+                            src={
+                              item.imageUrl || "https://via.placeholder.com/40"
+                            }
                             alt={item.name}
                             className="w-full h-full object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40"; }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "https://via.placeholder.com/40";
+                            }}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">{item.qty}x R$ {Number(item.price).toFixed(2)}</p>
+                          <p className="text-sm font-medium truncate">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.qty}x R$ {Number(item.price).toFixed(2)}
+                          </p>
                         </div>
                         <span className="text-sm font-medium text-foreground whitespace-nowrap">
                           R$ {(Number(item.price) * item.qty).toFixed(2)}
@@ -779,7 +984,9 @@ function OrdersTab() {
                   </div>
                   <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Total</span>
-                    <span className="text-base font-bold text-primary">R$ {Number(order.total).toFixed(2)}</span>
+                    <span className="text-base font-bold text-primary">
+                      R$ {Number(order.total).toFixed(2)}
+                    </span>
                   </div>
 
                   <OrderHistory orderId={order.id} />
@@ -817,9 +1024,13 @@ function GroupsTab() {
         <CardContent className="py-12 text-center">
           <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <h3 className="font-bold text-foreground mb-1">Nenhum grupo ainda</h3>
-          <p className="text-muted-foreground text-sm mb-4">Entre em um grupo e comece a economizar!</p>
+          <p className="text-muted-foreground text-sm mb-4">
+            Entre em um grupo e comece a economizar!
+          </p>
           <Link href="/">
-            <Button size="sm" data-testid="button-view-products">Ver produtos</Button>
+            <Button size="sm" data-testid="button-view-products">
+              Ver produtos
+            </Button>
           </Link>
         </CardContent>
       </Card>
@@ -829,7 +1040,10 @@ function GroupsTab() {
   return (
     <div className="space-y-3">
       {(userGroups as any[]).map((g: any) => {
-        const progress = g.minPeople > 0 ? Math.round((g.currentPeople / g.minPeople) * 100) : 0;
+        const progress =
+          g.minPeople > 0
+            ? Math.round((g.currentPeople / g.minPeople) * 100)
+            : 0;
         const isComplete = g.currentPeople >= g.minPeople;
 
         return (
@@ -841,20 +1055,31 @@ function GroupsTab() {
                     src={g.productImageUrl || "https://via.placeholder.com/64"}
                     alt={g.productName}
                     className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/64"; }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://via.placeholder.com/64";
+                    }}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm leading-tight">{g.productName}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Grupo #{g.groupId}</p>
-                  <p className="text-sm text-primary font-bold mt-1">R$ {Number(g.groupPrice).toFixed(2)}</p>
+                  <h3 className="font-bold text-sm leading-tight">
+                    {g.productName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Grupo #{g.groupId}
+                  </p>
+                  <p className="text-sm text-primary font-bold mt-1">
+                    R$ {Number(g.groupPrice).toFixed(2)}
+                  </p>
                 </div>
               </div>
 
               <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Participantes</span>
-                  <span className="font-medium">{g.currentPeople}/{g.minPeople}</span>
+                  <span className="font-medium">
+                    {g.currentPeople}/{g.minPeople}
+                  </span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                   <div
@@ -863,16 +1088,27 @@ function GroupsTab() {
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge variant={statusVariant(g.status)} className="text-[10px]">
+                  <Badge
+                    variant={statusVariant(g.status)}
+                    className="text-[10px]"
+                  >
                     {STATUS_LABELS[g.status] || g.status}
                   </Badge>
                   {g.reserveStatus && g.reserveStatus !== "nenhuma" && (
-                    <Badge variant={g.reserveStatus === "pago" ? "secondary" : "outline"} className="text-[10px]">
+                    <Badge
+                      variant={
+                        g.reserveStatus === "pago" ? "secondary" : "outline"
+                      }
+                      className="text-[10px]"
+                    >
                       Taxa: {STATUS_LABELS[g.reserveStatus] || g.reserveStatus}
                     </Badge>
                   )}
                   {isComplete && (
-                    <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] bg-green-100 text-green-700"
+                    >
                       Meta atingida
                     </Badge>
                   )}
@@ -919,7 +1155,12 @@ export default function Account() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Link href="/">
-              <Button variant="ghost" size="icon" className="text-white" data-testid="button-back-home">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white"
+                data-testid="button-back-home"
+              >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
@@ -928,7 +1169,9 @@ export default function Account() {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-white/80 text-xs hidden sm:inline">{user.displayName || user.name}</span>
+            <span className="text-white/80 text-xs hidden sm:inline">
+              {user.displayName || user.name}
+            </span>
             <Button
               data-testid="button-logout-account"
               variant="ghost"
@@ -950,12 +1193,14 @@ export default function Account() {
           <div className="flex items-center gap-3 mb-4">
             <UserAvatar user={user} />
             <div>
-              <h1 className="text-lg font-bold text-foreground">{user.displayName || user.name}</h1>
+              <h1 className="text-lg font-bold text-foreground">
+                {user.displayName || user.name}
+              </h1>
               <p className="text-sm text-muted-foreground">Minha Conta</p>
             </div>
           </div>
 
-          <div className="flex gap-1 overflow-x-auto pb-1 hide-scrollbar">
+          <div className="flex flex-wrap gap2 pb-1">
             {tabs.map((t) => (
               <Button
                 key={t.key}
@@ -963,7 +1208,7 @@ export default function Account() {
                 variant={tab === t.key ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setTab(t.key)}
-                className="flex-shrink-0"
+                className="flex-1 min-w- [140px] sm:flex-none sm:win-w-0"
               >
                 <t.icon className="w-4 h-4 mr-1.5" />
                 {t.label}
