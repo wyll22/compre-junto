@@ -407,10 +407,12 @@ class DatabaseStorage implements IStorage {
     return result.rows as CategoryRow[];
   }
 
-  async getCategory(id: number): Promise<CategoryRow | null> {
+  async getCategory(id: number | string): Promise<CategoryRow | null> {
+    const numericId = typeof id === "string" ? parseInt(id, 10) : id;
+    if (isNaN(numericId)) return null;
     const result = await pool.query(
       `SELECT ${CATEGORY_SELECT} FROM categories WHERE id = $1 LIMIT 1`,
-      [id]
+      [numericId]
     );
     return (result.rows[0] as CategoryRow | undefined) ?? null;
   }

@@ -346,55 +346,62 @@ export default function Home() {
                   <X className="h-4 w-4 text-white/60 hover:text-white" />
                 </button>
               )}
-              {showSuggestions && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
-                  {suggestionsLoading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    suggestions.map((item: any) => (
-                      <button
-                        key={item.id}
-                        data-testid={`suggestion-${item.id}`}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover-elevate transition-colors"
-                        onClick={() => handleSuggestionClick(item)}
-                      >
-                        {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-10 h-10 object-cover rounded-md flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
-                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {item.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.saleMode === "grupo" && item.groupPrice
-                              ? `R$ ${Number(item.groupPrice).toFixed(2)}`
-                              : ""}
-                            {item.saleMode === "agora" && item.nowPrice
-                              ? `R$ ${Number(item.nowPrice).toFixed(2)}`
-                              : ""}
-                          </p>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] flex-shrink-0"
+              <AnimatePresence>
+                {showSuggestions && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-[100] max-h-80 overflow-y-auto"
+                  >
+                    {suggestionsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      suggestions.map((item: any) => (
+                        <button
+                          key={item.id}
+                          data-testid={`suggestion-${item.id}`}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-accent transition-colors"
+                          onClick={() => handleSuggestionClick(item)}
                         >
-                          {item.saleMode === "grupo" ? "Grupo" : "Agora"}
-                        </Badge>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-10 h-10 object-cover rounded-md flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
+                              <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.saleMode === "grupo" && item.groupPrice
+                                ? `R$ ${Number(item.groupPrice).toFixed(2)}`
+                                : ""}
+                              {item.saleMode === "agora" && item.nowPrice
+                                ? `R$ ${Number(item.nowPrice).toFixed(2)}`
+                                : ""}
+                            </p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] flex-shrink-0"
+                          >
+                            {item.saleMode === "grupo" ? "Grupo" : "Agora"}
+                          </Badge>
+                        </button>
+                      ))
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="flex items-center gap-1">

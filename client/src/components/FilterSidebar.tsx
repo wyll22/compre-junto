@@ -324,7 +324,7 @@ function MobileFilterChips(props: FilterSidebarProps) {
     props.selectedFilterOptions.length;
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-2 px-1" data-testid="mobile-filter-chips">
+    <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-2 px-1 relative" data-testid="mobile-filter-chips">
       <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
         <PopoverTrigger asChild>
           <button
@@ -339,7 +339,7 @@ function MobileFilterChips(props: FilterSidebarProps) {
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-60 p-2 max-h-72 overflow-y-auto" align="start">
+        <PopoverContent className="w-[calc(100vw-32px)] sm:w-60 p-2 max-h-72 overflow-y-auto z-[100]" align="start" sideOffset={8}>
           <div className="space-y-0.5">
             <button
               data-testid="mobile-filter-category-all"
