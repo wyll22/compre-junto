@@ -598,7 +598,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="bg-background">
+        {saleMode === "agora" && (
+          <div className="bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-2 py-3">
               <button
@@ -681,9 +682,11 @@ export default function Home() {
             )}
           </div>
         </div>
+        )}
       </header>
 
-      <Dialog open={showAllCategories} onOpenChange={setShowAllCategories}>
+      {saleMode === "agora" && (
+        <Dialog open={showAllCategories} onOpenChange={setShowAllCategories}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Categorias</DialogTitle>
@@ -716,7 +719,8 @@ export default function Home() {
             ))}
           </div>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      )}
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 w-full">
         {!searchTerm && activeBanners.length > 0 && (
@@ -818,7 +822,8 @@ export default function Home() {
           </div>
         )}
 
-        <MobileFilterBar
+        {saleMode === "agora" && (
+          <MobileFilterBar
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={handleSelectCategory}
           selectedBrand={filterBrand}
@@ -833,10 +838,12 @@ export default function Home() {
           saleMode={saleMode}
           searchTerm={searchTerm}
           isFiltering={!!(searchTerm || selectedCategoryId !== null)}
-        />
+          />
+        )}
 
         <div ref={productsRef} className="flex gap-6 items-start">
-          <FilterSidebar
+          {saleMode === "agora" && (
+            <FilterSidebar
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={handleSelectCategory}
             selectedBrand={filterBrand}
@@ -851,7 +858,8 @@ export default function Home() {
             saleMode={saleMode}
             searchTerm={searchTerm}
             isFiltering={!!(searchTerm || selectedCategoryId !== null)}
-          />
+            />
+          )}
 
           <div className="flex-1 min-w-0 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
