@@ -1906,6 +1906,27 @@ class DatabaseStorage implements IStorage {
   }
 
   async createFeaturedProduct(input: { productId: number; label?: string; sortOrder?: number; active?: boolean }): Promise<FeaturedProductRow> {
+    const existing = await pool.query(
+      `SELECT id, product_id AS "productId", label, sort_order AS "sortOrder", active, created_at AS "createdAt"
+       FROM featured_products
+       WHERE product_id = $1
+       ORDER BY id DESC
+       LIMIT 1`,
+      [input.productId]
+    );
+
+    if (existing.rows[0]) {
+      const current = existing.rows[0] as FeaturedProductRow;
+      const updated = await pool.query(
+        `UPDATE featured_products
+         SET label = $1, sort_order = $2, active = $3
+         WHERE id = $4
+         RETURNING id, product_id AS "productId", label, sort_order AS "sortOrder", active, created_at AS "createdAt"`,
+        [input.label ?? current.label ?? "", input.sortOrder ?? current.sortOrder ?? 0, input.active !== false, current.id]
+      );
+      return updated.rows[0];
+    }
+
     const result = await pool.query(
       `INSERT INTO featured_products (product_id, label, sort_order, active)
        VALUES ($1, $2, $3, $4)

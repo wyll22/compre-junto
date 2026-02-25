@@ -648,19 +648,30 @@ export async function registerRoutes(
   app.post("/api/admin/featured-products", async (req: Request, res: Response) => {
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
-    const productId = Number(req.body?.productId);
-    if (!productId || Number.isNaN(productId)) {
-      return res.status(400).json({ message: "productId obrigatorio" });
-    }
 
-    const created = await storage.createFeaturedProduct({
-      productId,
-      label: String(req.body?.label || ""),
-      sortOrder: Number(req.body?.sortOrder || 0),
-      active: req.body?.active !== false,
-    });
-    await auditLog(req, userId, "criar", "destaque", created.id, { productId });
-    res.status(201).json(created);
+    try {
+      const productId = Number(req.body?.productId);
+      if (!productId || Number.isNaN(productId)) {
+        return res.status(400).json({ message: "productId obrigatorio" });
+      }
+
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado para destaque" });
+      }
+
+      const created = await storage.createFeaturedProduct({
+        productId,
+        label: String(req.body?.label || ""),
+        sortOrder: Number(req.body?.sortOrder || 0),
+        active: req.body?.active !== false,
+      });
+      await auditLog(req, userId, "criar", "destaque", created.id, { productId });
+      res.status(201).json(created);
+    } catch (err: any) {
+      const message = err?.message || "Erro ao criar destaque";
+      res.status(500).json({ message });
+    }
   });
 
   app.put("/api/admin/featured-products/:id", async (req: Request, res: Response) => {

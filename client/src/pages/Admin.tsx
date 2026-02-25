@@ -3026,6 +3026,7 @@ export default function Admin() {
   const [statusChangeReason, setStatusChangeReason] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [featuredLabelDrafts, setFeaturedLabelDrafts] = useState<Record<number, string>>({});
+  const [selectedFeaturedProductId, setSelectedFeaturedProductId] = useState("");
   const [importCsvOpen, setImportCsvOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importingCsv, setImportingCsv] = useState(false);
@@ -3181,6 +3182,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/featured-products"] });
+      setSelectedFeaturedProductId("");
       toast({ title: "Produto adicionado aos destaques!" });
     },
     onError: (err: any) => {
@@ -4117,20 +4119,35 @@ export default function Admin() {
                     <select
                       data-testid="select-featured-product"
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                      onChange={(e) => {
-                        const productId = Number(e.target.value);
-                        if (!productId) return;
-                        createFeaturedMutation.mutate({ productId, sortOrder: (featuredProducts as any[])?.length || 0, active: true });
-                        e.currentTarget.value = "";
-                      }}
-                      defaultValue=""
+                      value={selectedFeaturedProductId}
+                      onChange={(e) => setSelectedFeaturedProductId(e.target.value)}
                     >
                       <option value="">Selecionar produto...</option>
                       {(products as any[] || []).map((p: any) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={String(p.id)}>{p.name}</option>
                       ))}
                     </select>
                   </div>
+                  <Button
+                    type="button"
+                    data-testid="button-add-featured-product"
+                    disabled={!selectedFeaturedProductId || createFeaturedMutation.isPending}
+                    onClick={() => {
+                      const productId = Number(selectedFeaturedProductId);
+                      if (!productId || Number.isNaN(productId)) {
+                        toast({ title: "Erro", description: "Selecione um produto válido.", variant: "destructive" });
+                        return;
+                      }
+                      createFeaturedMutation.mutate({
+                        productId,
+                        sortOrder: (featuredProducts as any[])?.length || 0,
+                        active: true,
+                      });
+                    }}
+                  >
+                    {createFeaturedMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                    Adicionar
+                  </Button>
                 </div>
               </CardContent>
             </Card>
