@@ -228,8 +228,20 @@ export default function Home() {
     }
   }, [searchTerm]);
 
-  const [, navigate] = useLocation();
-  const handleSuggestionClick = useCallback(
+  const [location, navigate] = useLocation();
+    // Mantém o modo sincronizado com a URL
+  useEffect(() => {
+    if (location === "/grupos") {
+      setSaleMode("grupo");
+      return;
+    }
+    if (location === "/compre-agora") {
+      setSaleMode("agora");
+      return;
+    }
+  }, [location]);
+
+const handleSuggestionClick = useCallback(
     (product: any) => {
       setShowSuggestions(false);
       setSearchTerm("");
@@ -572,7 +584,7 @@ export default function Home() {
             <div className="flex gap-0">
               <button
                 data-testid="button-mode-grupo"
-                onClick={() => setSaleMode("grupo")}
+                onClick={() => { setSaleMode("grupo"); navigate("/grupos"); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
                   saleMode === "grupo"
                     ? "text-white border-[#D4A62A] border-b-[3px]"
@@ -584,7 +596,7 @@ export default function Home() {
               </button>
               <button
                 data-testid="button-mode-agora"
-                onClick={() => setSaleMode("agora")}
+                onClick={() => { setSaleMode("agora"); navigate("/compre-agora"); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
                   saleMode === "agora"
                     ? "text-white border-[#D4A62A] border-b-[3px]"
