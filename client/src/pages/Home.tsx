@@ -115,6 +115,22 @@ export default function Home() {
 
   const activeBanners = (banners ?? []) as any[];
   const activeVideos = (videos ?? []) as any[];
+  const demoVideos = [
+    {
+      id: "demo-como-funciona",
+      title: "Como funciona a Compra Junto (vídeo teste)",
+      embedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      isDemo: true,
+    },
+    {
+      id: "demo-depoimento",
+      title: "Depoimento de cliente (vídeo teste)",
+      embedUrl: "https://www.youtube.com/embed/9bZkp7q19f0",
+      isDemo: true,
+    },
+  ];
+  const videosForLanding =
+    activeVideos.length > 0 ? activeVideos : demoVideos;
   const activeSponsorBanners = (sponsorBanners ?? []) as any[];
   const sidebarSponsors = activeSponsorBanners.filter(
     (b: any) => b.position === "sidebar",
@@ -866,8 +882,9 @@ export default function Home() {
                 Como funciona
               </h2>
               <p className="text-sm text-muted-foreground">
-                Compre em grupo para economizar ou escolha produtos para receber
-                agora.
+                Aqui você escolhe entre duas formas de compra: <b>Compra em
+                Grupo</b> para economizar mais, ou <b>Compre Agora</b> para
+                receber com rapidez.
               </p>
             </div>
 
@@ -875,21 +892,21 @@ export default function Home() {
               {[
                 {
                   icon: <Users className="w-5 h-5 text-primary" />,
-                  title: "Escolha Compra em Grupo",
+                  title: "Escolha como quer comprar",
                   description:
-                    "Selecione ofertas coletivas e acompanhe o fechamento do grupo.",
+                    "Comece pela opção ideal: Compra em Grupo para preço menor ou Compre Agora para compra imediata.",
                 },
                 {
                   icon: <UserCircle className="w-5 h-5 text-primary" />,
-                  title: "Entre no grupo e convide",
+                  title: "Se for em grupo: entre e convide",
                   description:
-                    "Participe com sua conta e compartilhe para acelerar as metas.",
+                    "Participe com sua conta, acompanhe o progresso e convide amigos para fechar mais rápido.",
                 },
                 {
                   icon: <Truck className="w-5 h-5 text-primary" />,
-                  title: "Retire no ponto / receba",
+                  title: "Finalize e receba do seu jeito",
                   description:
-                    "Finalize o pedido e escolha retirada ou entrega disponível.",
+                    "No Compre Agora você finaliza na hora; em ambos os casos pode retirar no ponto ou receber, conforme disponível.",
                 },
               ].map((step) => (
                 <div
@@ -1107,13 +1124,20 @@ export default function Home() {
           </div>
         )}
 
-        {isHomeLanding && !searchTerm && activeVideos.length > 0 && (
+        {isHomeLanding && !searchTerm && videosForLanding.length > 0 && (
           <section className="mt-10">
-            <h2 className="text-xl font-display font-bold text-foreground mb-4">
-              Videos
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="text-xl font-display font-bold text-foreground">
+                Vídeos
+              </h2>
+              {activeVideos.length === 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Exibindo vídeos teste até cadastrar no Admin
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeVideos.map((video: any) => (
+              {videosForLanding.map((video: any) => (
                 <div
                   key={video.id}
                   className="rounded-md overflow-hidden bg-card border border-border"
