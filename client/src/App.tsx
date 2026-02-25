@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, useRef, memo } from "react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
-import Landing from "@/pages/Landing";
 import Admin from "@/pages/Admin";
 import Cart from "@/pages/Cart";
 import Login from "@/pages/Login";
@@ -56,7 +55,7 @@ const VisitTracker = memo(function VisitTracker() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Landing} />
+      <Route path="/" component={Home} />
       <Route path="/admin" component={Admin} />
       <Route path="/carrinho" component={Cart} />
       <Route path="/login" component={Login} />
