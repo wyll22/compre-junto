@@ -1,0 +1,140 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { BrandLogo } from "@/components/BrandLogo";
+import { Button } from "@/components/ui/button";
+import { Footer } from "@/components/Footer";
+import { Users, ShoppingBag, ChevronRight } from "lucide-react";
+
+export default function Landing() {
+  const { data: banners } = useQuery({
+    queryKey: ["/api/banners", "active"],
+    queryFn: async () => {
+      const res = await fetch("/api/banners?active=true");
+      if (!res.ok) return [];
+      return await res.json();
+    },
+  });
+
+  const { data: videos } = useQuery({
+    queryKey: ["/api/videos", "active"],
+    queryFn: async () => {
+      const res = await fetch("/api/videos?active=true");
+      if (!res.ok) return [];
+      return await res.json();
+    },
+  });
+
+  const activeBanners = (banners ?? []) as any[];
+  const activeVideos = (videos ?? []) as any[];
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="brand-gradient sticky top-0 z-30 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+          <Link href="/" data-testid="link-brand-logo">
+            <BrandLogo size="header" />
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <Link href="/grupos">
+              <Button className="bg-white/10 hover:bg-white/15 text-white border border-white/15">
+                <Users className="w-4 h-4 mr-2" />
+                Compra em Grupo
+              </Button>
+            </Link>
+            <Link href="/compre-agora">
+              <Button className="bg-[#D4A62A] hover:bg-[#C59A26] text-[#1F2937] font-bold">
+                <ShoppingBag className="w-4 h-4 mr-2" />
+                Compre Agora
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 w-full">
+        {activeBanners.length > 0 ? (
+          <div className="mb-8 rounded-md overflow-hidden border border-border bg-muted">
+            <div className="relative aspect-[3/1] sm:aspect-[4/1]">
+              <img
+                src={activeBanners[0].imageUrl}
+                alt={activeBanners[0].title || "Banner"}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="mb-8 rounded-md border border-dashed border-border p-6 text-center">
+            <p className="text-muted-foreground text-sm">
+              Cadastre um banner ativo no painel Admin para aparecer aqui.
+            </p>
+          </div>
+        )}
+
+        <section className="mb-8 rounded-md bg-card border border-border p-6">
+          <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground mb-2">
+            Compra Junto Formosa
+          </h1>
+          <p className="text-muted-foreground">
+            Compre do seu jeito: entre em grupos e pague mais barato, ou compre
+            agora com praticidade.
+          </p>
+
+          <div className="mt-5 flex flex-col sm:flex-row gap-3">
+            <Link href="/grupos">
+              <Button className="w-full sm:w-auto bg-primary text-primary-foreground">
+                Ver grupos disponíveis
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+            <Link href="/compre-agora">
+              <Button className="w-full sm:w-auto bg-[#D4A62A] hover:bg-[#C59A26] text-[#1F2937] font-bold">
+                Ir para compra imediata
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </section>
+
+        {activeVideos.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-xl font-display font-bold text-foreground mb-4">
+              Vídeos
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeVideos.map((video: any) => (
+                <div
+                  key={video.id}
+                  className="rounded-md overflow-hidden bg-card border border-border"
+                  data-testid={`video-${video.id}`}
+                >
+                  <div className="aspect-video">
+                    <iframe
+                      src={video.embedUrl}
+                      title={video.title || "Vídeo"}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                  {video.title && (
+                    <div className="p-2">
+                      <p className="text-sm font-medium truncate">
+                        {video.title}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

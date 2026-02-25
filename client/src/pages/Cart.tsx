@@ -405,10 +405,11 @@ export default function Cart() {
   const isMixed = fulfillmentTypes.size > 1;
   const cartFulfillmentType = isMixed ? null : (fulfillmentTypes.values().next().value || "delivery");
 
-  const { data: pickupPoints } = useQuery({
+  const { data: pickupPoints, isLoading: loadingPickupPoints } = useQuery({
     queryKey: ["/api/pickup-points", "active"],
     queryFn: async () => {
       const res = await fetch("/api/pickup-points?active=true", { credentials: "include" });
+      if (!res.ok) return [];
       return await res.json();
     },
     enabled: cartFulfillmentType === "pickup",
@@ -719,7 +720,11 @@ export default function Cart() {
               <MapPin className="w-4 h-4 text-primary" />
               <span className="font-bold text-sm">Ponto de Retirada</span>
             </div>
-            {!pickupPoints || (pickupPoints as any[]).length === 0 ? (
+            {loadingPickupPoints ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : !pickupPoints || (pickupPoints as any[]).length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhum ponto de retirada disponivel no momento.</p>
             ) : (
               <div className="space-y-2">
