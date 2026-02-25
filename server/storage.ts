@@ -1306,34 +1306,45 @@ class DatabaseStorage implements IStorage {
   }
 
   async getNotifications(userId: number): Promise<any[]> {
-    const result = await pool.query(
-      `SELECT id, title, message, type, reference_id AS "referenceId", read, created_at AS "createdAt"
-       FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
-      [userId],
-    );
-    return result.rows;
+    try {
+      const result = await pool.query(
+        `SELECT id, title, message, type, reference_id AS "referenceId", read, created_at AS "createdAt"
+         FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+        [userId],
+      );
+      return result.rows;
+    } catch (err) {
+      return [];
+    }
   }
 
   async markNotificationsRead(userId: number, ids?: number[]): Promise<void> {
-    if (ids && ids.length > 0) {
-      await pool.query(
-        `UPDATE notifications SET read = true WHERE user_id = $1 AND id = ANY($2::int[])`,
-        [userId, ids],
-      );
-    } else {
-      await pool.query(
-        `UPDATE notifications SET read = true WHERE user_id = $1`,
-        [userId],
-      );
+    try {
+      if (ids && ids.length > 0) {
+        await pool.query(
+          `UPDATE notifications SET read = true WHERE user_id = $1 AND id = ANY($2::int[])`,
+          [userId, ids],
+        );
+      } else {
+        await pool.query(
+          `UPDATE notifications SET read = true WHERE user_id = $1`,
+          [userId],
+        );
+      }
+    } catch (err) {
     }
   }
 
   async getUnreadNotificationCount(userId: number): Promise<number> {
-    const result = await pool.query(
-      `SELECT COUNT(*) AS count FROM notifications WHERE user_id = $1 AND read = false`,
-      [userId],
-    );
-    return Number(result.rows[0]?.count || 0);
+    try {
+      const result = await pool.query(
+        `SELECT COUNT(*) AS count FROM notifications WHERE user_id = $1 AND read = false`,
+        [userId],
+      );
+      return Number(result.rows[0]?.count || 0);
+    } catch (err) {
+      return 0;
+    }
   }
 
   async getPickupPoints(activeOnly?: boolean): Promise<PickupPointRow[]> {

@@ -485,7 +485,7 @@ export const createBannerSchema = z.object({
 
 export const createVideoSchema = z.object({
   title: z.string().max(300).optional().default(""),
-  embedUrl: z.string().url().max(2000),
+  embedUrl: z.string().max(2000),
   sortOrder: z.coerce.number().int().min(0).optional().default(0),
   active: z.boolean().optional().default(true),
 });
