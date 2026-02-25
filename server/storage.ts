@@ -143,6 +143,16 @@ type SponsorBannerRow = {
   createdAt?: Date | string | null;
 };
 
+type FeaturedProductRow = {
+  id: number;
+  productId: number;
+  label: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt?: Date | string | null;
+  product?: ProductRow;
+};
+
 export interface IStorage {
   getCategories(parentId?: number | null): Promise<CategoryRow[]>;
   getCategory(id: number): Promise<CategoryRow | null>;
@@ -259,6 +269,11 @@ export interface IStorage {
   createSponsorBanner(input: any): Promise<SponsorBannerRow>;
   updateSponsorBanner(id: number, input: any): Promise<SponsorBannerRow | null>;
   deleteSponsorBanner(id: number): Promise<void>;
+
+  getFeaturedProducts(activeOnly?: boolean): Promise<FeaturedProductRow[]>;
+  createFeaturedProduct(input: { productId: number; label?: string; sortOrder?: number; active?: boolean }): Promise<FeaturedProductRow>;
+  updateFeaturedProduct(id: number, input: Partial<{ label: string; sortOrder: number; active: boolean }>): Promise<FeaturedProductRow | null>;
+  deleteFeaturedProduct(id: number): Promise<void>;
 
   createPartnerUser(input: { name: string; email: string; password: string; phone?: string; pickupPointId: number }): Promise<UserRow>;
   getPartnerOrders(pickupPointId: number): Promise<(OrderRow & { userName: string; userEmail: string; userPhone: string | null })[]>;
@@ -1865,6 +1880,74 @@ class DatabaseStorage implements IStorage {
 
   async deleteSponsorBanner(id: number): Promise<void> {
     await pool.query(`DELETE FROM sponsor_banners WHERE id = $1`, [id]);
+  }
+
+  async getFeaturedProducts(activeOnly?: boolean): Promise<FeaturedProductRow[]> {
+    const where = activeOnly ? "WHERE fp.active = true AND p.active = true AND p.approved = true" : "";
+    const result = await pool.query(
+      `SELECT
+        fp.id,
+        fp.product_id AS "productId",
+        fp.label,
+        fp.sort_order AS "sortOrder",
+        fp.active,
+        fp.created_at AS "createdAt",
+        row_to_json(p_data) AS product
+      FROM featured_products fp
+      JOIN (
+        SELECT ${PRODUCT_SELECT}
+        FROM products
+      ) p_data ON p_data.id = fp.product_id
+      JOIN products p ON p.id = fp.product_id
+      ${where}
+      ORDER BY fp.sort_order ASC, fp.id ASC`
+    );
+    return result.rows;
+  }
+
+  async createFeaturedProduct(input: { productId: number; label?: string; sortOrder?: number; active?: boolean }): Promise<FeaturedProductRow> {
+    const result = await pool.query(
+      `INSERT INTO featured_products (product_id, label, sort_order, active)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, product_id AS "productId", label, sort_order AS "sortOrder", active, created_at AS "createdAt"`,
+      [input.productId, input.label || "", input.sortOrder ?? 0, input.active !== false]
+    );
+    return result.rows[0];
+  }
+
+  async updateFeaturedProduct(id: number, input: Partial<{ label: string; sortOrder: number; active: boolean }>): Promise<FeaturedProductRow | null> {
+    const map: Record<string, string> = {
+      label: "label",
+      sortOrder: "sort_order",
+      active: "active",
+    };
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, rawValue] of Object.entries(input)) {
+      if (rawValue === undefined) continue;
+      const dbField = map[key];
+      if (!dbField) continue;
+      values.push(rawValue);
+      fields.push(`${dbField} = $${values.length}`);
+    }
+    if (!fields.length) {
+      const existing = await pool.query(
+        `SELECT id, product_id AS "productId", label, sort_order AS "sortOrder", active, created_at AS "createdAt" FROM featured_products WHERE id = $1`,
+        [id]
+      );
+      return existing.rows[0] || null;
+    }
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE featured_products SET ${fields.join(", ")} WHERE id = $${values.length}
+       RETURNING id, product_id AS "productId", label, sort_order AS "sortOrder", active, created_at AS "createdAt"`,
+      values
+    );
+    return result.rows[0] || null;
+  }
+
+  async deleteFeaturedProduct(id: number): Promise<void> {
+    await pool.query(`DELETE FROM featured_products WHERE id = $1`, [id]);
   }
 
   async createPartnerUser(input: { name: string; email: string; password: string; phone?: string; pickupPointId: number }): Promise<UserRow> {

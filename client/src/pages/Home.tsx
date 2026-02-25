@@ -278,10 +278,10 @@ export default function Home() {
     [navigate],
   );
 
-  const { data: landingProducts } = useQuery({
-    queryKey: ["/api/products", "home-featured"],
+  const { data: landingFeaturedProducts } = useQuery({
+    queryKey: ["/api/featured-products"],
     queryFn: async () => {
-      const res = await fetch("/api/products");
+      const res = await fetch("/api/featured-products");
       if (!res.ok) return [];
       return await res.json();
     },
@@ -342,7 +342,7 @@ export default function Home() {
       selectedFilterOptions.length > 0 ? selectedFilterOptions : undefined,
   });
   const featuredProductsSource = isHomeLanding
-    ? (landingProducts ?? [])
+    ? ((landingFeaturedProducts as any[])?.map((item: any) => item.product).filter(Boolean) ?? [])
     : (products ?? []);
   const featuredProducts = (featuredProductsSource as any[]).slice(0, 6);
 

@@ -51,6 +51,38 @@ function parseZodError(error: z.ZodError): string {
   return error.errors.map(e => e.message).join("; ");
 }
 
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if ((char === ',' || char === ';') && !inQuotes) {
+      out.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  out.push(current.trim());
+  return out;
+}
+
 function normalizeOrigin(value: string): string {
   const trimmed = value.trim().replace(/\/+$/, "");
   try {
@@ -599,6 +631,132 @@ export async function registerRoutes(
        FROM products ORDER BY id DESC`,
     );
     res.json(result.rows);
+  });
+
+  app.get("/api/featured-products", async (_req: Request, res: Response) => {
+    const items = await storage.getFeaturedProducts(true);
+    res.json(items);
+  });
+
+  app.get("/api/admin/featured-products", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const items = await storage.getFeaturedProducts(false);
+    res.json(items);
+  });
+
+  app.post("/api/admin/featured-products", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    const productId = Number(req.body?.productId);
+    if (!productId || Number.isNaN(productId)) {
+      return res.status(400).json({ message: "productId obrigatorio" });
+    }
+
+    const created = await storage.createFeaturedProduct({
+      productId,
+      label: String(req.body?.label || ""),
+      sortOrder: Number(req.body?.sortOrder || 0),
+      active: req.body?.active !== false,
+    });
+    await auditLog(req, userId, "criar", "destaque", created.id, { productId });
+    res.status(201).json(created);
+  });
+
+  app.put("/api/admin/featured-products/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+
+    const updated = await storage.updateFeaturedProduct(Number(req.params.id), {
+      label: req.body?.label,
+      sortOrder: req.body?.sortOrder !== undefined ? Number(req.body.sortOrder) : undefined,
+      active: req.body?.active,
+    });
+    if (!updated) return res.status(404).json({ message: "Destaque nao encontrado" });
+    await auditLog(req, userId, "editar", "destaque", Number(req.params.id), req.body || {});
+    res.json(updated);
+  });
+
+  app.delete("/api/admin/featured-products/:id", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+    await storage.deleteFeaturedProduct(Number(req.params.id));
+    await auditLog(req, userId, "excluir", "destaque", Number(req.params.id), {});
+    res.status(204).send();
+  });
+
+  const csvUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+  });
+
+  app.post("/api/admin/products/import-csv", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+
+    csvUpload.single("file")(req, res, async (err: any) => {
+      if (err) return res.status(400).json({ message: err.message || "Erro no upload" });
+      if (!req.file?.buffer) return res.status(400).json({ message: "Arquivo CSV obrigatorio" });
+
+      const text = req.file.buffer.toString("utf-8").replace(/^\uFEFF/, "");
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      if (lines.length < 2) return res.status(400).json({ message: "CSV sem dados" });
+
+      const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
+      const required = ["name", "description", "imageurl", "originalprice", "groupprice", "category"];
+      const missing = required.filter((r) => !headers.includes(r));
+      if (missing.length > 0) {
+        return res.status(400).json({ message: `Colunas obrigatorias ausentes: ${missing.join(", ")}` });
+      }
+
+      let created = 0;
+      const errors: { line: number; message: string }[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCsvLine(lines[i]);
+        if (cols.every((c) => c.trim() === "")) continue;
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          row[h] = cols[idx] ?? "";
+        });
+
+        const payload = {
+          name: row.name,
+          description: row.description,
+          imageUrl: row.imageurl,
+          originalPrice: row.originalprice,
+          groupPrice: row.groupprice,
+          nowPrice: row.nowprice || undefined,
+          minPeople: row.minpeople ? Number(row.minpeople) : 10,
+          stock: row.stock ? Number(row.stock) : 100,
+          reserveFee: row.reservefee || "0",
+          category: row.category,
+          saleMode: row.salemode || "grupo",
+          fulfillmentType: row.fulfillmenttype || ((row.salemode || "grupo") === "agora" ? "delivery" : "pickup"),
+          active: row.active ? ["1", "true", "sim", "yes"].includes(row.active.toLowerCase()) : true,
+          brand: row.brand || undefined,
+          weight: row.weight || undefined,
+          dimensions: row.dimensions || undefined,
+          specifications: row.specifications || undefined,
+        };
+
+        const parsed = createProductSchema.safeParse(payload);
+        if (!parsed.success) {
+          errors.push({ line: i + 1, message: parseZodError(parsed.error) });
+          continue;
+        }
+
+        try {
+          await storage.createProduct(parsed.data);
+          created++;
+        } catch (createErr: any) {
+          errors.push({ line: i + 1, message: createErr?.message || "Falha ao criar produto" });
+        }
+      }
+
+      await auditLog(req, userId, "importar", "produto", undefined, { created, errors: errors.length });
+      res.json({ created, errors });
+    });
   });
 
   app.get("/api/products/:id", async (req: Request, res: Response) => {

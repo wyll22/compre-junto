@@ -11,7 +11,7 @@ import {
   ClipboardList, Eye, UserCircle, TrendingUp, ShoppingCart, FolderTree, DollarSign, Clock,
   Mail, Phone, ChevronDown, ChevronUp, Search, MapPin, AlertTriangle, Settings, ArrowRight, History,
   Monitor, Globe, Database, Server, Shield, RefreshCcw, CheckCircle2, XCircle, FileText, Upload, Link2, Copy,
-  ChevronLeft, ChevronRight, Filter,
+  ChevronLeft, ChevronRight, Filter, Star,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -33,7 +33,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 
-type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation" | "filters" | "sponsors" | "approvals" | "partners";
+type AdminTab = "dashboard" | "products" | "groups" | "orders" | "categories" | "clients" | "banners" | "videos" | "pickup" | "order-settings" | "system" | "articles" | "media" | "navigation" | "filters" | "sponsors" | "approvals" | "partners" | "featured";
 
 const SALE_MODES = [
   { value: "grupo", label: "Compra em Grupo" },
@@ -3025,6 +3025,10 @@ export default function Admin() {
   const [viewingOrderDetail, setViewingOrderDetail] = useState<any>(null);
   const [statusChangeReason, setStatusChangeReason] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
+  const [featuredLabelDrafts, setFeaturedLabelDrafts] = useState<Record<number, string>>({});
+  const [importCsvOpen, setImportCsvOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [importingCsv, setImportingCsv] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -3035,6 +3039,7 @@ export default function Admin() {
       const res = await fetch("/api/products/all", { credentials: "include" });
       return await res.json();
     },
+    enabled: tab === "products" || tab === "approvals" || tab === "featured",
   });
   const deleteProduct = useDeleteProduct();
   const { data: allGroups } = useGroups();
@@ -3043,11 +3048,23 @@ export default function Admin() {
   const { data: banners } = useQuery({
     queryKey: ["/api/banners"],
     queryFn: async () => { const res = await fetch("/api/banners", { credentials: "include" }); return await res.json(); },
+    enabled: tab === "banners",
   });
 
   const { data: videos } = useQuery({
     queryKey: ["/api/videos"],
     queryFn: async () => { const res = await fetch("/api/videos", { credentials: "include" }); return await res.json(); },
+    enabled: tab === "videos",
+  });
+
+  const { data: featuredProducts, isLoading: featuredLoading } = useQuery({
+    queryKey: ["/api/admin/featured-products"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/featured-products", { credentials: "include" });
+      if (!res.ok) return [];
+      return await res.json();
+    },
+    enabled: tab === "featured",
   });
 
   const { data: allOrders, isLoading: ordersLoading } = useQuery({
@@ -3157,6 +3174,78 @@ export default function Admin() {
     },
   });
 
+  const createFeaturedMutation = useMutation({
+    mutationFn: async (payload: { productId: number; label?: string; sortOrder?: number; active?: boolean }) => {
+      const res = await apiRequest("POST", "/api/admin/featured-products", payload);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/featured-products"] });
+      toast({ title: "Produto adicionado aos destaques!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const updateFeaturedMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PUT", `/api/admin/featured-products/${id}`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/featured-products"] });
+      toast({ title: "Destaque atualizado!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const deleteFeaturedMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/featured-products/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/featured-products"] });
+      toast({ title: "Destaque removido!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const handleImportCsv = async () => {
+    if (!csvFile) {
+      toast({ title: "Aviso", description: "Selecione um arquivo CSV." });
+      return;
+    }
+    setImportingCsv(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", csvFile);
+      const res = await fetch("/api/admin/products/import-csv", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Falha ao importar CSV");
+
+      queryClient.invalidateQueries({ queryKey: ["/api/products/all"] });
+      toast({
+        title: "Importação concluída",
+        description: `${data.created || 0} produtos criados${data.errors?.length ? `, ${data.errors.length} com erro` : ""}.`,
+      });
+      setImportCsvOpen(false);
+      setCsvFile(null);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message || "Erro ao importar CSV", variant: "destructive" });
+    } finally {
+      setImportingCsv(false);
+    }
+  };
+
   const updateOrderStatus = useMutation({
     mutationFn: async ({ id, status, reason }: { id: number; status: string; reason?: string }) => {
       const res = await apiRequest("PATCH", `/api/orders/${id}/status`, { status, reason: reason || "" });
@@ -3233,6 +3322,7 @@ export default function Admin() {
     { key: "articles", label: "Artigos", icon: FileText },
     { key: "media", label: "Midia", icon: Upload },
     { key: "filters", label: "Filtros", icon: Filter },
+    { key: "featured", label: "Destaques", icon: Star },
     { key: "sponsors", label: "Patrocinadores", icon: Globe },
     { key: "approvals", label: "Aprovacoes", icon: CheckCircle2 },
     { key: "partners", label: "Parceiros", icon: MapPin },
@@ -3265,9 +3355,14 @@ export default function Admin() {
           <>
             <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
               <h2 className="text-lg font-bold text-foreground">Produtos ({(products as any[])?.length || 0})</h2>
-              <Button data-testid="button-new-product" size="sm" onClick={() => { setEditingProduct(null); setProductFormOpen(true); }}>
-                <Plus className="w-4 h-4 mr-1" /> Novo Produto
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" data-testid="button-import-products-csv" onClick={() => setImportCsvOpen(true)}>
+                  <Upload className="w-4 h-4 mr-1" /> Importar CSV
+                </Button>
+                <Button data-testid="button-new-product" size="sm" onClick={() => { setEditingProduct(null); setProductFormOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-1" /> Novo Produto
+                </Button>
+              </div>
             </div>
 
             <Card>
@@ -3350,6 +3445,32 @@ export default function Admin() {
             </Card>
 
             <ProductForm isOpen={productFormOpen} onClose={() => { setProductFormOpen(false); setEditingProduct(null); }} editProduct={editingProduct} />
+
+            <Dialog open={importCsvOpen} onOpenChange={(open) => !open && setImportCsvOpen(false)}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Importar produtos via CSV (Excel)</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Exporte sua planilha do Excel para <b>CSV UTF-8</b> e envie o arquivo.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Colunas obrigatórias: <code>name,description,imageUrl,originalPrice,groupPrice,category</code>.
+                  </p>
+                  <Input
+                    data-testid="input-import-csv"
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+                  />
+                  <Button onClick={handleImportCsv} disabled={importingCsv || !csvFile} className="w-full" data-testid="button-confirm-import-csv">
+                    {importingCsv ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />}
+                    Importar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </>
         )}
 
@@ -3981,6 +4102,111 @@ export default function Admin() {
         {tab === "media" && <MediaTab />}
 
         {tab === "filters" && <FiltersTab />}
+
+        {tab === "featured" && (
+          <>
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <h2 className="text-lg font-bold text-foreground">Destaques da Home ({(featuredProducts as any[])?.length || 0})</h2>
+            </div>
+
+            <Card className="mb-4">
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
+                  <div>
+                    <Label>Adicionar produto aos destaques</Label>
+                    <select
+                      data-testid="select-featured-product"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      onChange={(e) => {
+                        const productId = Number(e.target.value);
+                        if (!productId) return;
+                        createFeaturedMutation.mutate({ productId, sortOrder: (featuredProducts as any[])?.length || 0, active: true });
+                        e.currentTarget.value = "";
+                      }}
+                      defaultValue=""
+                    >
+                      <option value="">Selecionar produto...</option>
+                      {(products as any[] || []).map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produto</TableHead>
+                        <TableHead>Rótulo</TableHead>
+                        <TableHead>Ordem</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {featuredLoading ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></TableCell></TableRow>
+                      ) : !(featuredProducts as any[])?.length ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">Nenhum destaque configurado.</TableCell></TableRow>
+                      ) : (
+                        (featuredProducts as any[]).map((item: any) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-sm font-medium">{item.product?.name || `Produto #${item.productId}`}</TableCell>
+                            <TableCell>
+                              <Input
+                                value={featuredLabelDrafts[item.id] ?? item.label ?? ""}
+                                onChange={(e) => setFeaturedLabelDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                className="h-8"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                defaultValue={item.sortOrder}
+                                className="h-8 w-20"
+                                onBlur={(e) => {
+                                  const sortOrder = Number(e.target.value || 0);
+                                  if (sortOrder !== Number(item.sortOrder)) {
+                                    updateFeaturedMutation.mutate({ id: item.id, data: { sortOrder } });
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={item.active}
+                                onCheckedChange={(active) => updateFeaturedMutation.mutate({ id: item.id, data: { active } })}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateFeaturedMutation.mutate({ id: item.id, data: { label: featuredLabelDrafts[item.id] ?? item.label ?? "" } })}
+                                >
+                                  Salvar
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => deleteFeaturedMutation.mutate(item.id)}>
+                                  Remover
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {tab === "sponsors" && <SponsorBannersTab />}
 
