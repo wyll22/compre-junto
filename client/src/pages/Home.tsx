@@ -17,6 +17,8 @@ import {
   UserCircle,
   Grid3X3,
   X,
+  Store,
+  Truck,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { motion, AnimatePresence } from "framer-motion";
@@ -138,6 +140,10 @@ export default function Home() {
   const selectedCategoryName = selectedCategoryId
     ? (cats.find((c) => c.id === selectedCategoryId)?.name ?? "Categoria")
     : "Todos";
+  const hasRoutesForLanding = {
+    grupos: "/grupos",
+    compreAgora: "/compre-agora",
+  };
 
   useEffect(() => {
     if (activeBanners.length <= 1) return;
@@ -229,7 +235,9 @@ export default function Home() {
   }, [searchTerm]);
 
   const [location, navigate] = useLocation();
-    // Mantém o modo sincronizado com a URL
+  const isHomeLanding = location === "/";
+
+  // Mantém o modo sincronizado com a URL
   useEffect(() => {
     if (location === "/grupos") {
       setSaleMode("grupo");
@@ -239,9 +247,12 @@ export default function Home() {
       setSaleMode("agora");
       return;
     }
+    if (location === "/") {
+      setSaleMode("grupo");
+    }
   }, [location]);
 
-const handleSuggestionClick = useCallback(
+  const handleSuggestionClick = useCallback(
     (product: any) => {
       setShowSuggestions(false);
       setSearchTerm("");
@@ -250,6 +261,16 @@ const handleSuggestionClick = useCallback(
     },
     [navigate],
   );
+
+  const { data: landingProducts } = useQuery({
+    queryKey: ["/api/products", "home-featured"],
+    queryFn: async () => {
+      const res = await fetch("/api/products");
+      if (!res.ok) return [];
+      return await res.json();
+    },
+    enabled: isHomeLanding,
+  });
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -304,6 +325,10 @@ const handleSuggestionClick = useCallback(
     filterOptionIds:
       selectedFilterOptions.length > 0 ? selectedFilterOptions : undefined,
   });
+  const featuredProductsSource = isHomeLanding
+    ? (landingProducts ?? [])
+    : (products ?? []);
+  const featuredProducts = (featuredProductsSource as any[]).slice(0, 6);
 
   const handleSelectCategory = (catId: number | null) => {
     setSelectedCategoryId(catId);
@@ -735,7 +760,7 @@ const handleSuggestionClick = useCallback(
       )}
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 w-full">
-        {!searchTerm && activeBanners.length > 0 && (
+        {isHomeLanding && !searchTerm && activeBanners.length > 0 && (
           <div
             className="mb-6 relative rounded-md overflow-hidden"
             data-testid="banner-carousel"
@@ -819,7 +844,7 @@ const handleSuggestionClick = useCallback(
           </div>
         )}
 
-        {!searchTerm && saleMode === "grupo" && (
+        {!isHomeLanding && !searchTerm && saleMode === "grupo" && (
           <div className="mb-6 rounded-md brand-gradient p-6 text-white shadow-md relative overflow-hidden">
             <div className="relative z-10 max-w-lg">
               <h2 className="text-2xl md:text-3xl font-display font-bold mb-2">
@@ -834,7 +859,111 @@ const handleSuggestionClick = useCallback(
           </div>
         )}
 
-        {saleMode === "agora" && (
+        {isHomeLanding && !searchTerm && (
+          <section className="mb-8 rounded-md border border-border bg-card p-5 md:p-6">
+            <div className="flex flex-col gap-2 mb-5">
+              <h2 className="text-xl font-display font-bold text-foreground">
+                Como funciona
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Compre em grupo para economizar ou escolha produtos para receber
+                agora.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                {
+                  icon: <Users className="w-5 h-5 text-primary" />,
+                  title: "Escolha Compra em Grupo",
+                  description:
+                    "Selecione ofertas coletivas e acompanhe o fechamento do grupo.",
+                },
+                {
+                  icon: <UserCircle className="w-5 h-5 text-primary" />,
+                  title: "Entre no grupo e convide",
+                  description:
+                    "Participe com sua conta e compartilhe para acelerar as metas.",
+                },
+                {
+                  icon: <Truck className="w-5 h-5 text-primary" />,
+                  title: "Retire no ponto / receba",
+                  description:
+                    "Finalize o pedido e escolha retirada ou entrega disponível.",
+                },
+              ].map((step) => (
+                <div
+                  key={step.title}
+                  className="rounded-md border border-border bg-background p-4"
+                >
+                  <div className="mb-2">{step.icon}</div>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link href={hasRoutesForLanding.grupos}>
+                <Button size="sm" data-testid="button-landing-ver-grupos">
+                  Ver Grupos
+                </Button>
+              </Link>
+              <Link href={hasRoutesForLanding.compreAgora}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="button-landing-comprar-agora"
+                >
+                  Comprar Agora
+                </Button>
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {isHomeLanding && !searchTerm && (
+          <section className="mb-8">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <h2 className="text-xl font-display font-bold text-foreground">
+                Mais vendidos
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                Seleção em destaque
+              </span>
+            </div>
+
+            {featuredProducts.length > 0 ? (
+              <motion.div
+                layout
+                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4"
+              >
+                <AnimatePresence>
+                  {featuredProducts.map((product: any) => (
+                    <ProductCard
+                      key={`featured-${product.id}`}
+                      product={product}
+                      saleMode={saleMode}
+                    />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              <div className="rounded-md border border-dashed border-border bg-card p-6 text-center">
+                <Store className="w-7 h-7 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Em breve, novos destaques na vitrine da Home.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {!isHomeLanding && saleMode === "agora" && (
           <MobileFilterBar
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={handleSelectCategory}
@@ -853,7 +982,8 @@ const handleSuggestionClick = useCallback(
           />
         )}
 
-        <div ref={productsRef} className="flex gap-6 items-start">
+        {!isHomeLanding && (
+          <div ref={productsRef} className="flex gap-6 items-start">
           {saleMode === "agora" && (
             <FilterSidebar
             selectedCategoryId={selectedCategoryId}
@@ -974,9 +1104,10 @@ const handleSuggestionClick = useCallback(
               ))}
             </aside>
           )}
-        </div>
+          </div>
+        )}
 
-        {!searchTerm && activeVideos.length > 0 && (
+        {isHomeLanding && !searchTerm && activeVideos.length > 0 && (
           <section className="mt-10">
             <h2 className="text-xl font-display font-bold text-foreground mb-4">
               Videos
@@ -1007,6 +1138,44 @@ const handleSuggestionClick = useCallback(
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {isHomeLanding && !searchTerm && (
+          <section className="mt-10">
+            <h2 className="text-xl font-display font-bold text-foreground mb-4">
+              Patrocinadores
+            </h2>
+
+            {activeSponsorBanners.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {activeSponsorBanners.map((sponsor: any) => (
+                  <a
+                    key={`home-sponsor-${sponsor.id}`}
+                    href={sponsor.linkUrl || "#"}
+                    target={
+                      sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"
+                    }
+                    rel="noopener noreferrer"
+                    className="rounded-md border border-border bg-card p-2 flex items-center justify-center min-h-[88px] hover-elevate"
+                    data-testid={`sponsor-home-${sponsor.id}`}
+                  >
+                    <img
+                      src={sponsor.imageUrl}
+                      alt={sponsor.title || "Patrocinador"}
+                      className="max-h-16 w-auto object-contain"
+                    />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed border-border bg-card p-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Espaço para patrocinadores (TODO: conectar com banners de
+                  patrocinadores quando houver conteúdo).
+                </p>
+              </div>
+            )}
           </section>
         )}
       </main>
