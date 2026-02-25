@@ -129,8 +129,7 @@ export default function Home() {
       isDemo: true,
     },
   ];
-  const videosForLanding =
-    activeVideos.length > 0 ? activeVideos : demoVideos;
+  const videosForLanding = activeVideos.length > 0 ? activeVideos : demoVideos;
   const activeSponsorBanners = (sponsorBanners ?? []) as any[];
   const sidebarSponsors = activeSponsorBanners.filter(
     (b: any) => b.position === "sidebar",
@@ -342,7 +341,9 @@ export default function Home() {
       selectedFilterOptions.length > 0 ? selectedFilterOptions : undefined,
   });
   const featuredProductsSource = isHomeLanding
-    ? ((landingFeaturedProducts as any[])?.map((item: any) => item.product).filter(Boolean) ?? [])
+    ? ((landingFeaturedProducts as any[])
+        ?.map((item: any) => item.product)
+        .filter(Boolean) ?? [])
     : (products ?? []);
   const featuredProducts = (featuredProductsSource as any[]).slice(0, 6);
 
@@ -625,7 +626,10 @@ export default function Home() {
             <div className="flex gap-0">
               <button
                 data-testid="button-mode-grupo"
-                onClick={() => { setSaleMode("grupo"); navigate("/grupos"); }}
+                onClick={() => {
+                  setSaleMode("grupo");
+                  navigate("/grupos");
+                }}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
                   saleMode === "grupo"
                     ? "text-white border-[#D4A62A] border-b-[3px]"
@@ -637,7 +641,10 @@ export default function Home() {
               </button>
               <button
                 data-testid="button-mode-agora"
-                onClick={() => { setSaleMode("agora"); navigate("/compre-agora"); }}
+                onClick={() => {
+                  setSaleMode("agora");
+                  navigate("/compre-agora");
+                }}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all border-b-3 ${
                   saleMode === "agora"
                     ? "text-white border-[#D4A62A] border-b-[3px]"
@@ -653,125 +660,125 @@ export default function Home() {
 
         {saleMode === "agora" && (
           <div className="bg-background">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2 py-3">
-              <button
-                data-testid="button-category-todos"
-                onClick={() => handleSelectCategory(null)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  selectedCategoryId === null
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card text-foreground/70 border border-border"
-                }`}
-              >
-                Todos
-              </button>
-
-              <div className="hidden sm:flex items-center gap-2 overflow-x-auto hide-scrollbar">
-                {cats.map((cat) => (
-                  <button
-                    key={cat.id}
-                    data-testid={`button-category-${cat.slug}`}
-                    onClick={() => handleSelectCategory(cat.id)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${getCategoryButtonClass(cat, selectedCategoryId === cat.id)}`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex sm:hidden items-center gap-2 overflow-x-auto hide-scrollbar flex-1">
-                {visibleCats.map((cat) => (
-                  <button
-                    key={cat.id}
-                    data-testid={`button-category-${cat.slug}`}
-                    onClick={() => handleSelectCategory(cat.id)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${getCategoryButtonClass(cat, selectedCategoryId === cat.id)}`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-                {hasMoreCats && (
-                  <button
-                    data-testid="button-ver-mais-categorias"
-                    onClick={() => setShowAllCategories(true)}
-                    className="whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium bg-card text-foreground/70 border border-border flex items-center gap-1"
-                  >
-                    Ver mais
-                    <Grid3X3 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {selectedCategoryId && subs.length > 0 && (
-              <div className="flex items-center gap-2 pb-3 overflow-x-auto hide-scrollbar">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-2 py-3">
                 <button
-                  data-testid="button-subcategory-all"
-                  onClick={() => setSelectedSubcategoryId(null)}
-                  className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                    selectedSubcategoryId === null
-                      ? "bg-[#D4A62A] text-[#1F2937] shadow-sm"
-                      : "bg-card text-foreground/60 border border-border"
+                  data-testid="button-category-todos"
+                  onClick={() => handleSelectCategory(null)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    selectedCategoryId === null
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-card text-foreground/70 border border-border"
                   }`}
                 >
-                  Todas
+                  Todos
                 </button>
-                {subs.map((sub) => (
+
+                <div className="hidden sm:flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                  {cats.map((cat) => (
+                    <button
+                      key={cat.id}
+                      data-testid={`button-category-${cat.slug}`}
+                      onClick={() => handleSelectCategory(cat.id)}
+                      className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${getCategoryButtonClass(cat, selectedCategoryId === cat.id)}`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex sm:hidden items-center gap-2 overflow-x-auto hide-scrollbar flex-1">
+                  {visibleCats.map((cat) => (
+                    <button
+                      key={cat.id}
+                      data-testid={`button-category-${cat.slug}`}
+                      onClick={() => handleSelectCategory(cat.id)}
+                      className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-all ${getCategoryButtonClass(cat, selectedCategoryId === cat.id)}`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                  {hasMoreCats && (
+                    <button
+                      data-testid="button-ver-mais-categorias"
+                      onClick={() => setShowAllCategories(true)}
+                      className="whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium bg-card text-foreground/70 border border-border flex items-center gap-1"
+                    >
+                      Ver mais
+                      <Grid3X3 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {selectedCategoryId && subs.length > 0 && (
+                <div className="flex items-center gap-2 pb-3 overflow-x-auto hide-scrollbar">
                   <button
-                    key={sub.id}
-                    data-testid={`button-subcategory-${sub.slug}`}
-                    onClick={() => setSelectedSubcategoryId(sub.id)}
+                    data-testid="button-subcategory-all"
+                    onClick={() => setSelectedSubcategoryId(null)}
                     className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      selectedSubcategoryId === sub.id
+                      selectedSubcategoryId === null
                         ? "bg-[#D4A62A] text-[#1F2937] shadow-sm"
                         : "bg-card text-foreground/60 border border-border"
                     }`}
                   >
-                    {sub.name}
+                    Todas
                   </button>
-                ))}
-              </div>
-            )}
+                  {subs.map((sub) => (
+                    <button
+                      key={sub.id}
+                      data-testid={`button-subcategory-${sub.slug}`}
+                      onClick={() => setSelectedSubcategoryId(sub.id)}
+                      className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                        selectedSubcategoryId === sub.id
+                          ? "bg-[#D4A62A] text-[#1F2937] shadow-sm"
+                          : "bg-card text-foreground/60 border border-border"
+                      }`}
+                    >
+                      {sub.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         )}
       </header>
 
       {saleMode === "agora" && (
         <Dialog open={showAllCategories} onOpenChange={setShowAllCategories}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Categorias</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              data-testid="button-modal-category-todos"
-              onClick={() => handleSelectCategory(null)}
-              className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
-                selectedCategoryId === null
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card text-foreground/70 border border-border hover-elevate"
-              }`}
-            >
-              Todos
-            </button>
-            {cats.map((cat) => (
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Categorias</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-2">
               <button
-                key={cat.id}
-                data-testid={`button-modal-category-${cat.slug}`}
-                onClick={() => handleSelectCategory(cat.id)}
+                data-testid="button-modal-category-todos"
+                onClick={() => handleSelectCategory(null)}
                 className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
-                  selectedCategoryId === cat.id
-                    ? getCategoryButtonClass(cat, true)
-                    : `${getCategoryButtonClass(cat, false)} hover-elevate`
+                  selectedCategoryId === null
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-foreground/70 border border-border hover-elevate"
                 }`}
               >
-                {cat.name}
+                Todos
               </button>
-            ))}
-          </div>
-        </DialogContent>
+              {cats.map((cat) => (
+                <button
+                  key={cat.id}
+                  data-testid={`button-modal-category-${cat.slug}`}
+                  onClick={() => handleSelectCategory(cat.id)}
+                  className={`px-3 py-2.5 rounded-md text-sm font-medium text-left transition-all ${
+                    selectedCategoryId === cat.id
+                      ? getCategoryButtonClass(cat, true)
+                      : `${getCategoryButtonClass(cat, false)} hover-elevate`
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </DialogContent>
         </Dialog>
       )}
 
@@ -882,9 +889,9 @@ export default function Home() {
                 Como funciona
               </h2>
               <p className="text-sm text-muted-foreground">
-                Aqui você escolhe entre duas formas de compra: <b>Compra em
-                Grupo</b> para economizar mais, ou <b>Compre Agora</b> para
-                receber com rapidez.
+                Aqui você escolhe entre duas formas de compra:{" "}
+                <b>Compra em Grupo</b> para economizar mais, ou{" "}
+                <b>Compre Agora</b> para receber com rapidez.
               </p>
             </div>
 
@@ -982,27 +989,6 @@ export default function Home() {
 
         {!isHomeLanding && saleMode === "agora" && (
           <MobileFilterBar
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={handleSelectCategory}
-          selectedBrand={filterBrand}
-          onSelectBrand={setFilterBrand}
-          minPrice={filterMinPrice}
-          maxPrice={filterMaxPrice}
-          onMinPriceChange={setFilterMinPrice}
-          onMaxPriceChange={setFilterMaxPrice}
-          selectedFilterOptions={selectedFilterOptions}
-          onToggleFilterOption={handleToggleFilterOption}
-          onClearAllFilters={handleClearAllFilters}
-          saleMode={saleMode}
-          searchTerm={searchTerm}
-          isFiltering={!!(searchTerm || selectedCategoryId !== null)}
-          />
-        )}
-
-        {!isHomeLanding && (
-          <div ref={productsRef} className="flex gap-6 items-start">
-          {saleMode === "agora" && (
-            <FilterSidebar
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={handleSelectCategory}
             selectedBrand={filterBrand}
@@ -1017,64 +1003,112 @@ export default function Home() {
             saleMode={saleMode}
             searchTerm={searchTerm}
             isFiltering={!!(searchTerm || selectedCategoryId !== null)}
-            />
-          )}
+          />
+        )}
 
-          <div className="flex-1 min-w-0 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-xl font-display font-bold text-foreground">
-                {searchTerm
-                  ? `Resultados para "${searchTerm}"`
-                  : selectedCategoryName}
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {products?.length || 0} produtos
-              </span>
-            </div>
-
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
-                <p className="text-muted-foreground text-sm">
-                  Carregando produtos...
-                </p>
-              </div>
-            ) : error ? (
-              <div className="text-center py-16 bg-card rounded-md border border-border">
-                <p className="text-destructive font-medium text-sm">
-                  Erro ao carregar produtos.
-                </p>
-              </div>
-            ) : products?.length === 0 ? (
-              <div className="text-center py-16 bg-card rounded-md border border-dashed border-border">
-                <ShoppingBag className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-foreground">
-                  Nenhum produto encontrado
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  Tente buscar por outro termo ou categoria.
-                </p>
-              </div>
-            ) : (
-              <motion.div
-                layout
-                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4"
-              >
-                <AnimatePresence>
-                  {products?.map((product: any) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      saleMode={saleMode}
-                    />
-                  ))}
-                </AnimatePresence>
-              </motion.div>
+        {!isHomeLanding && (
+          <div ref={productsRef} className="flex gap-6 items-start">
+            {saleMode === "agora" && (
+              <FilterSidebar
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={handleSelectCategory}
+                selectedBrand={filterBrand}
+                onSelectBrand={setFilterBrand}
+                minPrice={filterMinPrice}
+                maxPrice={filterMaxPrice}
+                onMinPriceChange={setFilterMinPrice}
+                onMaxPriceChange={setFilterMaxPrice}
+                selectedFilterOptions={selectedFilterOptions}
+                onToggleFilterOption={handleToggleFilterOption}
+                onClearAllFilters={handleClearAllFilters}
+                saleMode={saleMode}
+                searchTerm={searchTerm}
+                isFiltering={!!(searchTerm || selectedCategoryId !== null)}
+              />
             )}
 
-            {inlineSponsors.length > 0 && (
-              <div className="mt-4 md:hidden">
-                {inlineSponsors.map((sponsor: any) => (
+            <div className="flex-1 min-w-0 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-xl font-display font-bold text-foreground">
+                  {searchTerm
+                    ? `Resultados para "${searchTerm}"`
+                    : selectedCategoryName}
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {products?.length || 0} produtos
+                </span>
+              </div>
+
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
+                  <p className="text-muted-foreground text-sm">
+                    Carregando produtos...
+                  </p>
+                </div>
+              ) : error ? (
+                <div className="text-center py-16 bg-card rounded-md border border-border">
+                  <p className="text-destructive font-medium text-sm">
+                    Erro ao carregar produtos.
+                  </p>
+                </div>
+              ) : products?.length === 0 ? (
+                <div className="text-center py-16 bg-card rounded-md border border-dashed border-border">
+                  <ShoppingBag className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                  <h3 className="text-base font-bold text-foreground">
+                    Nenhum produto encontrado
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    Tente buscar por outro termo ou categoria.
+                  </p>
+                </div>
+              ) : (
+                <motion.div
+                  layout
+                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4"
+                >
+                  <AnimatePresence>
+                    {products?.map((product: any) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        saleMode={saleMode}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+
+              {inlineSponsors.length > 0 && (
+                <div className="mt-4 md:hidden">
+                  {inlineSponsors.map((sponsor: any) => (
+                    <a
+                      key={sponsor.id}
+                      href={sponsor.linkUrl || "#"}
+                      target={
+                        sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"
+                      }
+                      rel="noopener noreferrer"
+                      className="block rounded-md overflow-hidden border border-border hover-elevate mb-3"
+                      data-testid={`sponsor-inline-${sponsor.id}`}
+                    >
+                      <img
+                        src={sponsor.imageUrl}
+                        alt={sponsor.title || "Patrocinador"}
+                        className="w-full h-auto object-cover"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {sidebarSponsors.length > 0 && (
+              <aside className="hidden lg:block w-[200px] flex-shrink-0 space-y-3 sticky top-20 z-10">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 text-center">
+                  Publicidade
+                </p>
+                {sidebarSponsors.map((sponsor: any) => (
                   <a
                     key={sponsor.id}
                     href={sponsor.linkUrl || "#"}
@@ -1082,8 +1116,8 @@ export default function Home() {
                       sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"
                     }
                     rel="noopener noreferrer"
-                    className="block rounded-md overflow-hidden border border-border hover-elevate mb-3"
-                    data-testid={`sponsor-inline-${sponsor.id}`}
+                    className="block rounded-md overflow-hidden border border-border hover-elevate"
+                    data-testid={`sponsor-sidebar-${sponsor.id}`}
                   >
                     <img
                       src={sponsor.imageUrl}
@@ -1092,35 +1126,8 @@ export default function Home() {
                     />
                   </a>
                 ))}
-              </div>
+              </aside>
             )}
-          </div>
-
-          {sidebarSponsors.length > 0 && (
-            <aside className="hidden lg:block w-[200px] flex-shrink-0 space-y-3 sticky top-20 z-10">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 text-center">
-                Publicidade
-              </p>
-              {sidebarSponsors.map((sponsor: any) => (
-                <a
-                  key={sponsor.id}
-                  href={sponsor.linkUrl || "#"}
-                  target={
-                    sponsor.linkUrl?.startsWith("http") ? "_blank" : "_self"
-                  }
-                  rel="noopener noreferrer"
-                  className="block rounded-md overflow-hidden border border-border hover-elevate"
-                  data-testid={`sponsor-sidebar-${sponsor.id}`}
-                >
-                  <img
-                    src={sponsor.imageUrl}
-                    alt={sponsor.title || "Patrocinador"}
-                    className="w-full h-auto object-cover"
-                  />
-                </a>
-              ))}
-            </aside>
-          )}
           </div>
         )}
 
@@ -1146,10 +1153,11 @@ export default function Home() {
                   <div className="aspect-video">
                     <iframe
                       src={video.embedUrl}
-                      title={video.title || "Video"}
+                      title={video.title || "Vídeo"}
                       className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
+                      referrerPolicy="strict-origin-when-cross-origin"
                     />
                   </div>
                   {video.title && (
