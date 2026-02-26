@@ -123,12 +123,16 @@ function getSessionSecret(): string {
   return secret || crypto.randomBytes(64).toString("hex");
 }
 
-const rateLimitStore = new Map<string, { count: number; windowStart: number; lockedUntil: number }>();
-
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000;
 const IP_MAX_ATTEMPTS = 20;
+
+type RateLimitResult = {
+  allowed: boolean;
+  message?: string;
+  retryAfterSeconds?: number;
+};
 
 function normalizeIdentifier(id: string): string {
   const digits = id.replace(/\D/g, "");
@@ -137,19 +141,29 @@ function normalizeIdentifier(id: string): string {
 }
 
 function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
-  return req.socket.remoteAddress || "unknown";
+  return req.ip || req.socket.remoteAddress || "unknown";
 }
 
-function checkRateLimit(key: string, maxAttempts: number = MAX_ATTEMPTS): { allowed: boolean; message?: string; retryAfterSeconds?: number } {
-  const now = Date.now();
-  const record = rateLimitStore.get(key);
 
+async function checkRateLimit(key: string, maxAttempts: number = MAX_ATTEMPTS): Promise<RateLimitResult> {
+  const now = Date.now();
+  const result = await pool.query<{
+    count: number;
+    window_start: Date;
+    locked_until: Date | null;
+  }>(
+    `SELECT count, window_start, locked_until
+     FROM auth_rate_limits
+     WHERE key = $1`,
+    [key],
+  );
+
+  const record = result.rows[0];
   if (!record) return { allowed: true };
 
-  if (record.lockedUntil > now) {
-    const retryAfterSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+  const lockedUntil = record.locked_until ? new Date(record.locked_until).getTime() : 0;
+  if (lockedUntil > now) {
+    const retryAfterSeconds = Math.ceil((lockedUntil - now) / 1000);
     return {
       allowed: false,
       message: `Conta bloqueada temporariamente. Tente novamente em ${Math.ceil(retryAfterSeconds / 60)} minuto(s)`,
@@ -157,14 +171,20 @@ function checkRateLimit(key: string, maxAttempts: number = MAX_ATTEMPTS): { allo
     };
   }
 
-  if (now - record.windowStart > RATE_LIMIT_WINDOW) {
-    rateLimitStore.delete(key);
+  const windowStart = new Date(record.window_start).getTime();
+  if (now - windowStart > RATE_LIMIT_WINDOW) {
+    await clearAttempts(key);
     return { allowed: true };
   }
 
   if (record.count >= maxAttempts) {
-    record.lockedUntil = now + LOCKOUT_DURATION;
-    rateLimitStore.set(key, record);
+    const lockUntilDate = new Date(now + LOCKOUT_DURATION);
+    await pool.query(
+      `UPDATE auth_rate_limits
+       SET locked_until = $2
+       WHERE key = $1`,
+      [key, lockUntilDate],
+    );
     const retryAfterSeconds = Math.ceil(LOCKOUT_DURATION / 1000);
     return {
       allowed: false,
@@ -176,32 +196,34 @@ function checkRateLimit(key: string, maxAttempts: number = MAX_ATTEMPTS): { allo
   return { allowed: true };
 }
 
-function recordAttempt(key: string): void {
+async function recordAttempt(key: string): Promise<void> {
   const now = Date.now();
-  const record = rateLimitStore.get(key);
+  const windowStart = new Date(now);
+  const staleWindow = new Date(now - RATE_LIMIT_WINDOW);
 
-  if (!record || now - record.windowStart > RATE_LIMIT_WINDOW) {
-    rateLimitStore.set(key, { count: 1, windowStart: now, lockedUntil: 0 });
-    return;
-  }
-
-  record.count += 1;
-  rateLimitStore.set(key, record);
+  await pool.query(
+    `INSERT INTO auth_rate_limits (key, count, window_start, locked_until)
+     VALUES ($1, 1, $2, NULL)
+     ON CONFLICT (key) DO UPDATE SET
+       count = CASE
+         WHEN auth_rate_limits.window_start < $3 THEN 1
+         ELSE auth_rate_limits.count + 1
+       END,
+       window_start = CASE
+         WHEN auth_rate_limits.window_start < $3 THEN $2
+         ELSE auth_rate_limits.window_start
+       END,
+       locked_until = CASE
+         WHEN auth_rate_limits.window_start < $3 THEN NULL
+         ELSE auth_rate_limits.locked_until
+       END`,
+    [key, windowStart, staleWindow],
+  );
 }
 
-function clearAttempts(key: string): void {
-  rateLimitStore.delete(key);
+async function clearAttempts(key: string): Promise<void> {
+  await pool.query(`DELETE FROM auth_rate_limits WHERE key = $1`, [key]);
 }
-
-setInterval(() => {
-  const now = Date.now();
-  const entries = Array.from(rateLimitStore.entries());
-  for (const [key, record] of entries) {
-    if (now - record.windowStart > RATE_LIMIT_WINDOW && record.lockedUntil < now) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
 
 function requireAuth(req: Request, res: Response): number | null {
   if (!req.session.userId) {
@@ -344,11 +366,11 @@ export async function registerRoutes(
 
       const ip = getClientIp(req);
       const registerKey = `register:${ip}`;
-      const rateCheck = checkRateLimit(registerKey, IP_MAX_ATTEMPTS);
+      const rateCheck = await checkRateLimit(registerKey, IP_MAX_ATTEMPTS);
       if (!rateCheck.allowed) {
         return res.status(429).json({ message: rateCheck.message });
       }
-      recordAttempt(registerKey);
+      await recordAttempt(registerKey);
 
       const user = await storage.registerUser({ name, email, password, phone, displayName });
       req.session.userId = user.id;
@@ -370,24 +392,24 @@ export async function registerRoutes(
       const loginKey = `login:${normalizeIdentifier(loginId)}`;
       const ipKey = `login-ip:${getClientIp(req)}`;
 
-      const userCheck = checkRateLimit(loginKey);
+      const userCheck = await checkRateLimit(loginKey);
       if (!userCheck.allowed) {
         return res.status(429).json({ message: userCheck.message, retryAfterSeconds: userCheck.retryAfterSeconds });
       }
-      const ipCheck = checkRateLimit(ipKey);
+      const ipCheck = await checkRateLimit(ipKey);
       if (!ipCheck.allowed) {
         return res.status(429).json({ message: ipCheck.message, retryAfterSeconds: ipCheck.retryAfterSeconds });
       }
 
       const user = await storage.loginUser(loginId, password);
       if (!user) {
-        recordAttempt(loginKey);
-        recordAttempt(ipKey);
+        await recordAttempt(loginKey);
+        await recordAttempt(ipKey);
         return res.status(401).json({ message: "Email/telefone ou senha incorretos" });
       }
 
-      clearAttempts(loginKey);
-      clearAttempts(ipKey);
+      await clearAttempts(loginKey);
+      await clearAttempts(ipKey);
 
       req.session.regenerate((err) => {
         if (err) {
@@ -414,11 +436,11 @@ export async function registerRoutes(
       }
       const ip = getClientIp(req);
       const resetKey = `reset:${ip}`;
-      const rateCheck = checkRateLimit(resetKey, 5);
+      const rateCheck = await checkRateLimit(resetKey, 5);
       if (!rateCheck.allowed) {
         return res.status(429).json({ message: rateCheck.message });
       }
-      recordAttempt(resetKey);
+      await recordAttempt(resetKey);
 
       await storage.createPasswordResetToken(email.trim());
       res.json({ message: "Se o email estiver cadastrado, voce recebera instrucoes para redefinir sua senha." });
@@ -449,8 +471,11 @@ export async function registerRoutes(
 
   app.post("/api/auth/logout", (req: Request, res: Response) => {
     req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Erro ao encerrar sessao" });
+      }
       res.clearCookie("connect.sid");
-      res.json({ ok: true });
+      return res.json({ ok: true });
     });
   });
 

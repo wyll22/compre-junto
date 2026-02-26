@@ -8,6 +8,13 @@
       "when": 1771991612668,
       "tag": "0000_crazy_sister_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772129512359,
+      "tag": "0001_auth_rate_limits",
+      "breakpoints": true
     }
   ]
 }
