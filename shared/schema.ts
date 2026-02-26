@@ -33,6 +33,14 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+
+export const authRateLimits = pgTable("auth_rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStart: timestamp("window_start").notNull().defaultNow(),
+  lockedUntil: timestamp("locked_until"),
+});
+
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

@@ -144,16 +144,6 @@ function getClientIp(req: Request): string {
   return req.ip || req.socket.remoteAddress || "unknown";
 }
 
-async function ensureRateLimitTable(): Promise<void> {
-  await pool.query(
-    `CREATE TABLE IF NOT EXISTS auth_rate_limits (
-      key text PRIMARY KEY,
-      count integer NOT NULL,
-      window_start timestamptz NOT NULL,
-      locked_until timestamptz
-    )`,
-  );
-}
 
 async function checkRateLimit(key: string, maxAttempts: number = MAX_ATTEMPTS): Promise<RateLimitResult> {
   const now = Date.now();
@@ -285,8 +275,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
-  await ensureRateLimitTable();
-
   const PgStore = pgSession(session);
 
   app.set("trust proxy", 1);
