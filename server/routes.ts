@@ -28,17 +28,41 @@ function stripHtmlTags(str: string): string {
     .replace(/on\w+\s*=/gi, "");
 }
 
+const SENSITIVE_INPUT_KEYS = new Set([
+  "password",
+  "currentpassword",
+  "newpassword",
+  "token",
+  "authorization",
+  "secret",
+  "accesstoken",
+  "refreshtoken",
+  "apikey",
+]);
+
+function isSensitiveInputKey(key: string): boolean {
+  return SENSITIVE_INPUT_KEYS.has(key.replace(/[_-]/g, "").toLowerCase());
+}
+
 function sanitizeInput(obj: any): any {
-  if (typeof obj === "string") return stripHtmlTags(obj);
-  if (Array.isArray(obj)) return obj.map(sanitizeInput);
-  if (obj && typeof obj === "object") {
-    const clean: Record<string, any> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      clean[key] = sanitizeInput(value);
+  function sanitizeValue(value: any, pathIsSensitive: boolean = false): any {
+    if (pathIsSensitive) return value;
+
+    if (typeof value === "string") {
+      return stripHtmlTags(value);
     }
-    return clean;
+    if (Array.isArray(value)) return value.map((item) => sanitizeValue(item, pathIsSensitive));
+    if (value && typeof value === "object") {
+      const clean: Record<string, any> = {};
+      for (const [k, v] of Object.entries(value)) {
+        clean[k] = sanitizeValue(v, isSensitiveInputKey(k));
+      }
+      return clean;
+    }
+    return value;
   }
-  return obj;
+
+  return sanitizeValue(obj);
 }
 
 declare module "express-session" {
@@ -267,7 +291,14 @@ async function auditLog(req: Request, userId: number, action: string, entity: st
       details,
       ipAddress: getClientIp(req),
     });
-  } catch {
+  } catch (err) {
+    console.error("Audit log failed:", {
+      action,
+      entity,
+      entityId,
+      userId,
+      error: err,
+    });
   }
 }
 
@@ -1951,8 +1982,10 @@ export async function registerRoutes(
     }
   });
 
-  storage.seedProducts().catch(console.error);
-  storage.seedCategories().catch(console.error);
+  if (process.env.NODE_ENV !== "production" || process.env.ENABLE_BOOTSTRAP_SEED === "true") {
+    storage.seedProducts().catch(console.error);
+    storage.seedCategories().catch(console.error);
+  }
 
   return httpServer;
 }
