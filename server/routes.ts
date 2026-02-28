@@ -139,6 +139,24 @@ function parseAllowedOrigins(): string[] {
   return Array.from(origins);
 }
 
+function getRequestOrigins(req: Request): string[] {
+  const candidates = new Set<string>();
+  const host = req.get("x-forwarded-host") || req.get("host");
+  const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+  if (host) {
+    candidates.add(normalizeOrigin(`${proto}://${host}`));
+    candidates.add(normalizeOrigin(`https://${host}`));
+    candidates.add(normalizeOrigin(`http://${host}`));
+  }
+  return Array.from(candidates);
+}
+
+function isAllowedRequestOrigin(candidate: string, allowedOrigins: string[], req: Request): boolean {
+  const normalized = normalizeOrigin(candidate);
+  if (allowedOrigins.includes(normalized)) return true;
+  return getRequestOrigins(req).includes(normalized);
+}
+
 function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret && process.env.NODE_ENV === "production") {
@@ -311,25 +329,44 @@ export async function registerRoutes(
   app.set("trust proxy", 1);
 
   app.use(helmet({
-    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+    contentSecurityPolicy: process.env.NODE_ENV === "production"
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            baseUri: ["'self'"],
+            fontSrc: ["'self'", "https:", "data:"],
+            formAction: ["'self'"],
+            frameAncestors: ["'self'"],
+            frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com"],
+            imgSrc: ["'self'", "data:", "https:"],
+            objectSrc: ["'none'"],
+            scriptSrc: ["'self'"],
+            scriptSrcAttr: ["'none'"],
+            styleSrc: ["'self'", "https:", "'unsafe-inline'"],
+            upgradeInsecureRequests: [],
+          },
+        }
+      : false,
     crossOriginEmbedderPolicy: false,
   }));
 
   const allowedOrigins = parseAllowedOrigins();
 
-  app.use(cors({
-    origin: (origin, callback) => {
-      const normalizedOrigin = origin ? normalizeOrigin(origin) : "";
-      if (!origin || allowedOrigins.includes(normalizedOrigin) || (process.env.NODE_ENV !== "production" && origin.includes(".replit.app"))) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }));
+  app.use((req, res, next) => {
+    cors({
+      origin: (origin, callback) => {
+        const normalizedOrigin = origin ? normalizeOrigin(origin) : "";
+        if (!origin || isAllowedRequestOrigin(normalizedOrigin, allowedOrigins, req) || (process.env.NODE_ENV !== "production" && origin.includes(".replit.app"))) {
+          callback(null, true);
+        } else {
+          callback(null, false);
+        }
+      },
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    })(req, res, next);
+  });
 
   app.use(
     session({
@@ -361,9 +398,11 @@ export async function registerRoutes(
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!MUTATION_METHODS.has(req.method)) return next();
     if (process.env.NODE_ENV !== "production") return next();
+
     const origin = req.headers.origin;
     const referer = req.headers.referer;
-    const isAllowed = (candidate: string) => allowedOrigins.includes(normalizeOrigin(candidate));
+    const secFetchSite = (req.headers["sec-fetch-site"] || "").toString().toLowerCase();
+    const isAllowed = (candidate: string) => isAllowedRequestOrigin(candidate, allowedOrigins, req);
 
     if (origin) {
       if (!isAllowed(origin)) {
@@ -371,6 +410,7 @@ export async function registerRoutes(
       }
       return next();
     }
+
     if (referer) {
       const refererOrigin = (() => {
         try {
@@ -379,11 +419,17 @@ export async function registerRoutes(
           return "";
         }
       })();
+
       if (!refererOrigin || !isAllowed(refererOrigin)) {
         return res.status(403).json({ message: "Origem invalida" });
       }
       return next();
     }
+
+    if (secFetchSite === "same-origin" || secFetchSite === "none") {
+      return next();
+    }
+
     return res.status(403).json({ message: "Origem nao identificada" });
   });
 
@@ -618,16 +664,20 @@ export async function registerRoutes(
   });
 
   app.get("/api/categories", async (req: Request, res: Response) => {
-    const parentId = req.query.parentId;
-    let result;
-    if (parentId === "null" || parentId === "0") {
-      result = await storage.getCategories(null);
-    } else if (parentId) {
-      result = await storage.getCategories(Number(parentId));
-    } else {
-      result = await storage.getCategories();
+    try {
+      const parentId = req.query.parentId;
+      let result;
+      if (parentId === "null" || parentId === "0") {
+        result = await storage.getCategories(null);
+      } else if (parentId) {
+        result = await storage.getCategories(Number(parentId));
+      } else {
+        result = await storage.getCategories();
+      }
+      res.json(result);
+    } catch {
+      res.json([]);
     }
-    res.json(result);
   });
 
   app.get("/api/categories/:id", async (req: Request, res: Response) => {
@@ -689,20 +739,24 @@ export async function registerRoutes(
   });
 
   app.get("/api/products", async (req: Request, res: Response) => {
-    const category = req.query.category as string | undefined;
-    const search = req.query.search as string | undefined;
-    const saleMode = req.query.saleMode as string | undefined;
-    const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
-    const subcategoryId = req.query.subcategoryId ? Number(req.query.subcategoryId) : undefined;
-    const brand = req.query.brand as string | undefined;
-    const minPrice = req.query.minPrice ? Number(req.query.minPrice) : undefined;
-    const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : undefined;
-    const filterOptionIdsRaw = req.query.filterOptionIds as string | undefined;
-    const filterOptionIds = filterOptionIdsRaw ? filterOptionIdsRaw.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
-    const hasFilters = brand || minPrice !== undefined || maxPrice !== undefined || (filterOptionIds && filterOptionIds.length > 0);
-    const filters = hasFilters ? { brand, minPrice, maxPrice, filterOptionIds } : undefined;
-    const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId, filters);
-    res.json(products);
+    try {
+      const category = req.query.category as string | undefined;
+      const search = req.query.search as string | undefined;
+      const saleMode = req.query.saleMode as string | undefined;
+      const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
+      const subcategoryId = req.query.subcategoryId ? Number(req.query.subcategoryId) : undefined;
+      const brand = req.query.brand as string | undefined;
+      const minPrice = req.query.minPrice ? Number(req.query.minPrice) : undefined;
+      const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : undefined;
+      const filterOptionIdsRaw = req.query.filterOptionIds as string | undefined;
+      const filterOptionIds = filterOptionIdsRaw ? filterOptionIdsRaw.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
+      const hasFilters = brand || minPrice !== undefined || maxPrice !== undefined || (filterOptionIds && filterOptionIds.length > 0);
+      const filters = hasFilters ? { brand, minPrice, maxPrice, filterOptionIds } : undefined;
+      const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId, filters);
+      res.json(products);
+    } catch {
+      res.json([]);
+    }
   });
 
   app.get("/api/products/all", async (req: Request, res: Response) => {
@@ -722,8 +776,12 @@ export async function registerRoutes(
   });
 
   app.get("/api/featured-products", async (_req: Request, res: Response) => {
-    const items = await storage.getFeaturedProducts(true);
-    res.json(items);
+    try {
+      const items = await storage.getFeaturedProducts(true);
+      res.json(items);
+    } catch {
+      res.json([]);
+    }
   });
 
   app.get("/api/admin/featured-products", async (req: Request, res: Response) => {
@@ -1040,10 +1098,14 @@ export async function registerRoutes(
   });
 
   app.get("/api/groups", async (req: Request, res: Response) => {
-    const productId = req.query.productId ? Number(req.query.productId) : undefined;
-    const status = req.query.status as string | undefined;
-    const groups = await storage.getGroups(productId, status);
-    res.json(groups);
+    try {
+      const productId = req.query.productId ? Number(req.query.productId) : undefined;
+      const status = req.query.status as string | undefined;
+      const groups = await storage.getGroups(productId, status);
+      res.json(groups);
+    } catch {
+      res.json([]);
+    }
   });
 
   app.get("/api/groups/:id", async (req: Request, res: Response) => {
@@ -1162,9 +1224,13 @@ export async function registerRoutes(
   });
 
   app.get("/api/banners", async (req: Request, res: Response) => {
-    const activeOnly = req.query.active === "true";
-    const banners = await storage.getBanners(activeOnly);
-    res.json(banners);
+    try {
+      const activeOnly = req.query.active === "true";
+      const banners = await storage.getBanners(activeOnly);
+      res.json(banners);
+    } catch {
+      res.json([]);
+    }
   });
 
   app.post("/api/banners", async (req: Request, res: Response) => {
@@ -1205,9 +1271,13 @@ export async function registerRoutes(
   });
 
   app.get("/api/videos", async (req: Request, res: Response) => {
-    const activeOnly = req.query.active === "true";
-    const videos = await storage.getVideos(activeOnly);
-    res.json(videos);
+    try {
+      const activeOnly = req.query.active === "true";
+      const videos = await storage.getVideos(activeOnly);
+      res.json(videos);
+    } catch {
+      res.json([]);
+    }
   });
 
   app.post("/api/videos", async (req: Request, res: Response) => {
@@ -1795,8 +1865,8 @@ export async function registerRoutes(
       const activeOnly = req.query.active === "true";
       const links = await storage.getNavigationLinks(location, activeOnly);
       res.json(links);
-    } catch (err: any) {
-      res.status(500).json({ message: "Erro ao buscar links" });
+    } catch {
+      res.json([]);
     }
   });
 
@@ -1842,8 +1912,8 @@ export async function registerRoutes(
     try {
       const banners = await storage.getSponsorBanners(true);
       res.json(banners);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
+    } catch {
+      res.json([]);
     }
   });
 
