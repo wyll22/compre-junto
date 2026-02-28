@@ -393,7 +393,7 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
-      const { name, email, password, phone, displayName } = parsed.data;
+      const { name, email, password, phone, displayName, acceptTerms, acceptPrivacy } = parsed.data;
 
       const ip = getClientIp(req);
       const registerKey = `register:${ip}`;
@@ -403,7 +403,7 @@ export async function registerRoutes(
       }
       await recordAttempt(registerKey);
 
-      const user = await storage.registerUser({ name, email, password, phone, displayName });
+      const user = await storage.registerUser({ name, email, password, phone, displayName, acceptTerms, acceptPrivacy });
       req.session.userId = user.id;
       res.status(201).json(user);
     } catch (err: any) {
@@ -505,6 +505,38 @@ export async function registerRoutes(
       if (err) {
         return res.status(500).json({ message: "Erro ao encerrar sessao" });
       }
+      res.clearCookie("connect.sid");
+      return res.json({ ok: true });
+    });
+  });
+
+  app.delete("/api/auth/account", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+
+    const deleteAccountSchema = z.object({
+      password: z.string().min(1, "Senha obrigatoria"),
+      confirmation: z.literal("EXCLUIR", { errorMap: () => ({ message: "Digite EXCLUIR para confirmar" }) }),
+    });
+
+    const parsed = deleteAccountSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parseZodError(parsed.error) });
+    }
+
+    const user = await storage.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Usuario nao encontrado" });
+    }
+
+    const verified = await storage.loginUser(user.email, parsed.data.password);
+    if (!verified || verified.id !== userId) {
+      return res.status(401).json({ message: "Senha incorreta" });
+    }
+
+    await storage.deleteUserAccount(userId);
+
+    req.session.destroy((_err) => {
       res.clearCookie("connect.sid");
       return res.json({ ok: true });
     });

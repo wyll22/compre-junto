@@ -538,9 +538,13 @@ function AddressTab({ user }: { user: AuthUser }) {
 
 function SecurityTab() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const changePassword = useMutation({
     mutationFn: async (data: {
@@ -564,6 +568,36 @@ function SecurityTab() {
       });
     },
   });
+
+
+
+  const deleteAccount = useMutation({
+    mutationFn: async (data: { password: string; confirmation: string }) => {
+      const res = await apiRequest("DELETE", "/api/auth/account", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(["/api/auth/me"], null);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "Conta excluida", description: "Seus dados de conta foram removidos." });
+      setLocation("/");
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const handleDeleteAccount = () => {
+    if (!deletePassword.trim()) {
+      toast({ title: "Erro", description: "Informe sua senha para confirmar", variant: "destructive" });
+      return;
+    }
+    if (deleteConfirmation.trim().toUpperCase() !== "EXCLUIR") {
+      toast({ title: "Erro", description: "Digite EXCLUIR para confirmar", variant: "destructive" });
+      return;
+    }
+    deleteAccount.mutate({ password: deletePassword, confirmation: "EXCLUIR" });
+  };
 
   const handleChangePassword = () => {
     if (!currentPassword) {
@@ -666,6 +700,59 @@ function SecurityTab() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card className="border-destructive/40">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-4 h-4" />
+            Excluir Conta (LGPD)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Esta acao e permanente e remove seus dados de cadastro e historico de conta.
+          </p>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="delete-password">Senha atual</Label>
+            <Input
+              data-testid="input-delete-account-password"
+              id="delete-password"
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Digite sua senha"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="delete-confirm">Digite EXCLUIR para confirmar</Label>
+            <Input
+              data-testid="input-delete-account-confirmation"
+              id="delete-confirm"
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder="EXCLUIR"
+            />
+          </div>
+
+          <Button
+            data-testid="button-delete-account"
+            variant="destructive"
+            onClick={handleDeleteAccount}
+            disabled={deleteAccount.isPending}
+            className="w-full"
+          >
+            {deleteAccount.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 mr-1.5" />
+            )}
+            Excluir minha conta
+          </Button>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }

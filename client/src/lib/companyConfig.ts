@@ -15,4 +15,13 @@ export const companyConfig = {
     instagram: "https://instagram.com/comprajuntoformosa",
   },
   googleMapsUrl: "https://www.google.com/maps/search/?api=1&query=Rua+Exemplo+123+Centro+Formosa+GO",
+  pagamentos: {
+    pix: {
+      chave: "pix@comprajuntoformosa.com",
+      tipoChave: "email",
+      nomeRecebedor: "Compra Junto Formosa",
+      banco: "Banco Exemplo",
+      ativo: true,
+    },
+  },
 };

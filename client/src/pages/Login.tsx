@@ -30,6 +30,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
@@ -89,12 +91,18 @@ export default function Login() {
           toast({ title: "Erro", description: "Telefone deve ter 11 digitos (DDD + 9 digitos)", variant: "destructive" });
           return;
         }
+        if (!acceptTerms || !acceptPrivacy) {
+          toast({ title: "Erro", description: "Aceite os Termos de Uso e a Politica de Privacidade para continuar", variant: "destructive" });
+          return;
+        }
         await register.mutateAsync({
           name: name.trim(),
           email: email.trim(),
           password,
           phone: phone.trim(),
           displayName: displayName.trim(),
+          acceptTerms,
+          acceptPrivacy,
         });
         toast({ title: "Conta criada!", description: `Bem-vindo${displayName ? ", " + displayName : ""}! Sua conta foi criada com sucesso.` });
       } else {
@@ -402,6 +410,36 @@ export default function Login() {
                           </div>
                         )}
                       </div>
+
+
+                      <div className="space-y-2 rounded-md border border-border p-3">
+                        <label className="flex items-start gap-2 text-xs text-foreground">
+                          <input
+                            data-testid="input-accept-terms"
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={acceptTerms}
+                            onChange={(e) => setAcceptTerms(e.target.checked)}
+                            required
+                          />
+                          <span>
+                            Li e aceito os <Link href="/termos" className="text-primary underline">Termos de Uso</Link>.
+                          </span>
+                        </label>
+                        <label className="flex items-start gap-2 text-xs text-foreground">
+                          <input
+                            data-testid="input-accept-privacy"
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={acceptPrivacy}
+                            onChange={(e) => setAcceptPrivacy(e.target.checked)}
+                            required
+                          />
+                          <span>
+                            Li e aceito a <Link href="/privacidade" className="text-primary underline">Politica de Privacidade</Link>.
+                          </span>
+                        </label>
+                      </div>
                     </>
                   ) : (
                     <>
@@ -474,7 +512,7 @@ export default function Login() {
                 </div>
 
                 <div className="mt-3 p-2 bg-muted rounded-md text-[11px] text-muted-foreground">
-                  <strong>Admin:</strong> admin@comprajuntoformosa.com / admin123
+                  Dica: use uma senha forte e nao compartilhe seus dados de acesso.
                 </div>
               </>
             )}

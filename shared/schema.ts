@@ -30,6 +30,9 @@ export const users = pgTable("users", {
   addressCity: text("address_city").default(""),
   addressState: text("address_state").default(""),
   pickupPointId: integer("pickup_point_id"),
+  acceptedTermsAt: timestamp("accepted_terms_at"),
+  acceptedPrivacyAt: timestamp("accepted_privacy_at"),
+  termsVersion: text("terms_version").default("2026-02"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -234,6 +237,17 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull().default("info"),
+  referenceId: integer("reference_id"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
@@ -429,6 +443,8 @@ export const registerSchema = z.object({
   password: passwordSchema,
   phone: phoneSchema,
   displayName: z.string().max(100).optional().default(""),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Voce precisa aceitar os Termos de Uso" }) }),
+  acceptPrivacy: z.literal(true, { errorMap: () => ({ message: "Voce precisa aceitar a Politica de Privacidade" }) }),
 });
 
 export const loginSchema = z.object({
