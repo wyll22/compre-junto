@@ -59,6 +59,8 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/carrinho" component={Cart} />
       <Route path="/login" component={Login} />
+      <Route path="/cadastro" component={Login} />
+      <Route path="/register" component={Login} />
       <Route path="/produto/:id" component={ProductDetail} />
       <Route path="/minha-conta" component={Account} />
       <Route path="/privacidade" component={Privacidade} />
