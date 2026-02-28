@@ -14,8 +14,8 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
   const yellowFill = resolvedVariant === "white" ? "#FFFFFF" : "#D4A62A";
 
   const sizeClass = size === "header"
-    ? "h-[36px] md:h-[42px] lg:h-[48px] w-auto"
-    : "h-[80px] md:h-[100px] lg:h-[120px] w-auto";
+    ? "h-[44px] md:h-[52px] lg:h-[58px] w-auto"
+    : "h-[96px] md:h-[120px] lg:h-[140px] w-auto";
 
   const containerClass = size === "header"
     ? "flex items-center"
