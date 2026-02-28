@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 import { Footer } from "@/components/Footer";
+import { companyConfig } from "@/lib/companyConfig";
 
 interface CartItem {
   productId: number;
@@ -356,6 +357,7 @@ export default function Cart() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
   const [orderFulfillment, setOrderFulfillment] = useState<string | null>(null);
+  const [orderTotal, setOrderTotal] = useState<number>(0);
   const [selectedPickupPointId, setSelectedPickupPointId] = useState<number | null>(null);
   const { data: user } = useAuth();
   const [, setLocation] = useLocation();
@@ -441,6 +443,7 @@ export default function Cart() {
     onSuccess: (data: any) => {
       setOrderSuccess(data.id);
       setOrderFulfillment(data.fulfillmentType || cartFulfillmentType);
+      setOrderTotal(Number(data.total || total));
       saveCart([]);
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
     },
@@ -448,6 +451,26 @@ export default function Cart() {
       toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
     },
   });
+
+  const pixConfig = companyConfig.pagamentos?.pix;
+
+  const copyPixKey = async () => {
+    if (!pixConfig?.ativo || !pixConfig.chave) return;
+    try {
+      await navigator.clipboard.writeText(pixConfig.chave);
+      toast({ title: "Chave PIX copiada!", description: "Cole no app do seu banco para pagar." });
+    } catch {
+      toast({ title: "Nao foi possivel copiar", description: "Copie a chave manualmente abaixo.", variant: "destructive" });
+    }
+  };
+
+  const openWhatsAppPayment = () => {
+    const orderLabel = orderSuccess ? `Pedido #${orderSuccess}` : "Pedido";
+    const totalLabel = Number(orderTotal || total || 0).toFixed(2);
+    const text = encodeURIComponent(`${orderLabel} - gostaria de confirmar o pagamento (R$ ${totalLabel}).`);
+    const wa = `https://wa.me/${companyConfig.whatsappNumero}?text=${text}`;
+    window.open(wa, "_blank", "noopener,noreferrer");
+  };
 
   const handleCheckout = () => {
     if (!user) {
@@ -531,9 +554,29 @@ export default function Cart() {
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <Smartphone className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div>
+                  <div className="w-full">
                     <p className="text-sm font-medium">PIX</p>
-                    <p className="text-xs text-muted-foreground">Enviaremos a chave PIX por WhatsApp para pagamento imediato.</p>
+                    {pixConfig?.ativo ? (
+                      <div className="mt-1 space-y-1.5">
+                        <p className="text-xs text-muted-foreground">
+                          Pague agora com copia-e-cola para agilizar seu pedido.
+                        </p>
+                        <div className="rounded-md border border-border p-2 bg-muted/40">
+                          <p className="text-[11px] text-muted-foreground">Chave ({pixConfig.tipoChave}):</p>
+                          <p className="text-xs font-semibold break-all" data-testid="text-pix-key">{pixConfig.chave}</p>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button size="sm" variant="outline" onClick={copyPixKey} data-testid="button-copy-pix-key">
+                            Copiar chave PIX
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={openWhatsAppPayment} data-testid="button-open-whatsapp-payment">
+                            Confirmar no WhatsApp
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Enviaremos a chave PIX por WhatsApp para pagamento imediato.</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -545,7 +588,7 @@ export default function Cart() {
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground mt-3 pt-2 border-t border-border">
-                Entraremos em contato pelo WhatsApp para combinar o pagamento.
+                Se precisar, nossa equipe tambem confirma o pagamento pelo WhatsApp.
               </p>
             </CardContent>
           </Card>

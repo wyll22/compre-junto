@@ -93,6 +93,9 @@ type UserRow = {
   addressCity: string | null;
   addressState: string | null;
   pickupPointId: number | null;
+  acceptedTermsAt: Date | string | null;
+  acceptedPrivacyAt: Date | string | null;
+  termsVersion: string | null;
   createdAt?: Date | string | null;
 };
 
@@ -188,7 +191,7 @@ export interface IStorage {
   updateVideo(id: number, input: any): Promise<VideoRow | null>;
   deleteVideo(id: number): Promise<void>;
 
-  registerUser(input: { name: string; email: string; password: string; phone?: string; displayName?: string }): Promise<UserRow>;
+  registerUser(input: { name: string; email: string; password: string; phone?: string; displayName?: string; acceptTerms: boolean; acceptPrivacy: boolean }): Promise<UserRow>;
   loginUser(identifier: string, password: string): Promise<UserRow | null>;
   getUserById(id: number): Promise<UserRow | null>;
   updateUser(id: number, input: Partial<{
@@ -201,6 +204,7 @@ export interface IStorage {
   createPasswordResetToken(email: string): Promise<{ token: string; userName: string } | null>;
   updateUserRole(id: number, role: string): Promise<UserRow | null>;
   getUserByEmail(email: string): Promise<UserRow | null>;
+  deleteUserAccount(userId: number): Promise<void>;
 
   createOrder(input: { userId: number; items: any; total: string; fulfillmentType: string; pickupPointId?: number | null }): Promise<OrderRow>;
   getOrders(userId?: number): Promise<OrderRow[]>;
@@ -399,7 +403,7 @@ const PICKUP_POINT_SELECT = `
   created_at AS "createdAt"
 `;
 
-const USER_SELECT = `id, name, display_name AS "displayName", email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", address_cep AS "addressCep", address_street AS "addressStreet", address_number AS "addressNumber", address_complement AS "addressComplement", address_district AS "addressDistrict", address_city AS "addressCity", address_state AS "addressState", pickup_point_id AS "pickupPointId", created_at AS "createdAt"`;
+const USER_SELECT = `id, name, display_name AS "displayName", email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", address_cep AS "addressCep", address_street AS "addressStreet", address_number AS "addressNumber", address_complement AS "addressComplement", address_district AS "addressDistrict", address_city AS "addressCity", address_state AS "addressState", pickup_point_id AS "pickupPointId", accepted_terms_at AS "acceptedTermsAt", accepted_privacy_at AS "acceptedPrivacyAt", terms_version AS "termsVersion", created_at AS "createdAt"`;
 
 class DatabaseStorage implements IStorage {
   async getCategories(parentId?: number | null): Promise<CategoryRow[]> {
@@ -974,16 +978,16 @@ class DatabaseStorage implements IStorage {
     await pool.query(`DELETE FROM videos WHERE id = $1`, [id]);
   }
 
-  async registerUser(input: { name: string; email: string; password: string; phone?: string; displayName?: string }): Promise<UserRow> {
+  async registerUser(input: { name: string; email: string; password: string; phone?: string; displayName?: string; acceptTerms: boolean; acceptPrivacy: boolean }): Promise<UserRow> {
     const existing = await pool.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [input.email.toLowerCase()]);
     if (existing.rows.length) throw new Error("Email ja cadastrado");
 
     const hashedPassword = await bcrypt.hash(input.password, 10);
     const result = await pool.query(
-      `INSERT INTO users (name, display_name, email, password, phone, role)
-      VALUES ($1, $2, $3, $4, $5, 'user')
+      `INSERT INTO users (name, display_name, email, password, phone, role, accepted_terms_at, accepted_privacy_at, terms_version)
+      VALUES ($1, $2, $3, $4, $5, 'user', NOW(), NOW(), $6)
       RETURNING ${USER_SELECT}`,
-      [input.name, input.displayName || "", input.email.toLowerCase(), hashedPassword, input.phone || ""],
+      [input.name, input.displayName || "", input.email.toLowerCase(), hashedPassword, input.phone || "", "2026-02"],
     );
     return result.rows[0] as UserRow;
   }
@@ -1086,6 +1090,28 @@ class DatabaseStorage implements IStorage {
       [email],
     );
     return (result.rows[0] as UserRow | undefined) ?? null;
+  }
+
+  async deleteUserAccount(userId: number): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM order_status_history WHERE order_id IN (SELECT id FROM orders WHERE user_id = $1)`, [userId]);
+      await client.query(`DELETE FROM orders WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM members WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM notifications WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM site_visits WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM audit_logs WHERE user_id = $1`, [userId]);
+      await client.query(`UPDATE products SET created_by = NULL WHERE created_by = $1`, [userId]);
+      await client.query(`UPDATE articles SET author_id = NULL WHERE author_id = $1`, [userId]);
+      await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async createPasswordResetToken(email: string): Promise<{ token: string; userName: string } | null> {
