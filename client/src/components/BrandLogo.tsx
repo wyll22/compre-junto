@@ -14,14 +14,14 @@ export function BrandLogo({ size = "header", variant, className = "" }: BrandLog
   const yellowFill = resolvedVariant === "white" ? "#FFFFFF" : "#D4A62A";
 
   const sizeClass = size === "header"
-    ? "h-[44px] md:h-[52px] lg:h-[58px] w-auto"
+    ? "h-[56px] md:h-[64px] lg:h-[72px] xl:h-[80px] w-auto"
     : "h-[96px] md:h-[120px] lg:h-[140px] w-auto";
 
   const containerClass = size === "header"
     ? "flex items-center"
     : "flex items-center justify-center";
 
-  const bgClass = size === "header" ? "bg-white rounded-lg inline-flex p-1" : "";
+  const bgClass = size === "header" ? "rounded-md inline-flex p-0.5 bg-white/90" : "";
 
   return (
     <div className={`${containerClass} ${className}`} data-testid="brand-logo">

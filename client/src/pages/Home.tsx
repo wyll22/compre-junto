@@ -368,7 +368,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="brand-gradient sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 lg:py-4">
           <div className="flex items-center justify-between gap-3">
             <Link href="/" data-testid="link-brand-logo">
               <BrandLogo size="header" />
@@ -385,7 +385,7 @@ export default function Home() {
                 data-testid="input-search"
                 type="text"
                 placeholder="O que voce procura?"
-                className="pl-10 pr-8 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25 focus:border-white/40"
+                className="pl-10 pr-8 h-11 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25 focus:border-white/40"
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() =>
@@ -547,7 +547,7 @@ export default function Home() {
                 data-testid="input-search-mobile"
                 type="text"
                 placeholder="O que voce procura?"
-                className="pl-10 pr-8 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25"
+                className="pl-10 pr-8 h-11 rounded-md bg-white/15 border-white/20 text-white placeholder:text-white/60 focus:bg-white/25"
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() =>
