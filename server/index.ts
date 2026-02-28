@@ -77,6 +77,9 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
+      const suppressAuthMeLog = path === "/api/auth/me" && res.statusCode === 401;
+      if (suppressAuthMeLog) return;
+
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         const sanitized = sanitizeForLog(capturedJsonResponse);
@@ -92,6 +95,10 @@ app.use((req, res, next) => {
 
 (async () => {
   await registerRoutes(httpServer, app);
+
+  app.use("/api", (_req: Request, res: Response) => {
+    return res.status(404).json({ message: "Rota de API nao encontrada" });
+  });
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

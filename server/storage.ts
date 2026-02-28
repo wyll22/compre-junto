@@ -1623,14 +1623,6 @@ class DatabaseStorage implements IStorage {
         await this.createProduct(p);
       }
 
-      const adminExists = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
-      if (!adminExists.rows.length) {
-        const hashedPassword = await bcrypt.hash("admin123", 10);
-        await pool.query(
-          `INSERT INTO users (name, email, password, phone, role) VALUES ($1, $2, $3, $4, $5)`,
-          ["Administrador", "admin@comprajuntoformosa.com", hashedPassword, "", "admin"],
-        );
-      }
     } catch (error) {
       console.error("Erro ao semear produtos:", error);
     }

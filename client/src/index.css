@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700&family=Outfit:wght@500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-sans: 'DM Sans', sans-serif;
-  --font-display: 'Outfit', sans-serif;
+  --font-sans: Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
   --background: 42 25% 95%;
   --foreground: 220 26% 14%;

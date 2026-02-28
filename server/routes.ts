@@ -116,6 +116,27 @@ function normalizeOrigin(value: string): string {
   }
 }
 
+function isTrustedReplitDomain(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname.toLowerCase();
+    return host.endsWith(".replit.app") || host.endsWith(".repl.co") || host.endsWith(".replit.dev");
+  } catch {
+    return false;
+  }
+}
+
+function isPreviewEnvironment(): boolean {
+  const envHints = [
+    process.env.REPLIT_DEPLOYMENT_TYPE,
+    process.env.REPLIT_ENVIRONMENT,
+    process.env.REPL_DEPLOYMENT_TYPE,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
+
+  return envHints.some((value) => value.includes("preview"));
+}
+
 function parseAllowedOrigins(): string[] {
   const appDomain = process.env.APP_DOMAIN?.trim();
   const customOrigins = process.env.CORS_ALLOWED_ORIGINS
@@ -137,6 +158,20 @@ function parseAllowedOrigins(): string[] {
   }
 
   return Array.from(origins);
+}
+
+function buildOriginMatcher(allowedOrigins: string[]) {
+  const previewMode = isPreviewEnvironment();
+
+  return {
+    previewMode,
+    isAllowed: (candidate: string, req: Request): boolean => {
+      const normalized = normalizeOrigin(candidate);
+      if (isAllowedRequestOrigin(normalized, allowedOrigins, req)) return true;
+      if (previewMode && isTrustedReplitDomain(normalized)) return true;
+      return false;
+    },
+  };
 }
 
 function getRequestOrigins(req: Request): string[] {
@@ -163,6 +198,16 @@ function getSessionSecret(): string {
     throw new Error("SESSION_SECRET is required in production");
   }
   return secret || crypto.randomBytes(64).toString("hex");
+}
+
+
+function logApiError(req: Request, endpoint: string, error: unknown) {
+  console.error("api_error", {
+    endpoint,
+    method: req.method,
+    path: req.originalUrl,
+    error: error instanceof Error ? { name: error.name, message: error.message } : { message: String(error) },
+  });
 }
 
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
@@ -320,6 +365,17 @@ async function auditLog(req: Request, userId: number, action: string, entity: st
   }
 }
 
+async function ensureSessionTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "session" (
+      "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")');
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -327,6 +383,15 @@ export async function registerRoutes(
   const PgStore = pgSession(session);
 
   app.set("trust proxy", 1);
+
+  try {
+    await ensureSessionTable();
+  } catch (error) {
+    console.error("session_table_setup_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new Error("Falha ao preparar armazenamento de sessão no banco. Execute npm run db:push e valide permissões do DATABASE_URL.");
+  }
 
   app.use(helmet({
     contentSecurityPolicy: process.env.NODE_ENV === "production"
@@ -337,10 +402,10 @@ export async function registerRoutes(
             fontSrc: ["'self'", "https:", "data:"],
             formAction: ["'self'"],
             frameAncestors: ["'self'"],
-            frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com"],
+            frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://replit.com", "https://*.replit.com"],
             imgSrc: ["'self'", "data:", "https:"],
             objectSrc: ["'none'"],
-            scriptSrc: ["'self'"],
+            scriptSrc: ["'self'", "https://replit.com", "https://*.replit.com", "https://replit-cdn.com"],
             scriptSrcAttr: ["'none'"],
             styleSrc: ["'self'", "https:", "'unsafe-inline'"],
             upgradeInsecureRequests: [],
@@ -351,12 +416,13 @@ export async function registerRoutes(
   }));
 
   const allowedOrigins = parseAllowedOrigins();
+  const originMatcher = buildOriginMatcher(allowedOrigins);
 
   app.use((req, res, next) => {
     cors({
       origin: (origin, callback) => {
         const normalizedOrigin = origin ? normalizeOrigin(origin) : "";
-        if (!origin || isAllowedRequestOrigin(normalizedOrigin, allowedOrigins, req) || (process.env.NODE_ENV !== "production" && origin.includes(".replit.app"))) {
+        if (!origin || originMatcher.isAllowed(normalizedOrigin, req)) {
           callback(null, true);
         } else {
           callback(null, false);
@@ -402,7 +468,7 @@ export async function registerRoutes(
     const origin = req.headers.origin;
     const referer = req.headers.referer;
     const secFetchSite = (req.headers["sec-fetch-site"] || "").toString().toLowerCase();
-    const isAllowed = (candidate: string) => isAllowedRequestOrigin(candidate, allowedOrigins, req);
+    const isAllowed = (candidate: string) => originMatcher.isAllowed(candidate, req);
 
     if (origin) {
       if (!isAllowed(origin)) {
@@ -426,11 +492,24 @@ export async function registerRoutes(
       return next();
     }
 
+    if (!origin && !referer && !secFetchSite) {
+      return next();
+    }
+
     if (secFetchSite === "same-origin" || secFetchSite === "none") {
       return next();
     }
 
     return res.status(403).json({ message: "Origem nao identificada" });
+  });
+
+  app.get("/api/health", async (_req: Request, res: Response) => {
+    try {
+      await pool.query("SELECT 1");
+      res.json({ ok: true, status: "healthy" });
+    } catch {
+      res.status(503).json({ ok: false, status: "unhealthy" });
+    }
   });
 
   app.post("/api/auth/register", async (req: Request, res: Response) => {
@@ -461,7 +540,7 @@ export async function registerRoutes(
     try {
       const parsed = loginSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json({ message: parseZodError(parsed.error) });
+        return res.status(422).json({ message: parseZodError(parsed.error) });
       }
       const { identifier, email, password } = parsed.data;
       const loginId = identifier || email || "";
@@ -490,18 +569,27 @@ export async function registerRoutes(
 
       req.session.regenerate((err) => {
         if (err) {
+          console.error("auth_login_session_regenerate_failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
           return res.status(500).json({ message: "Erro ao criar sessao" });
         }
         req.session.userId = user.id;
         req.session.save((saveErr) => {
           if (saveErr) {
+            console.error("auth_login_session_save_failed", {
+              error: saveErr instanceof Error ? saveErr.message : String(saveErr),
+            });
             return res.status(500).json({ message: "Erro ao salvar sessao" });
           }
           res.json(user);
         });
       });
-    } catch (err: any) {
-      res.status(400).json({ message: err.message || "Erro ao fazer login" });
+    } catch (err) {
+      console.error("auth_login_failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      res.status(500).json({ message: "Erro ao fazer login" });
     }
   });
 
@@ -675,8 +763,9 @@ export async function registerRoutes(
         result = await storage.getCategories();
       }
       res.json(result);
-    } catch {
-      res.json([]);
+    } catch (error) {
+      logApiError(req, "/api/categories", error);
+      res.status(500).json({ message: "Erro ao carregar categorias" });
     }
   });
 
@@ -754,8 +843,9 @@ export async function registerRoutes(
       const filters = hasFilters ? { brand, minPrice, maxPrice, filterOptionIds } : undefined;
       const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId, filters);
       res.json(products);
-    } catch {
-      res.json([]);
+    } catch (error) {
+      logApiError(req, "/api/products", error);
+      res.status(500).json({ message: "Erro ao carregar produtos" });
     }
   });
 
@@ -775,12 +865,13 @@ export async function registerRoutes(
     res.json(result.rows);
   });
 
-  app.get("/api/featured-products", async (_req: Request, res: Response) => {
+  app.get("/api/featured-products", async (req: Request, res: Response) => {
     try {
       const items = await storage.getFeaturedProducts(true);
       res.json(items);
-    } catch {
-      res.json([]);
+    } catch (error) {
+      logApiError(req, "/api/featured-products", error);
+      res.status(500).json({ message: "Erro ao carregar destaques" });
     }
   });
 
@@ -1103,8 +1194,9 @@ export async function registerRoutes(
       const status = req.query.status as string | undefined;
       const groups = await storage.getGroups(productId, status);
       res.json(groups);
-    } catch {
-      res.json([]);
+    } catch (error) {
+      logApiError(req, "/api/groups", error);
+      res.status(500).json({ message: "Erro ao carregar grupos" });
     }
   });
 
@@ -1228,8 +1320,9 @@ export async function registerRoutes(
       const activeOnly = req.query.active === "true";
       const banners = await storage.getBanners(activeOnly);
       res.json(banners);
-    } catch {
-      res.json([]);
+    } catch (error) {
+      logApiError(req, "/api/banners", error);
+      res.status(500).json({ message: "Erro ao carregar banners" });
     }
   });
 
@@ -1275,8 +1368,9 @@ export async function registerRoutes(
       const activeOnly = req.query.active === "true";
       const videos = await storage.getVideos(activeOnly);
       res.json(videos);
-    } catch {
-      res.json([]);
+    } catch (error) {
+      logApiError(req, "/api/videos", error);
+      res.status(500).json({ message: "Erro ao carregar videos" });
     }
   });
 
