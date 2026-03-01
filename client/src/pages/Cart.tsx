@@ -23,6 +23,18 @@ interface CartItem {
   fulfillmentType?: string;
 }
 
+async function fetchViaCepWithTimeout(digits: string, timeoutMs = 7000) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { signal: controller.signal });
+    return await res.json();
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 function CartCrossSelling({ cartItems, onAddToCart }: { cartItems: CartItem[]; onAddToCart: (product: any) => void }) {
   const productIds = cartItems.map(i => i.productId);
   const firstProductId = productIds[0];
@@ -124,8 +136,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
     }
     setCepLoading(true);
     try {
-      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      const data = await res.json();
+      const data = await fetchViaCepWithTimeout(digits);
       if (data.erro) {
         toast({ title: "CEP nao encontrado", description: "Verifique o CEP e tente novamente.", variant: "destructive" });
       } else {
@@ -136,7 +147,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
         toast({ title: "Endereco preenchido automaticamente!" });
       }
     } catch {
-      toast({ title: "Erro ao buscar CEP", description: "Tente novamente.", variant: "destructive" });
+      toast({ title: "Servico de CEP indisponivel, tente novamente", variant: "destructive" });
     }
     setCepLoading(false);
   };
@@ -158,8 +169,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
   const lookupCepByDigits = async (digits: string) => {
     setCepLoading(true);
     try {
-      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      const data = await res.json();
+      const data = await fetchViaCepWithTimeout(digits);
       if (!data.erro) {
         setStreet(data.logradouro || "");
         setDistrict(data.bairro || "");
@@ -167,7 +177,9 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
         setState(data.uf || "");
         toast({ title: "Endereco preenchido automaticamente!" });
       }
-    } catch {}
+    } catch {
+      toast({ title: "Servico de CEP indisponivel, tente novamente", variant: "destructive" });
+    }
     setCepLoading(false);
   };
 
@@ -371,8 +383,7 @@ function GuestDeliveryAddressSection() {
 
     setCepLoading(true);
     try {
-      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      const data = await res.json();
+      const data = await fetchViaCepWithTimeout(digits);
       if (data.erro) {
         toast({ title: "CEP nao encontrado", description: "Verifique o CEP e tente novamente.", variant: "destructive" });
       } else {
@@ -382,7 +393,7 @@ function GuestDeliveryAddressSection() {
         setState(data.uf || "");
       }
     } catch {
-      toast({ title: "Erro ao buscar CEP", description: "Tente novamente.", variant: "destructive" });
+      toast({ title: "Servico de CEP indisponivel, tente novamente", variant: "destructive" });
     } finally {
       setCepLoading(false);
     }
@@ -492,6 +503,7 @@ export default function Cart() {
 
   const isMixed = fulfillmentTypes.size > 1;
   const cartFulfillmentType = isMixed ? null : (fulfillmentTypes.values().next().value || "delivery");
+  const showDeliveryAddress = cartFulfillmentType !== "pickup";
 
   const { data: pickupPoints, isLoading: loadingPickupPoints } = useQuery({
     queryKey: ["/api/pickup-points", "active"],
@@ -885,7 +897,7 @@ export default function Cart() {
         </Card>
       )}
 
-      {cartFulfillmentType === "delivery" && (
+      {showDeliveryAddress && (
         user ? (
           <DeliveryAddressSection
             user={user}
