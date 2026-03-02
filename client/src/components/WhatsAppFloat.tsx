@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SiWhatsapp } from "react-icons/si";
 
 type SiteConfig = {
-  whatsapp: string;
+  whatsapp?: string;
 };
 
 function normalizeWhatsAppLink(raw: string): string {
@@ -14,19 +14,16 @@ export default function WhatsAppFloat() {
   const { data } = useQuery<SiteConfig>({
     queryKey: ["/api/site-config"],
     queryFn: async () => {
-      const response = await fetch("/api/site-config");
-      if (!response.ok) return { whatsapp: "" };
-      const payload = await response.json();
-      return { whatsapp: payload?.whatsapp ?? "" };
+      const response = await fetch("/api/site-config", { credentials: "include" });
+      if (!response.ok) return {};
+      return response.json();
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const whatsappLink = normalizeWhatsAppLink(data?.whatsapp ?? "");
 
-  if (!whatsappLink) {
-    return null;
-  }
+  if (!whatsappLink) return null;
 
   return (
     <a
