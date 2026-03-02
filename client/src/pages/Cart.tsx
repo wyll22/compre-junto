@@ -23,6 +23,18 @@ interface CartItem {
   fulfillmentType?: string;
 }
 
+async function fetchViaCepWithTimeout(digits: string, timeoutMs = 7000) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { signal: controller.signal });
+    return await res.json();
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 function CartCrossSelling({ cartItems, onAddToCart }: { cartItems: CartItem[]; onAddToCart: (product: any) => void }) {
   const productIds = cartItems.map(i => i.productId);
   const firstProductId = productIds[0];
@@ -124,8 +136,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
     }
     setCepLoading(true);
     try {
-      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      const data = await res.json();
+      const data = await fetchViaCepWithTimeout(digits);
       if (data.erro) {
         toast({ title: "CEP nao encontrado", description: "Verifique o CEP e tente novamente.", variant: "destructive" });
       } else {
@@ -136,7 +147,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
         toast({ title: "Endereco preenchido automaticamente!" });
       }
     } catch {
-      toast({ title: "Erro ao buscar CEP", description: "Tente novamente.", variant: "destructive" });
+      toast({ title: "Servico de CEP indisponivel, tente novamente", variant: "destructive" });
     }
     setCepLoading(false);
   };
@@ -158,8 +169,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
   const lookupCepByDigits = async (digits: string) => {
     setCepLoading(true);
     try {
-      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      const data = await res.json();
+      const data = await fetchViaCepWithTimeout(digits);
       if (!data.erro) {
         setStreet(data.logradouro || "");
         setDistrict(data.bairro || "");
@@ -167,7 +177,9 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
         setState(data.uf || "");
         toast({ title: "Endereco preenchido automaticamente!" });
       }
-    } catch {}
+    } catch {
+      toast({ title: "Servico de CEP indisponivel, tente novamente", variant: "destructive" });
+    }
     setCepLoading(false);
   };
 
@@ -353,6 +365,91 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
   );
 }
 
+function GuestDeliveryAddressSection() {
+  const [cep, setCep] = useState("");
+  const [street, setStreet] = useState("");
+  const [district, setDistrict] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
+  const { toast } = useToast();
+
+  const lookupCep = async () => {
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      toast({ title: "CEP invalido", description: "Informe um CEP com 8 digitos.", variant: "destructive" });
+      return;
+    }
+
+    setCepLoading(true);
+    try {
+      const data = await fetchViaCepWithTimeout(digits);
+      if (data.erro) {
+        toast({ title: "CEP nao encontrado", description: "Verifique o CEP e tente novamente.", variant: "destructive" });
+      } else {
+        setStreet(data.logradouro || "");
+        setDistrict(data.bairro || "");
+        setCity(data.localidade || "");
+        setState(data.uf || "");
+      }
+    } catch {
+      toast({ title: "Servico de CEP indisponivel, tente novamente", variant: "destructive" });
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
+  const handleCepChange = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 5) setCep(digits);
+    else setCep(`${digits.slice(0, 5)}-${digits.slice(5)}`);
+  };
+
+  return (
+    <Card className="mt-4" data-testid="card-guest-delivery-address">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Truck className="w-4 h-4 text-primary" />
+          <span className="font-bold text-sm">Endereco de Entrega</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Consulte seu CEP antes de finalizar. Para salvar o endereco e concluir o pedido, faca login.
+        </p>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="guest-cart-cep">CEP</Label>
+          <div className="flex gap-2">
+            <Input
+              data-testid="input-guest-cart-cep"
+              id="guest-cart-cep"
+              value={cep}
+              onChange={(e) => handleCepChange(e.target.value)}
+              placeholder="00000-000"
+              maxLength={9}
+            />
+            <Button
+              data-testid="button-guest-lookup-cep"
+              type="button"
+              variant="outline"
+              onClick={lookupCep}
+              disabled={cepLoading}
+            >
+              {cepLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Rua / Avenida" />
+          <Input value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Bairro" />
+          <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade" />
+          <Input value={state} onChange={(e) => setState(e.target.value)} placeholder="UF" maxLength={2} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Cart() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
@@ -406,6 +503,7 @@ export default function Cart() {
 
   const isMixed = fulfillmentTypes.size > 1;
   const cartFulfillmentType = isMixed ? null : (fulfillmentTypes.values().next().value || "delivery");
+  const showDeliveryAddress = cartFulfillmentType !== "pickup";
 
   const { data: pickupPoints, isLoading: loadingPickupPoints } = useQuery({
     queryKey: ["/api/pickup-points", "active"],
@@ -799,13 +897,17 @@ export default function Cart() {
         </Card>
       )}
 
-      {cartFulfillmentType === "delivery" && user && (
-        <DeliveryAddressSection
-          user={user}
-          onAddressSaved={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-          }}
-        />
+      {showDeliveryAddress && (
+        user ? (
+          <DeliveryAddressSection
+            user={user}
+            onAddressSaved={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+            }}
+          />
+        ) : (
+          <GuestDeliveryAddressSection />
+        )
       )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 z-50">

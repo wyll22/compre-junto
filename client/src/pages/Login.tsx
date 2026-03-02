@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLogin, useRegister } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ export default function Login() {
   const [forgotSent, setForgotSent] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
   const [, setLocation] = useLocation();
   const search = useSearch();
   const { toast } = useToast();
@@ -55,6 +56,8 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current || loading) return;
+    submitLockRef.current = true;
 
     try {
       if (viewMode === "register") {
@@ -120,6 +123,8 @@ export default function Login() {
       setLocation(redirect);
     } catch (err: any) {
       toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    } finally {
+      submitLockRef.current = false;
     }
   };
 
