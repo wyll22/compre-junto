@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { X } from "lucide-react";
 
-import juAssistenteAvatar from "@/assets/ju-assistente.svg";
 import { HELP_FAQ } from "@/components/help/helpFaq";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,17 +67,29 @@ export default function HelpFloat() {
           className="fixed bottom-[92px] right-4 z-[9999] flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-24"
           data-testid="button-help-float"
         >
-          <img src={juAssistenteAvatar} alt="Ju Assistente" className="h-full w-full object-cover" />
+          <img
+            src="/ju-avatar.png"
+            alt="Ju Assistente"
+            className="h-full w-full object-cover"
+          />
         </button>
       </DialogTrigger>
 
       <DialogContent className="left-auto top-auto right-4 bottom-[162px] z-[10000] grid h-[70vh] w-[92vw] max-w-[410px] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-2xl border p-0 shadow-2xl sm:bottom-24 sm:h-[560px] sm:w-[380px]">
         <DialogHeader className="bg-[#16A34A] px-4 py-3 text-white">
           <div className="flex items-center gap-3 pr-8">
-            <img src={juAssistenteAvatar} alt="Ju Assistente" className="h-9 w-9 rounded-full border border-white/40 object-cover" />
+            <img
+              src="/ju-avatar.png"
+              alt="Ju Assistente"
+              className="h-full w-full object-cover"
+            />
             <div>
-              <DialogTitle className="text-base font-semibold">Ju Assistente</DialogTitle>
-              <DialogDescription className="text-xs text-white/90">Online agora</DialogDescription>
+              <DialogTitle className="text-base font-semibold">
+                Ju Assistente
+              </DialogTitle>
+              <DialogDescription className="text-xs text-white/90">
+                Online agora
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -97,7 +108,11 @@ export default function HelpFloat() {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={message.role === "user" ? "ml-auto max-w-[86%]" : "max-w-[88%]"}
+                className={
+                  message.role === "user"
+                    ? "ml-auto max-w-[86%]"
+                    : "max-w-[88%]"
+                }
                 data-testid={`help-chat-message-${message.role}`}
               >
                 <div
@@ -137,15 +152,23 @@ export default function HelpFloat() {
                 className="block"
                 data-testid="button-help-whatsapp"
               >
-                <Button type="button" className="w-full bg-[#16A34A] hover:bg-[#15803D]">
+                <Button
+                  type="button"
+                  className="w-full bg-[#16A34A] hover:bg-[#15803D]"
+                >
                   Falar com suporte no WhatsApp
                 </Button>
               </a>
             ) : (
-              <p className="text-sm text-muted-foreground">WhatsApp ainda não configurado.</p>
+              <p className="text-sm text-muted-foreground">
+                WhatsApp ainda não configurado.
+              </p>
             )}
 
-            <Link href="/" className="mt-2 inline-flex text-xs text-muted-foreground underline-offset-2 hover:underline">
+            <Link
+              href="/"
+              className="mt-2 inline-flex text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
               Ver regras/como funciona
             </Link>
           </div>
