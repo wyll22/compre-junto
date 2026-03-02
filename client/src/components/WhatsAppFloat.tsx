@@ -1,27 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import { SiWhatsapp } from "react-icons/si";
 
-type SiteConfig = {
-  whatsapp?: string;
-};
-
-function normalizeWhatsAppLink(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  return digits ? `https://wa.me/${digits}` : "";
-}
+import { normalizeWhatsAppLink, useSiteConfigQuery } from "@/lib/siteConfig";
 
 export default function WhatsAppFloat() {
-  const { data } = useQuery<SiteConfig>({
-    queryKey: ["/api/site-config"],
-    queryFn: async () => {
-      const response = await fetch("/api/site-config", { credentials: "include" });
-      if (!response.ok) return {};
-      return response.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const whatsappLink = normalizeWhatsAppLink(data?.whatsapp ?? "");
+  const { data } = useSiteConfigQuery();
+  const whatsappLink = normalizeWhatsAppLink(String(data?.whatsapp ?? ""));
 
   if (!whatsappLink) return null;
 
@@ -31,7 +14,7 @@ export default function WhatsAppFloat() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Falar no WhatsApp"
-      className="fixed bottom-4 left-4 z-[9999] flex h-[60px] w-[60px] items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform duration-200 hover:scale-105"
+      className="fixed bottom-4 right-4 z-[9998] flex h-[58px] w-[58px] items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105"
       data-testid="button-whatsapp-float"
     >
       <SiWhatsapp className="h-7 w-7" />

@@ -19,7 +19,7 @@ import ProductDetail from "@/pages/ProductDetail";
 import { BlogList, BlogPost } from "@/pages/Blog";
 import Partner from "@/pages/Partner";
 import WhatsAppFloat from "@/components/WhatsAppFloat";
-import HelpFloat from "@/components/HelpFloat";
+import HelpFloat from "@/components/help/HelpFloat";
 
 function getVisitorId() {
   let id = localStorage.getItem("cjf_visitor_id");
