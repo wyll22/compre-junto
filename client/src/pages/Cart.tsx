@@ -26,10 +26,13 @@ interface CartItem {
 async function fetchViaCepWithTimeout(digits: string, timeoutMs = 7000) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { signal: controller.signal });
-    return await res.json();
+    const res = await fetch(`/api/cep?cep=${digits}`, { signal: controller.signal, credentials: "include" });
+    const data = await res.json();
+    if (!res.ok || !data?.ok || !data?.data) {
+      throw new Error(data?.message || "CEP lookup failed");
+    }
+    return data.data;
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -140,10 +143,10 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
       if (data.erro) {
         toast({ title: "CEP nao encontrado", description: "Verifique o CEP e tente novamente.", variant: "destructive" });
       } else {
-        setStreet(data.logradouro || "");
-        setDistrict(data.bairro || "");
-        setCity(data.localidade || "");
-        setState(data.uf || "");
+        setStreet(data.logradouro || data.street || "");
+        setDistrict(data.bairro || data.district || data.neighborhood || "");
+        setCity(data.localidade || data.city || "");
+        setState(data.uf || data.state || "");
         toast({ title: "Endereco preenchido automaticamente!" });
       }
     } catch {
@@ -171,10 +174,10 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
     try {
       const data = await fetchViaCepWithTimeout(digits);
       if (!data.erro) {
-        setStreet(data.logradouro || "");
-        setDistrict(data.bairro || "");
-        setCity(data.localidade || "");
-        setState(data.uf || "");
+        setStreet(data.logradouro || data.street || "");
+        setDistrict(data.bairro || data.district || data.neighborhood || "");
+        setCity(data.localidade || data.city || "");
+        setState(data.uf || data.state || "");
         toast({ title: "Endereco preenchido automaticamente!" });
       }
     } catch {
@@ -387,10 +390,10 @@ function GuestDeliveryAddressSection() {
       if (data.erro) {
         toast({ title: "CEP nao encontrado", description: "Verifique o CEP e tente novamente.", variant: "destructive" });
       } else {
-        setStreet(data.logradouro || "");
-        setDistrict(data.bairro || "");
-        setCity(data.localidade || "");
-        setState(data.uf || "");
+        setStreet(data.logradouro || data.street || "");
+        setDistrict(data.bairro || data.district || data.neighborhood || "");
+        setCity(data.localidade || data.city || "");
+        setState(data.uf || data.state || "");
       }
     } catch {
       toast({ title: "Servico de CEP indisponivel, tente novamente", variant: "destructive" });

@@ -75,6 +75,37 @@ function parseZodError(error: z.ZodError): string {
   return error.errors.map(e => e.message).join("; ");
 }
 
+function sanitizeCep(raw: string): string {
+  return (raw || "").replace(/\D/g, "").slice(0, 8);
+}
+
+async function fetchJsonWithTimeout(url: string, timeoutMs = 7000): Promise<any> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function normalizeCepPayload(data: any): { cep: string; street: string; district: string; city: string; state: string; source: "viacep" | "brasilapi" } {
+  return {
+    cep: sanitizeCep(data?.cep || ""),
+    street: data?.logradouro || data?.street || "",
+    district: data?.bairro || data?.neighborhood || "",
+    city: data?.localidade || data?.city || "",
+    state: data?.uf || data?.state || "",
+    source: (data?.logradouro !== undefined || data?.bairro !== undefined || data?.localidade !== undefined || data?.uf !== undefined)
+      ? "viacep"
+      : "brasilapi",
+  };
+}
+
 function parseCsvLine(line: string): string[] {
   const out: string[] = [];
   let current = "";
@@ -685,6 +716,29 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Usuario nao encontrado" });
     }
     res.json(user);
+  });
+
+  app.get("/api/cep", async (req: Request, res: Response) => {
+    const cep = sanitizeCep(String(req.query.cep || ""));
+    if (cep.length !== 8) {
+      return res.status(400).json({ message: "CEP invalido. Informe 8 digitos." });
+    }
+
+    try {
+      const viaCepData = await fetchJsonWithTimeout(`https://viacep.com.br/ws/${cep}/json/`, 7000);
+      if (!viaCepData?.erro) {
+        return res.json({ ok: true, data: normalizeCepPayload(viaCepData) });
+      }
+    } catch {
+      // fallback below
+    }
+
+    try {
+      const brasilApiData = await fetchJsonWithTimeout(`https://brasilapi.com.br/api/cep/v1/${cep}`, 7000);
+      return res.json({ ok: true, data: normalizeCepPayload(brasilApiData) });
+    } catch {
+      return res.status(502).json({ message: "Servico de CEP indisponivel, tente novamente" });
+    }
   });
 
   app.get("/api/notifications", async (req: Request, res: Response) => {
