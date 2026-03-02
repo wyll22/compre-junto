@@ -18,6 +18,8 @@ import Contato from "@/pages/Contato";
 import ProductDetail from "@/pages/ProductDetail";
 import { BlogList, BlogPost } from "@/pages/Blog";
 import Partner from "@/pages/Partner";
+import WhatsAppFloat from "@/components/WhatsAppFloat";
+import HelpFloat from "@/components/HelpFloat";
 
 function getVisitorId() {
   let id = localStorage.getItem("cjf_visitor_id");
@@ -86,6 +88,8 @@ function App() {
         <VisitTracker />
         <Toaster />
         <Router />
+        <WhatsAppFloat />
+        <HelpFloat />
       </TooltipProvider>
     </QueryClientProvider>
   );
