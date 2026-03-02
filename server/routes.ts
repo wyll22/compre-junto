@@ -16,7 +16,7 @@ import {
   createProductSchema, createCategorySchema, createBannerSchema, createVideoSchema,
   createOrderSchema, createPickupPointSchema, statusSchema, reserveStatusSchema, joinGroupSchema,
   insertArticleSchema, insertNavigationLinkSchema, createSponsorBannerSchema, createPartnerUserSchema,
-  passwordSchema,
+  createSiteConfigSchema, passwordSchema,
 } from "@shared/schema";
 
 function stripHtmlTags(str: string): string {
@@ -73,6 +73,34 @@ declare module "express-session" {
 
 function parseZodError(error: z.ZodError): string {
   return error.errors.map(e => e.message).join("; ");
+}
+
+
+const DEFAULT_SITE_CONFIG = {
+  companyName: "",
+  legalName: "",
+  cnpj: "",
+  addressLine1: "",
+  city: "",
+  state: "",
+  cep: "",
+  email: "",
+  phone: "",
+  whatsapp: "",
+  instagramUrl: "",
+  facebookUrl: "",
+  mapsUrl: "",
+  openingHoursText: "",
+};
+
+function normalizeWhatsAppValue(raw: string): string {
+  const value = (raw || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  return `https://wa.me/${digits}`;
 }
 
 function sanitizeCep(raw: string): string {
@@ -1611,6 +1639,40 @@ export async function registerRoutes(
       res.json(orders);
     } catch (err: any) {
       res.status(500).json({ message: "Erro ao buscar pedidos atrasados" });
+    }
+  });
+
+
+  app.get("/api/site-config", async (_req: Request, res: Response) => {
+    try {
+      const config = await storage.getSiteConfig();
+      res.json({ ...DEFAULT_SITE_CONFIG, ...(config || {}) });
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao buscar configuracoes do site" });
+    }
+  });
+
+  app.put("/api/admin/site-config", async (req: Request, res: Response) => {
+    const userId = await requireAdmin(req, res);
+    if (userId === null) return;
+
+    const parsed = createSiteConfigSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parseZodError(parsed.error) });
+    }
+
+    try {
+      const payload = {
+        ...parsed.data,
+        state: (parsed.data.state || "").toUpperCase().slice(0, 2),
+        whatsapp: normalizeWhatsAppValue(parsed.data.whatsapp || ""),
+      };
+
+      const config = await storage.upsertSiteConfig(payload);
+      await auditLog(req, userId, "atualizar_configuracoes_site", "site_config", 1, payload);
+      res.json({ ...DEFAULT_SITE_CONFIG, ...config });
+    } catch (err: any) {
+      res.status(500).json({ message: "Erro ao atualizar configuracoes do site" });
     }
   });
 

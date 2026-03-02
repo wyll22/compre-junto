@@ -29,6 +29,13 @@
       "when": 1772271660797,
       "tag": "0003_lgpd_account",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772420598001,
+      "tag": "0004_site_config",
+      "breakpoints": true
     }
   ]
 }

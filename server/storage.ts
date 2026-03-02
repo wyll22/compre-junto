@@ -156,6 +156,25 @@ type FeaturedProductRow = {
   product?: ProductRow;
 };
 
+type SiteConfigRow = {
+  id: number;
+  companyName: string;
+  legalName: string;
+  cnpj: string;
+  addressLine1: string;
+  city: string;
+  state: string;
+  cep: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  mapsUrl: string;
+  openingHoursText: string;
+  updatedAt?: Date | string | null;
+};
+
 export interface IStorage {
   getCategories(parentId?: number | null): Promise<CategoryRow[]>;
   getCategory(id: number): Promise<CategoryRow | null>;
@@ -251,6 +270,9 @@ export interface IStorage {
   createNavigationLink(input: any): Promise<any>;
   updateNavigationLink(id: number, input: any): Promise<any | null>;
   deleteNavigationLink(id: number): Promise<void>;
+
+  getSiteConfig(): Promise<SiteConfigRow | null>;
+  upsertSiteConfig(input: Partial<SiteConfigRow>): Promise<SiteConfigRow>;
 
   getFilterTypes(activeOnly?: boolean): Promise<any[]>;
   getFilterType(id: number): Promise<any | null>;
@@ -401,6 +423,26 @@ const PICKUP_POINT_SELECT = `
   active,
   sort_order AS "sortOrder",
   created_at AS "createdAt"
+`;
+
+
+const SITE_CONFIG_SELECT = `
+  id,
+  company_name AS "companyName",
+  legal_name AS "legalName",
+  cnpj,
+  address_line1 AS "addressLine1",
+  city,
+  state,
+  cep,
+  email,
+  phone,
+  whatsapp,
+  instagram_url AS "instagramUrl",
+  facebook_url AS "facebookUrl",
+  maps_url AS "mapsUrl",
+  opening_hours_text AS "openingHoursText",
+  updated_at AS "updatedAt"
 `;
 
 const USER_SELECT = `id, name, display_name AS "displayName", email, phone, role, email_verified AS "emailVerified", phone_verified AS "phoneVerified", address_cep AS "addressCep", address_street AS "addressStreet", address_number AS "addressNumber", address_complement AS "addressComplement", address_district AS "addressDistrict", address_city AS "addressCity", address_state AS "addressState", pickup_point_id AS "pickupPointId", accepted_terms_at AS "acceptedTermsAt", accepted_privacy_at AS "acceptedPrivacyAt", terms_version AS "termsVersion", created_at AS "createdAt"`;
@@ -1600,6 +1642,57 @@ class DatabaseStorage implements IStorage {
 
   async deleteNavigationLink(id: number): Promise<void> {
     await pool.query(`DELETE FROM navigation_links WHERE id = $1`, [id]);
+  }
+
+
+  async getSiteConfig(): Promise<SiteConfigRow | null> {
+    const result = await pool.query(`SELECT ${SITE_CONFIG_SELECT} FROM site_config WHERE id = 1 LIMIT 1`);
+    return (result.rows[0] as SiteConfigRow | undefined) ?? null;
+  }
+
+  async upsertSiteConfig(input: Partial<SiteConfigRow>): Promise<SiteConfigRow> {
+    const result = await pool.query(
+      `INSERT INTO site_config (
+        id, company_name, legal_name, cnpj, address_line1, city, state, cep, email, phone,
+        whatsapp, instagram_url, facebook_url, maps_url, opening_hours_text, updated_at
+      )
+      VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        company_name = EXCLUDED.company_name,
+        legal_name = EXCLUDED.legal_name,
+        cnpj = EXCLUDED.cnpj,
+        address_line1 = EXCLUDED.address_line1,
+        city = EXCLUDED.city,
+        state = EXCLUDED.state,
+        cep = EXCLUDED.cep,
+        email = EXCLUDED.email,
+        phone = EXCLUDED.phone,
+        whatsapp = EXCLUDED.whatsapp,
+        instagram_url = EXCLUDED.instagram_url,
+        facebook_url = EXCLUDED.facebook_url,
+        maps_url = EXCLUDED.maps_url,
+        opening_hours_text = EXCLUDED.opening_hours_text,
+        updated_at = NOW()
+      RETURNING ${SITE_CONFIG_SELECT}`,
+      [
+        input.companyName ?? "",
+        input.legalName ?? "",
+        input.cnpj ?? "",
+        input.addressLine1 ?? "",
+        input.city ?? "",
+        input.state ?? "",
+        input.cep ?? "",
+        input.email ?? "",
+        input.phone ?? "",
+        input.whatsapp ?? "",
+        input.instagramUrl ?? "",
+        input.facebookUrl ?? "",
+        input.mapsUrl ?? "",
+        input.openingHoursText ?? "",
+      ],
+    );
+
+    return result.rows[0] as SiteConfigRow;
   }
 
   async seedProducts(): Promise<void> {

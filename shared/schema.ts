@@ -297,6 +297,25 @@ export const navigationLinks = pgTable("navigation_links", {
   active: boolean("active").default(true),
 });
 
+export const siteConfig = pgTable("site_config", {
+  id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull().default(""),
+  legalName: text("legal_name").notNull().default(""),
+  cnpj: text("cnpj").notNull().default(""),
+  addressLine1: text("address_line1").notNull().default(""),
+  city: text("city").notNull().default(""),
+  state: text("state").notNull().default(""),
+  cep: text("cep").notNull().default(""),
+  email: text("email").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  whatsapp: text("whatsapp").notNull().default(""),
+  instagramUrl: text("instagram_url").notNull().default(""),
+  facebookUrl: text("facebook_url").notNull().default(""),
+  mapsUrl: text("maps_url").notNull().default(""),
+  openingHoursText: text("opening_hours_text").notNull().default(""),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const filterTypes = pgTable("filter_types", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -404,6 +423,7 @@ export const insertSiteVisitSchema = createInsertSchema(siteVisits).omit({ id: t
 export const insertArticleSchema = createInsertSchema(articles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMediaAssetSchema = createInsertSchema(mediaAssets).omit({ id: true, createdAt: true });
 export const insertNavigationLinkSchema = createInsertSchema(navigationLinks).omit({ id: true });
+export const insertSiteConfigSchema = createInsertSchema(siteConfig).omit({ id: true, updatedAt: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -432,6 +452,8 @@ export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type InsertMediaAsset = z.infer<typeof insertMediaAssetSchema>;
 export type NavigationLink = typeof navigationLinks.$inferSelect;
 export type InsertNavigationLink = z.infer<typeof insertNavigationLinkSchema>;
+export type SiteConfig = typeof siteConfig.$inferSelect;
+export type InsertSiteConfig = z.infer<typeof insertSiteConfigSchema>;
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export type Category = typeof categories.$inferSelect;
@@ -512,6 +534,28 @@ export const createVideoSchema = z.object({
   embedUrl: z.string().max(2000),
   sortOrder: z.coerce.number().int().min(0).optional().default(0),
   active: z.boolean().optional().default(true),
+});
+
+const optionalHttpUrl = z.string().trim().optional().default("").refine((value) => {
+  if (!value) return true;
+  return /^https?:\/\//i.test(value);
+}, "URL deve comecar com http:// ou https://");
+
+export const createSiteConfigSchema = z.object({
+  companyName: z.string().max(200).optional().default(""),
+  legalName: z.string().max(200).optional().default(""),
+  cnpj: z.string().max(30).optional().default(""),
+  addressLine1: z.string().max(300).optional().default(""),
+  city: z.string().max(150).optional().default(""),
+  state: z.string().max(2).optional().default(""),
+  cep: z.string().max(20).optional().default(""),
+  email: z.string().email("Email invalido").optional().or(z.literal("")).default(""),
+  phone: z.string().max(30).optional().default(""),
+  whatsapp: z.string().max(120).optional().default(""),
+  instagramUrl: optionalHttpUrl,
+  facebookUrl: optionalHttpUrl,
+  mapsUrl: optionalHttpUrl,
+  openingHoursText: z.string().max(300).optional().default(""),
 });
 
 export const createOrderSchema = z.object({

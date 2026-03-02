@@ -1129,6 +1129,116 @@ function OrderSettingsTab() {
   );
 }
 
+
+type SiteConfigFormValues = {
+  companyName: string;
+  legalName: string;
+  cnpj: string;
+  addressLine1: string;
+  city: string;
+  state: string;
+  cep: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  mapsUrl: string;
+  openingHoursText: string;
+};
+
+const EMPTY_SITE_CONFIG: SiteConfigFormValues = {
+  companyName: "",
+  legalName: "",
+  cnpj: "",
+  addressLine1: "",
+  city: "",
+  state: "",
+  cep: "",
+  email: "",
+  phone: "",
+  whatsapp: "",
+  instagramUrl: "",
+  facebookUrl: "",
+  mapsUrl: "",
+  openingHoursText: "",
+};
+
+function SiteConfigTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [form, setForm] = useState<SiteConfigFormValues>(EMPTY_SITE_CONFIG);
+
+  const { data, isLoading } = useQuery<SiteConfigFormValues>({
+    queryKey: ["/api/site-config"],
+    queryFn: async () => {
+      const res = await fetch("/api/site-config", { credentials: "include" });
+      if (!res.ok) throw new Error("Erro ao carregar configurações");
+      const payload = await res.json();
+      return { ...EMPTY_SITE_CONFIG, ...payload };
+    },
+  });
+
+  useEffect(() => {
+    if (data) setForm({ ...EMPTY_SITE_CONFIG, ...data });
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: SiteConfigFormValues) => {
+      const res = await apiRequest("PUT", "/api/admin/site-config", payload);
+      return res.json();
+    },
+    onSuccess: (saved) => {
+      setForm({ ...EMPTY_SITE_CONFIG, ...saved });
+      queryClient.invalidateQueries({ queryKey: ["/api/site-config"] });
+      toast({ title: "Configurações salvas com sucesso!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: parseApiError(err), variant: "destructive" });
+    },
+  });
+
+  const updateField = (field: keyof SiteConfigFormValues, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  if (isLoading) {
+    return <Loader2 className="w-6 h-6 animate-spin text-primary" />;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Configurações do Site</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Input value={form.companyName} onChange={(e) => updateField("companyName", e.target.value)} placeholder="Nome fantasia" />
+          <Input value={form.legalName} onChange={(e) => updateField("legalName", e.target.value)} placeholder="Razão social" />
+          <Input value={form.cnpj} onChange={(e) => updateField("cnpj", e.target.value)} placeholder="CNPJ" />
+          <Input value={form.addressLine1} onChange={(e) => updateField("addressLine1", e.target.value)} placeholder="Rua, número, bairro" />
+          <Input value={form.city} onChange={(e) => updateField("city", e.target.value)} placeholder="Cidade" />
+          <Input value={form.state} onChange={(e) => updateField("state", e.target.value)} placeholder="UF" maxLength={2} />
+          <Input value={form.cep} onChange={(e) => updateField("cep", e.target.value)} placeholder="CEP" />
+          <Input value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="E-mail" />
+          <Input value={form.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="Telefone" />
+          <Input value={form.whatsapp} onChange={(e) => updateField("whatsapp", e.target.value)} placeholder="WhatsApp (número ou link)" />
+          <Input value={form.instagramUrl} onChange={(e) => updateField("instagramUrl", e.target.value)} placeholder="Instagram URL" />
+          <Input value={form.facebookUrl} onChange={(e) => updateField("facebookUrl", e.target.value)} placeholder="Facebook URL" />
+          <Input value={form.mapsUrl} onChange={(e) => updateField("mapsUrl", e.target.value)} placeholder="Google Maps URL" />
+        </div>
+        <div className="mt-3">
+          <Textarea value={form.openingHoursText} onChange={(e) => updateField("openingHoursText", e.target.value)} placeholder="Horário de funcionamento" />
+        </div>
+        <Button className="mt-4" onClick={() => saveMutation.mutate(form)} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+          Salvar Configurações do Site
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SystemTab() {
   const { data: health, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["/api/admin/system-health"],
@@ -1166,6 +1276,7 @@ function SystemTab() {
 
   return (
     <div className="space-y-4">
+      <SiteConfigTab />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold text-foreground">Monitoramento do Sistema</h2>
         <Button data-testid="button-refresh-health" variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
