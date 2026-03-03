@@ -64,7 +64,7 @@ export default function HelpFloat() {
           type="button"
           title="Ajuda"
           aria-label="Abrir ajuda"
-          className="fixed bottom-[92px] right-4 z-[9999] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-[#16A34A] shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-24"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-3 z-[9999] flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-[#16A34A] shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-[calc(env(safe-area-inset-bottom)+6rem)] sm:right-4 sm:h-14 sm:w-14"
           data-testid="button-help-float"
         >
           <img
@@ -75,7 +75,7 @@ export default function HelpFloat() {
         </button>
       </DialogTrigger>
 
-      <DialogContent className="left-auto top-auto right-2 bottom-[162px] z-[10000] grid w-[calc(100%-1rem)] max-w-md translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-2xl border p-0 shadow-2xl max-h-[80vh] sm:right-4 sm:bottom-24">
+      <DialogContent className="left-1/2 top-auto right-auto bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] z-[10000] grid h-[min(36rem,calc(100dvh-8.5rem))] w-[calc(100%-0.75rem)] max-w-[28rem] -translate-x-1/2 translate-y-0 gap-0 overflow-hidden rounded-2xl border p-0 shadow-2xl sm:left-auto sm:right-4 sm:bottom-[calc(env(safe-area-inset-bottom)+6rem)] sm:h-[min(40rem,calc(100dvh-9rem))] sm:w-[min(28rem,calc(100%-2rem))] sm:translate-x-0">
         <DialogHeader className="flex items-center gap-3 bg-[#16A34A] px-4 py-3 text-white">
           <div className="flex items-center gap-3 pr-8">
             <img
@@ -127,13 +127,13 @@ export default function HelpFloat() {
               </div>
             ))}
 
-            <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 pt-1 md:grid-cols-2">
               {HELP_FAQ.map((faq) => (
                 <button
                   key={faq.question}
                   type="button"
                   onClick={() => onSelectFaq(faq.question, faq.answer)}
-                  className="w-full rounded-full border border-[#DCFCE7] bg-white px-3 py-1.5 text-xs font-medium text-[#166534] transition hover:border-[#86EFAC] hover:bg-[#F0FDF4]"
+                  className="w-full rounded-2xl border border-[#DCFCE7] bg-white px-3 py-2 text-left text-xs font-medium text-[#166534] transition hover:border-[#86EFAC] hover:bg-[#F0FDF4]"
                   data-testid={`button-help-chip-${faq.question}`}
                 >
                   {faq.question}

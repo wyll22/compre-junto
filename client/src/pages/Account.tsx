@@ -1287,7 +1287,7 @@ export default function Account() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap2 pb-1">
+          <div className="flex flex-wrap gap-2 pb-1">
             {tabs.map((t) => (
               <Button
                 key={t.key}
@@ -1295,7 +1295,7 @@ export default function Account() {
                 variant={tab === t.key ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setTab(t.key)}
-                className="flex-1 min-w- [140px] sm:flex-none sm:win-w-0"
+                className="flex-1 min-w-[140px] sm:flex-none sm:min-w-0"
               >
                 <t.icon className="w-4 h-4 mr-1.5" />
                 {t.label}

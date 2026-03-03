@@ -14,10 +14,10 @@ export default function WhatsAppFloat() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Falar no WhatsApp"
-      className="fixed bottom-4 right-4 z-[9998] flex h-[58px] w-[58px] items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-3 z-[9998] flex h-[54px] w-[54px] items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-4 sm:right-4 sm:h-[58px] sm:w-[58px]"
       data-testid="button-whatsapp-float"
     >
-      <SiWhatsapp className="h-7 w-7" />
+      <SiWhatsapp className="h-6 w-6 sm:h-7 sm:w-7" />
     </a>
   );
 }
