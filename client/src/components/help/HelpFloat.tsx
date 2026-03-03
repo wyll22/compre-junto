@@ -64,24 +64,24 @@ export default function HelpFloat() {
           type="button"
           title="Ajuda"
           aria-label="Abrir ajuda"
-          className="fixed bottom-[92px] right-4 z-[9999] flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-24"
+          className="fixed bottom-[92px] right-4 z-[9999] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-[#16A34A] shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-24"
           data-testid="button-help-float"
         >
           <img
             src="/ju-avatar.png"
             alt="Ju Assistente"
-            className="h-full w-full object-cover"
+            className="h-10 w-10 rounded-full border-2 border-white object-cover"
           />
         </button>
       </DialogTrigger>
 
-      <DialogContent className="left-auto top-auto right-4 bottom-[162px] z-[10000] grid h-[70vh] w-[92vw] max-w-[410px] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-2xl border p-0 shadow-2xl sm:bottom-24 sm:h-[560px] sm:w-[380px]">
-        <DialogHeader className="bg-[#16A34A] px-4 py-3 text-white">
+      <DialogContent className="left-auto top-auto right-2 bottom-[162px] z-[10000] grid w-[calc(100%-1rem)] max-w-md translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-2xl border p-0 shadow-2xl max-h-[80vh] sm:right-4 sm:bottom-24">
+        <DialogHeader className="flex items-center gap-3 bg-[#16A34A] px-4 py-3 text-white">
           <div className="flex items-center gap-3 pr-8">
             <img
               src="/ju-avatar.png"
               alt="Ju Assistente"
-              className="h-full w-full object-cover"
+              className="h-9 w-9 rounded-full object-cover"
             />
             <div>
               <DialogTitle className="text-base font-semibold">
@@ -127,13 +127,13 @@ export default function HelpFloat() {
               </div>
             ))}
 
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
               {HELP_FAQ.map((faq) => (
                 <button
                   key={faq.question}
                   type="button"
                   onClick={() => onSelectFaq(faq.question, faq.answer)}
-                  className="rounded-full border border-[#DCFCE7] bg-white px-3 py-1.5 text-xs font-medium text-[#166534] transition hover:border-[#86EFAC] hover:bg-[#F0FDF4]"
+                  className="w-full rounded-full border border-[#DCFCE7] bg-white px-3 py-1.5 text-xs font-medium text-[#166534] transition hover:border-[#86EFAC] hover:bg-[#F0FDF4]"
                   data-testid={`button-help-chip-${faq.question}`}
                 >
                   {faq.question}
