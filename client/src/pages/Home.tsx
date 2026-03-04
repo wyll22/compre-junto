@@ -21,7 +21,6 @@ import {
   Truck,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -962,11 +961,7 @@ export default function Home() {
             </div>
 
             {featuredProducts.length > 0 ? (
-              <motion.div
-                layout
-                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4"
-              >
-                <AnimatePresence>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
                   {featuredProducts.map((product: any) => (
                     <ProductCard
                       key={`featured-${product.id}`}
@@ -974,8 +969,7 @@ export default function Home() {
                       saleMode={saleMode}
                     />
                   ))}
-                </AnimatePresence>
-              </motion.div>
+              </div>
             ) : (
               <div className="rounded-md border border-dashed border-border bg-card p-6 text-center">
                 <Store className="w-7 h-7 text-muted-foreground/40 mx-auto mb-2" />
@@ -1063,11 +1057,7 @@ export default function Home() {
                   </p>
                 </div>
               ) : (
-                <motion.div
-                  layout
-                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4"
-                >
-                  <AnimatePresence>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4">
                     {products?.map((product: any) => (
                       <ProductCard
                         key={product.id}
@@ -1075,8 +1065,7 @@ export default function Home() {
                         saleMode={saleMode}
                       />
                     ))}
-                  </AnimatePresence>
-                </motion.div>
+                </div>
               )}
 
               {inlineSponsors.length > 0 && (

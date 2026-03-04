@@ -1,25 +1,29 @@
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect, useRef, memo } from "react";
-import NotFound from "@/pages/not-found";
-import Home from "@/pages/Home";
-import Admin from "@/pages/Admin";
-import Cart from "@/pages/Cart";
-import Login from "@/pages/Login";
-import Account from "@/pages/Account";
-import Privacidade from "@/pages/Privacidade";
-import Termos from "@/pages/Termos";
-import TrocasReembolsos from "@/pages/TrocasReembolsos";
-import Entregas from "@/pages/Entregas";
-import Contato from "@/pages/Contato";
-import ProductDetail from "@/pages/ProductDetail";
-import { BlogList, BlogPost } from "@/pages/Blog";
-import Partner from "@/pages/Partner";
-import WhatsAppFloat from "@/components/WhatsAppFloat";
-import HelpFloat from "@/components/help/HelpFloat";
+import { useEffect, useRef, memo, lazy, Suspense } from "react";
+
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Home = lazy(() => import("@/pages/Home"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const Cart = lazy(() => import("@/pages/Cart"));
+const Login = lazy(() => import("@/pages/Login"));
+const Account = lazy(() => import("@/pages/Account"));
+const Privacidade = lazy(() => import("@/pages/Privacidade"));
+const Termos = lazy(() => import("@/pages/Termos"));
+const TrocasReembolsos = lazy(() => import("@/pages/TrocasReembolsos"));
+const Entregas = lazy(() => import("@/pages/Entregas"));
+const Contato = lazy(() => import("@/pages/Contato"));
+const ProductDetail = lazy(() => import("@/pages/ProductDetail"));
+const BlogList = lazy(() => import("@/pages/Blog").then((module) => ({ default: module.BlogList })));
+const BlogPost = lazy(() => import("@/pages/Blog").then((module) => ({ default: module.BlogPost })));
+const Partner = lazy(() => import("@/pages/Partner"));
+const Toaster = lazy(() =>
+  import("@/components/ui/toaster").then((module) => ({ default: module.Toaster })),
+);
+const WhatsAppFloat = lazy(() => import("@/components/WhatsAppFloat"));
+const HelpFloat = lazy(() => import("@/components/help/HelpFloat"));
 
 function getVisitorId() {
   let id = localStorage.getItem("cjf_visitor_id");
@@ -37,7 +41,7 @@ const VisitTracker = memo(function VisitTracker() {
   useEffect(() => {
     if (location === lastTracked.current) return;
     lastTracked.current = location;
-    
+
     const timer = setTimeout(() => {
       const visitorId = getVisitorId();
       fetch("/api/track-visit", {
@@ -56,28 +60,30 @@ const VisitTracker = memo(function VisitTracker() {
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/admin" component={Admin} />
-      <Route path="/checkout" component={Cart} />
-      <Route path="/carrinho" component={Cart} />
-      <Route path="/login" component={Login} />
-      <Route path="/cadastro" component={Login} />
-      <Route path="/register" component={Login} />
-      <Route path="/produto/:id" component={ProductDetail} />
-      <Route path="/minha-conta" component={Account} />
-      <Route path="/privacidade" component={Privacidade} />
-      <Route path="/termos" component={Termos} />
-      <Route path="/trocas-e-reembolsos" component={TrocasReembolsos} />
-      <Route path="/entregas" component={Entregas} />
-      <Route path="/contato" component={Contato} />
-      <Route path="/blog" component={BlogList} />
-      <Route path="/blog/:slug" component={BlogPost} />
-      <Route path="/parceiro" component={Partner} />
-      <Route path="/grupos" component={Home} />
-      <Route path="/compre-agora" component={Home} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<div className="min-h-[40vh]" aria-live="polite" />}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/admin" component={Admin} />
+        <Route path="/checkout" component={Cart} />
+        <Route path="/carrinho" component={Cart} />
+        <Route path="/login" component={Login} />
+        <Route path="/cadastro" component={Login} />
+        <Route path="/register" component={Login} />
+        <Route path="/produto/:id" component={ProductDetail} />
+        <Route path="/minha-conta" component={Account} />
+        <Route path="/privacidade" component={Privacidade} />
+        <Route path="/termos" component={Termos} />
+        <Route path="/trocas-e-reembolsos" component={TrocasReembolsos} />
+        <Route path="/entregas" component={Entregas} />
+        <Route path="/contato" component={Contato} />
+        <Route path="/blog" component={BlogList} />
+        <Route path="/blog/:slug" component={BlogPost} />
+        <Route path="/parceiro" component={Partner} />
+        <Route path="/grupos" component={Home} />
+        <Route path="/compre-agora" component={Home} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 
@@ -86,10 +92,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <VisitTracker />
-        <Toaster />
         <Router />
-        <WhatsAppFloat />
-        <HelpFloat />
+        <Suspense fallback={null}>
+          <Toaster />
+          <WhatsAppFloat />
+          <HelpFloat />
+        </Suspense>
       </TooltipProvider>
     </QueryClientProvider>
   );
