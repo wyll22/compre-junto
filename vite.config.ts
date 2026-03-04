@@ -30,6 +30,39 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          const isPkg = (pkg: string) => id.includes(`/node_modules/${pkg}/`);
+
+          if (isPkg("react") || isPkg("react-dom") || isPkg("scheduler") || isPkg("wouter")) {
+            return "react-core";
+          }
+
+          if (isPkg("@tanstack/react-query")) {
+            return "react-query";
+          }
+
+          if (isPkg("recharts") || id.includes("/node_modules/d3-") || isPkg("victory-vendor")) {
+            return "charts";
+          }
+
+          if (isPkg("react-icons") || isPkg("lucide-react")) {
+            return "icons";
+          }
+
+          if (isPkg("framer-motion")) {
+            return "motion";
+          }
+
+          if (isPkg("date-fns")) {
+            return "date-utils";
+          }
+        },
+      },
+    },
   },
   server: {
     fs: {

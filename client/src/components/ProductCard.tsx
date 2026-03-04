@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useMemo, useState, useEffect } from "react";
 import { JoinGroupDialog } from "./JoinGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion } from "framer-motion";
 import { useLocation, Link } from "wouter";
 
 function CountdownTimer({ endsAt }: { endsAt: string }) {
@@ -143,10 +142,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
+      <div
         data-testid={`card-product-${product.id}`}
         className="group relative bg-card rounded-md border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col h-full overflow-visible"
       >
@@ -316,7 +312,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
             )}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {saleMode === "grupo" && (
         <JoinGroupDialog
