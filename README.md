@@ -68,3 +68,16 @@ Esperado:
 1. Abrir Home (`/`) e confirmar carregamento sem erro visível.
 2. Abrir Login (`/login`) e tentar credencial inválida (mensagem amigável, sem stacktrace).
 3. Acessar Admin (`/admin`) sem login e confirmar redirecionamento para `/login`.
+
+## Sincronizando este repositório local com o GitHub
+
+Se o clone local não tiver o remoto `origin` configurado, rode:
+
+```bash
+git remote remove origin 2>/dev/null || true
+git remote add origin https://github.com/wyll22/compre-junto.git
+git fetch origin
+git checkout main
+git pull --rebase origin main
+```
+

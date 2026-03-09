@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 import { Footer } from "@/components/Footer";
-import { companyConfig } from "@/lib/companyConfig";
+import { useSiteConfigQuery } from "@/lib/siteConfig";
 
 interface CartItem {
   productId: number;
@@ -553,12 +553,14 @@ export default function Cart() {
     },
   });
 
-  const pixConfig = companyConfig.pagamentos?.pix;
+  const { data: siteConfig = {} } = useSiteConfigQuery();
+  const pixKey = String((siteConfig as any).pixKey || "").trim();
+  const pixSupport = String((siteConfig as any).supportEmail || (siteConfig as any).email || "").trim();
 
   const copyPixKey = async () => {
-    if (!pixConfig?.ativo || !pixConfig.chave) return;
+    if (!pixKey) return;
     try {
-      await navigator.clipboard.writeText(pixConfig.chave);
+      await navigator.clipboard.writeText(pixKey);
       toast({ title: "Chave PIX copiada!", description: "Cole no app do seu banco para pagar." });
     } catch {
       toast({ title: "Nao foi possivel copiar", description: "Copie a chave manualmente abaixo.", variant: "destructive" });
@@ -569,7 +571,13 @@ export default function Cart() {
     const orderLabel = orderSuccess ? `Pedido #${orderSuccess}` : "Pedido";
     const totalLabel = Number(orderTotal || total || 0).toFixed(2);
     const text = encodeURIComponent(`${orderLabel} - gostaria de confirmar o pagamento (R$ ${totalLabel}).`);
-    const wa = `https://wa.me/${companyConfig.whatsappNumero}?text=${text}`;
+    const waLink = String((siteConfig as any).whatsapp || "").trim();
+    const waDigits = waLink.replace(/\D/g, "");
+    const wa = waDigits ? `https://wa.me/${waDigits}?text=${text}` : "";
+    if (!wa) {
+      toast({ title: "WhatsApp indisponivel", description: "Configure o WhatsApp no painel administrativo.", variant: "destructive" });
+      return;
+    }
     window.open(wa, "_blank", "noopener,noreferrer");
   };
 
@@ -580,6 +588,10 @@ export default function Cart() {
     }
     if (isMixed) {
       toast({ title: "Carrinho misto", description: "Remova os itens de retirada ou entrega para continuar.", variant: "destructive" });
+      return;
+    }
+    if (cartFulfillmentType === "pickup" && (!pickupPoints || (pickupPoints as any[]).length === 0)) {
+      toast({ title: "Retirada indisponivel no momento", description: "Nenhum ponto de retirada ativo foi cadastrado.", variant: "destructive" });
       return;
     }
     if (cartFulfillmentType === "pickup" && !selectedPickupPointId) {
@@ -657,14 +669,14 @@ export default function Cart() {
                   <Smartphone className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="w-full">
                     <p className="text-sm font-medium">PIX</p>
-                    {pixConfig?.ativo ? (
+                    {pixKey ? (
                       <div className="mt-1 space-y-1.5">
                         <p className="text-xs text-muted-foreground">
                           Pague agora com copia-e-cola para agilizar seu pedido.
                         </p>
                         <div className="rounded-md border border-border p-2 bg-muted/40">
-                          <p className="text-[11px] text-muted-foreground">Chave ({pixConfig.tipoChave}):</p>
-                          <p className="text-xs font-semibold break-all" data-testid="text-pix-key">{pixConfig.chave}</p>
+                          <p className="text-[11px] text-muted-foreground">Chave PIX:</p>
+                          <p className="text-xs font-semibold break-all" data-testid="text-pix-key">{pixKey}</p>
                         </div>
                         <div className="flex gap-2 flex-wrap">
                           <Button size="sm" variant="outline" onClick={copyPixKey} data-testid="button-copy-pix-key">
@@ -858,9 +870,9 @@ export default function Cart() {
       />
 
       {cartFulfillmentType === "pickup" && (
-        <Card className="mt-4">
+        <Card className="mt-4" data-testid="option-choose-pickup">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3" aria-label="Escolher retirada">
               <MapPin className="w-4 h-4 text-primary" />
               <span className="font-bold text-sm">Ponto de Retirada</span>
             </div>
@@ -869,7 +881,7 @@ export default function Cart() {
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
             ) : !pickupPoints || (pickupPoints as any[]).length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum ponto de retirada disponivel no momento.</p>
+              <p className="text-xs text-muted-foreground" data-testid="text-pickup-unavailable">Retirada indisponivel no momento. Nenhum ponto ativo cadastrado.</p>
             ) : (
               <div className="space-y-2">
                 {(pickupPoints as any[]).map((pt: any) => (
@@ -901,19 +913,21 @@ export default function Cart() {
       )}
 
       {showDeliveryAddress && (
-        user ? (
-          <DeliveryAddressSection
-            user={user}
-            onAddressSaved={() => {
-              queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-            }}
-          />
-        ) : (
-          <GuestDeliveryAddressSection />
-        )
+        <div data-testid="option-choose-delivery" aria-label="Escolher entrega">
+          {user ? (
+            <DeliveryAddressSection
+              user={user}
+              onAddressSaved={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+              }}
+            />
+          ) : (
+            <GuestDeliveryAddressSection />
+          )}
+        </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 z-50">
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 z-50" role="region" aria-label="Resumo do checkout">
         <div className="max-w-4xl mx-auto flex items-center justify-between mb-3">
           <span className="text-base font-medium text-muted-foreground">Total:</span>
           <span data-testid="text-cart-total" className="text-xl font-bold text-primary">
@@ -925,7 +939,7 @@ export default function Cart() {
           className="w-full font-bold"
           size="lg"
           onClick={handleCheckout}
-          disabled={createOrder.isPending || isMixed}
+          disabled={createOrder.isPending || isMixed || (cartFulfillmentType === "pickup" && (!pickupPoints || (pickupPoints as any[]).length === 0))}
         >
           {createOrder.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin mr-1.5" />

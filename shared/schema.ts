@@ -313,6 +313,8 @@ export const siteConfig = pgTable("site_config", {
   facebookUrl: text("facebook_url").notNull().default(""),
   mapsUrl: text("maps_url").notNull().default(""),
   openingHoursText: text("opening_hours_text").notNull().default(""),
+  supportEmail: text("support_email").notNull().default(""),
+  pixKey: text("pix_key").notNull().default(""),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -556,6 +558,8 @@ export const createSiteConfigSchema = z.object({
   facebookUrl: optionalHttpUrl,
   mapsUrl: optionalHttpUrl,
   openingHoursText: z.string().max(300).optional().default(""),
+  supportEmail: z.string().email("Email de suporte invalido").optional().or(z.literal("")).default(""),
+  pixKey: z.string().max(255).optional().default(""),
 });
 
 export const createOrderSchema = z.object({

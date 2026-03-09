@@ -172,6 +172,8 @@ type SiteConfigRow = {
   facebookUrl: string;
   mapsUrl: string;
   openingHoursText: string;
+  supportEmail: string;
+  pixKey: string;
   updatedAt?: Date | string | null;
 };
 
@@ -442,6 +444,8 @@ const SITE_CONFIG_SELECT = `
   facebook_url AS "facebookUrl",
   maps_url AS "mapsUrl",
   opening_hours_text AS "openingHoursText",
+  support_email AS "supportEmail",
+  pix_key AS "pixKey",
   updated_at AS "updatedAt"
 `;
 
@@ -1654,9 +1658,9 @@ class DatabaseStorage implements IStorage {
     const result = await pool.query(
       `INSERT INTO site_config (
         id, company_name, legal_name, cnpj, address_line1, city, state, cep, email, phone,
-        whatsapp, instagram_url, facebook_url, maps_url, opening_hours_text, updated_at
+        whatsapp, instagram_url, facebook_url, maps_url, opening_hours_text, support_email, pix_key, updated_at
       )
-      VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+      VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
       ON CONFLICT (id) DO UPDATE SET
         company_name = EXCLUDED.company_name,
         legal_name = EXCLUDED.legal_name,
@@ -1672,6 +1676,8 @@ class DatabaseStorage implements IStorage {
         facebook_url = EXCLUDED.facebook_url,
         maps_url = EXCLUDED.maps_url,
         opening_hours_text = EXCLUDED.opening_hours_text,
+        support_email = EXCLUDED.support_email,
+        pix_key = EXCLUDED.pix_key,
         updated_at = NOW()
       RETURNING ${SITE_CONFIG_SELECT}`,
       [
@@ -1689,6 +1695,8 @@ class DatabaseStorage implements IStorage {
         input.facebookUrl ?? "",
         input.mapsUrl ?? "",
         input.openingHoursText ?? "",
+        input.supportEmail ?? "",
+        input.pixKey ?? "",
       ],
     );
 

@@ -2,11 +2,29 @@ import { Link } from "wouter";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ArrowLeft, Mail, MapPin, Clock, ExternalLink } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiInstagram } from "react-icons/si";
-import { companyConfig } from "@/lib/companyConfig";
+import { useSiteConfigQuery, normalizeWhatsAppLink } from "@/lib/siteConfig";
 import { Card } from "@/components/ui/card";
 import { Footer } from "@/components/Footer";
 
 export default function Contato() {
+  const { data: siteConfig = {} } = useSiteConfigQuery();
+  const company = {
+    nomeFantasia: String((siteConfig as any).companyName || "Compra Junto Formosa"),
+    razaoSocial: String((siteConfig as any).legalName || ""),
+    cnpj: String((siteConfig as any).cnpj || ""),
+    cidadeUf: [String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    whatsappSuporte: String((siteConfig as any).whatsapp || ""),
+    emailSuporte: String((siteConfig as any).supportEmail || (siteConfig as any).email || ""),
+    endereco: [String((siteConfig as any).addressLine1 || ""), String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    horarioAtendimento: String((siteConfig as any).openingHoursText || ""),
+    googleMapsUrl: String((siteConfig as any).mapsUrl || ""),
+    redesSociais: {
+      whatsapp: normalizeWhatsAppLink(String((siteConfig as any).whatsapp || "")),
+      facebook: String((siteConfig as any).facebookUrl || ""),
+      instagram: String((siteConfig as any).instagramUrl || ""),
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
@@ -23,7 +41,7 @@ export default function Contato() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           <a
-            href={companyConfig.redesSociais.whatsapp}
+            href={company.redesSociais.whatsapp}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="link-contato-whatsapp"
@@ -34,27 +52,27 @@ export default function Contato() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">WhatsApp</p>
-                <p className="text-sm text-muted-foreground" data-testid="text-whatsapp">{companyConfig.whatsappSuporte}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-whatsapp">{company.whatsappSuporte}</p>
                 <p className="text-xs text-primary mt-1 flex items-center gap-1">Clique para conversar <ExternalLink className="w-3 h-3" /></p>
               </div>
             </Card>
           </a>
 
-          <a href={`mailto:${companyConfig.emailSuporte}`} data-testid="link-contato-email">
+          <a href={`mailto:${company.emailSuporte}`} data-testid="link-contato-email">
             <Card className="p-4 flex items-start gap-3 h-full hover-elevate">
               <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Mail className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">E-mail</p>
-                <p className="text-sm text-muted-foreground break-all" data-testid="text-email">{companyConfig.emailSuporte}</p>
+                <p className="text-sm text-muted-foreground break-all" data-testid="text-email">{company.emailSuporte}</p>
                 <p className="text-xs text-muted-foreground mt-1">Resposta em ate 24 horas uteis</p>
               </div>
             </Card>
           </a>
 
           <a
-            href={companyConfig.googleMapsUrl}
+            href={company.googleMapsUrl}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="link-contato-endereco"
@@ -65,7 +83,7 @@ export default function Contato() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">Endereco</p>
-                <p className="text-sm text-muted-foreground" data-testid="text-endereco">{companyConfig.endereco}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-endereco">{company.endereco}</p>
                 <p className="text-xs text-primary mt-1 flex items-center gap-1">Ver no mapa <ExternalLink className="w-3 h-3" /></p>
               </div>
             </Card>
@@ -77,7 +95,7 @@ export default function Contato() {
             </div>
             <div>
               <p className="font-semibold text-sm text-foreground">Horario de Atendimento</p>
-              <p className="text-sm text-muted-foreground" data-testid="text-horario">{companyConfig.horarioAtendimento}</p>
+              <p className="text-sm text-muted-foreground" data-testid="text-horario">{company.horarioAtendimento}</p>
             </div>
           </Card>
         </div>
@@ -87,7 +105,7 @@ export default function Contato() {
           <p className="text-sm text-muted-foreground mb-4">Siga-nos nas redes sociais para ficar por dentro das novidades e ofertas:</p>
           <div className="flex flex-wrap items-center gap-3">
             <a
-              href={companyConfig.redesSociais.whatsapp}
+              href={company.redesSociais.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
               data-testid="link-social-whatsapp"
@@ -98,7 +116,7 @@ export default function Contato() {
               </Card>
             </a>
             <a
-              href={companyConfig.redesSociais.facebook}
+              href={company.redesSociais.facebook}
               target="_blank"
               rel="noopener noreferrer"
               data-testid="link-social-facebook"
@@ -109,7 +127,7 @@ export default function Contato() {
               </Card>
             </a>
             <a
-              href={companyConfig.redesSociais.instagram}
+              href={company.redesSociais.instagram}
               target="_blank"
               rel="noopener noreferrer"
               data-testid="link-social-instagram"
