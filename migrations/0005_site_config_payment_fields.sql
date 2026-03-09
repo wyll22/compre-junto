@@ -1,0 +1,3 @@
+ALTER TABLE site_config
+  ADD COLUMN IF NOT EXISTS support_email text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS pix_key text NOT NULL DEFAULT '';

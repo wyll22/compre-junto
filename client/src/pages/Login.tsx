@@ -453,7 +453,7 @@ export default function Login() {
                         <div className="relative">
                           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                           <Input
-                            data-testid="input-identifier"
+                            data-testid="input-login-email-phone"
                             id="login-id"
                             value={identifier}
                             onChange={(e) => setIdentifier(e.target.value)}
@@ -469,7 +469,7 @@ export default function Login() {
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                           <Input
-                            data-testid="input-password"
+                            data-testid="input-login-password"
                             id="login-password"
                             type="password"
                             value={password}
@@ -495,7 +495,7 @@ export default function Login() {
                   )}
 
                   <Button
-                    data-testid="button-submit-auth"
+                    data-testid="button-login-submit"
                     type="submit"
                     className="w-full"
                     disabled={loading}
@@ -507,7 +507,7 @@ export default function Login() {
 
                 <div className="mt-4 text-center">
                   <button
-                    data-testid="button-toggle-auth-mode"
+                    data-testid="button-register-toggle"
                     type="button"
                     onClick={() => setViewMode(viewMode === "register" ? "login" : "register")}
                     className="text-sm text-primary hover:underline"

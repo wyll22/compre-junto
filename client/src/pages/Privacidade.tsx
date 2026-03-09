@@ -1,10 +1,28 @@
 import { Link } from "wouter";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ArrowLeft } from "lucide-react";
-import { companyConfig } from "@/lib/companyConfig";
+import { useSiteConfigQuery, normalizeWhatsAppLink } from "@/lib/siteConfig";
 import { Footer } from "@/components/Footer";
 
 export default function Privacidade() {
+  const { data: siteConfig = {} } = useSiteConfigQuery();
+  const company = {
+    nomeFantasia: String((siteConfig as any).companyName || "Compra Junto Formosa"),
+    razaoSocial: String((siteConfig as any).legalName || ""),
+    cnpj: String((siteConfig as any).cnpj || ""),
+    cidadeUf: [String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    whatsappSuporte: String((siteConfig as any).whatsapp || ""),
+    emailSuporte: String((siteConfig as any).supportEmail || (siteConfig as any).email || ""),
+    endereco: [String((siteConfig as any).addressLine1 || ""), String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    horarioAtendimento: String((siteConfig as any).openingHoursText || ""),
+    googleMapsUrl: String((siteConfig as any).mapsUrl || ""),
+    redesSociais: {
+      whatsapp: normalizeWhatsAppLink(String((siteConfig as any).whatsapp || "")),
+      facebook: String((siteConfig as any).facebookUrl || ""),
+      instagram: String((siteConfig as any).instagramUrl || ""),
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
@@ -22,7 +40,7 @@ export default function Privacidade() {
 
           <section className="space-y-2">
             <h2 className="text-lg font-semibold text-foreground">1. Introducao</h2>
-            <p>A <strong>{companyConfig.nomeFantasia}</strong> ({companyConfig.razaoSocial}, CNPJ {companyConfig.cnpj}) valoriza a privacidade dos seus usuarios. Esta Politica de Privacidade descreve como coletamos, utilizamos, armazenamos e protegemos suas informacoes pessoais, em conformidade com a Lei Geral de Protecao de Dados (LGPD - Lei n 13.709/2018).</p>
+            <p>A <strong>{company.nomeFantasia}</strong> ({company.razaoSocial}, CNPJ {company.cnpj}) valoriza a privacidade dos seus usuarios. Esta Politica de Privacidade descreve como coletamos, utilizamos, armazenamos e protegemos suas informacoes pessoais, em conformidade com a Lei Geral de Protecao de Dados (LGPD - Lei n 13.709/2018).</p>
           </section>
 
           <section className="space-y-2">
@@ -73,7 +91,7 @@ export default function Privacidade() {
               <li>Revogar o consentimento a qualquer momento.</li>
               <li>Solicitar a anonimizacao ou eliminacao de dados desnecessarios.</li>
             </ul>
-            <p>Para exercer seus direitos, entre em contato pelo e-mail <strong>{companyConfig.emailSuporte}</strong> ou WhatsApp <strong>{companyConfig.whatsappSuporte}</strong>.</p>
+            <p>Para exercer seus direitos, entre em contato pelo e-mail <strong>{company.emailSuporte}</strong> ou WhatsApp <strong>{company.whatsappSuporte}</strong>.</p>
           </section>
 
           <section className="space-y-2">
@@ -84,9 +102,9 @@ export default function Privacidade() {
           <section className="space-y-2">
             <h2 className="text-lg font-semibold text-foreground">8. Contato</h2>
             <p>Para duvidas sobre esta politica, entre em contato:</p>
-            <p>E-mail: <strong>{companyConfig.emailSuporte}</strong><br />
-            WhatsApp: <strong>{companyConfig.whatsappSuporte}</strong><br />
-            {companyConfig.nomeFantasia} - {companyConfig.cidadeUf}</p>
+            <p>E-mail: <strong>{company.emailSuporte}</strong><br />
+            WhatsApp: <strong>{company.whatsappSuporte}</strong><br />
+            {company.nomeFantasia} - {company.cidadeUf}</p>
           </section>
         </div>
       </main>

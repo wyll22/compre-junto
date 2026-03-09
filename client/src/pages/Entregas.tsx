@@ -1,10 +1,28 @@
 import { Link } from "wouter";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ArrowLeft } from "lucide-react";
-import { companyConfig } from "@/lib/companyConfig";
+import { useSiteConfigQuery, normalizeWhatsAppLink } from "@/lib/siteConfig";
 import { Footer } from "@/components/Footer";
 
 export default function Entregas() {
+  const { data: siteConfig = {} } = useSiteConfigQuery();
+  const company = {
+    nomeFantasia: String((siteConfig as any).companyName || "Compra Junto Formosa"),
+    razaoSocial: String((siteConfig as any).legalName || ""),
+    cnpj: String((siteConfig as any).cnpj || ""),
+    cidadeUf: [String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    whatsappSuporte: String((siteConfig as any).whatsapp || ""),
+    emailSuporte: String((siteConfig as any).supportEmail || (siteConfig as any).email || ""),
+    endereco: [String((siteConfig as any).addressLine1 || ""), String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    horarioAtendimento: String((siteConfig as any).openingHoursText || ""),
+    googleMapsUrl: String((siteConfig as any).mapsUrl || ""),
+    redesSociais: {
+      whatsapp: normalizeWhatsAppLink(String((siteConfig as any).whatsapp || "")),
+      facebook: String((siteConfig as any).facebookUrl || ""),
+      instagram: String((siteConfig as any).instagramUrl || ""),
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
@@ -22,12 +40,12 @@ export default function Entregas() {
 
           <section className="space-y-2">
             <h2 className="text-lg font-semibold text-foreground">1. Area de Entrega</h2>
-            <p>Atualmente, a <strong>{companyConfig.nomeFantasia}</strong> realiza entregas na regiao de <strong>{companyConfig.cidadeUf}</strong> e cidades vizinhas. A disponibilidade de entrega e verificada pelo CEP informado no cadastro.</p>
+            <p>Atualmente, a <strong>{company.nomeFantasia}</strong> realiza entregas na regiao de <strong>{company.cidadeUf}</strong> e cidades vizinhas. A disponibilidade de entrega e verificada pelo CEP informado no cadastro.</p>
           </section>
 
           <section className="space-y-2">
             <h2 className="text-lg font-semibold text-foreground">2. Modalidades de Recebimento</h2>
-            <p>A <strong>{companyConfig.nomeFantasia}</strong> oferece duas modalidades de recebimento conforme o tipo de compra:</p>
+            <p>A <strong>{company.nomeFantasia}</strong> oferece duas modalidades de recebimento conforme o tipo de compra:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Retirada no Ponto de Coleta (Compra em Grupo):</strong> produtos adquiridos na modalidade de compra em grupo devem ser retirados em um dos pontos de coleta disponiveis. O ponto e selecionado no momento da finalizacao do pedido.</li>
               <li><strong>Entrega no Endereco (Compre Agora):</strong> produtos adquiridos na modalidade individual sao entregues diretamente no endereco cadastrado na conta do cliente.</li>
@@ -72,8 +90,8 @@ export default function Entregas() {
             <h2 className="text-lg font-semibold text-foreground">7. Problemas na Entrega</h2>
             <p>Em caso de atraso, extravio ou produto danificado durante o transporte, entre em contato:</p>
             <ul className="list-disc pl-6 space-y-1">
-              <li>WhatsApp: <strong>{companyConfig.whatsappSuporte}</strong></li>
-              <li>E-mail: <strong>{companyConfig.emailSuporte}</strong></li>
+              <li>WhatsApp: <strong>{company.whatsappSuporte}</strong></li>
+              <li>E-mail: <strong>{company.emailSuporte}</strong></li>
             </ul>
           </section>
         </div>

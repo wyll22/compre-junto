@@ -91,6 +91,8 @@ const DEFAULT_SITE_CONFIG = {
   facebookUrl: "",
   mapsUrl: "",
   openingHoursText: "",
+  supportEmail: "",
+  pixKey: "",
 };
 
 function normalizeWhatsAppValue(raw: string): string {
@@ -1541,6 +1543,12 @@ export async function registerRoutes(
       }
       if (parsed.data.fulfillmentType === "pickup" && !parsed.data.pickupPointId) {
         return res.status(400).json({ message: "Selecione um ponto de retirada" });
+      }
+      if (parsed.data.fulfillmentType === "pickup" && parsed.data.pickupPointId) {
+        const pickupPoint = await storage.getPickupPoint(parsed.data.pickupPointId);
+        if (!pickupPoint || !pickupPoint.active) {
+          return res.status(400).json({ message: "Retirada indisponivel no momento" });
+        }
       }
       const order = await storage.createOrder({
         userId,

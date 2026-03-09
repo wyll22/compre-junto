@@ -1145,6 +1145,8 @@ type SiteConfigFormValues = {
   facebookUrl: string;
   mapsUrl: string;
   openingHoursText: string;
+  supportEmail: string;
+  pixKey: string;
 };
 
 const EMPTY_SITE_CONFIG: SiteConfigFormValues = {
@@ -1162,6 +1164,8 @@ const EMPTY_SITE_CONFIG: SiteConfigFormValues = {
   facebookUrl: "",
   mapsUrl: "",
   openingHoursText: "",
+  supportEmail: "",
+  pixKey: "",
 };
 
 function SiteConfigTab() {
@@ -1226,6 +1230,8 @@ function SiteConfigTab() {
           <Input value={form.instagramUrl} onChange={(e) => updateField("instagramUrl", e.target.value)} placeholder="Instagram URL" />
           <Input value={form.facebookUrl} onChange={(e) => updateField("facebookUrl", e.target.value)} placeholder="Facebook URL" />
           <Input value={form.mapsUrl} onChange={(e) => updateField("mapsUrl", e.target.value)} placeholder="Google Maps URL" />
+          <Input value={form.supportEmail} onChange={(e) => updateField("supportEmail", e.target.value)} placeholder="E-mail de suporte" data-testid="input-site-config-support-email" />
+          <Input value={form.pixKey} onChange={(e) => updateField("pixKey", e.target.value)} placeholder="Chave PIX" data-testid="input-site-config-pix-key" />
         </div>
         <div className="mt-3">
           <Textarea value={form.openingHoursText} onChange={(e) => updateField("openingHoursText", e.target.value)} placeholder="Horário de funcionamento" />
@@ -4101,6 +4107,14 @@ export default function Admin() {
                 <Plus className="w-4 h-4 mr-1" /> Novo Ponto
               </Button>
             </div>
+
+            {(!pickupPoints || (pickupPoints as any[]).length === 0) && (
+              <Card className="mb-3 border-amber-300 bg-amber-50 dark:bg-amber-950/20" data-testid="alert-no-pickup-points">
+                <CardContent className="py-3 text-sm text-amber-800 dark:text-amber-200">
+                  Retirada indisponivel no momento. Cadastre ao menos 1 ponto de retirada ativo para liberar pedidos de retirada.
+                </CardContent>
+              </Card>
+            )}
 
             <div className="space-y-3">
               {!pickupPoints || (pickupPoints as any[]).length === 0 ? (

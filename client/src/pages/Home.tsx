@@ -51,6 +51,7 @@ export default function Home() {
   >(null);
   const [saleMode, setSaleMode] = useState<"grupo" | "agora">("grupo");
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [bannerIdx, setBannerIdx] = useState(0);
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -307,6 +308,11 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
   const handleToggleFilterOption = useCallback((optionId: number) => {
     setSelectedFilterOptions((prev) =>
       prev.includes(optionId)
@@ -329,7 +335,7 @@ export default function Home() {
     isLoading,
     error,
   } = useProducts({
-    search: searchTerm,
+    search: debouncedSearchTerm,
     saleMode,
     categoryId: selectedCategoryId ?? undefined,
     subcategoryId: selectedSubcategoryId ?? undefined,
@@ -366,7 +372,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="brand-gradient sticky top-0 z-30 shadow-md">
+      <header className="brand-gradient sticky top-0 z-30 shadow-md" role="navigation" aria-label="Navegacao principal" data-testid="main-navigation">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 lg:py-4">
           <div className="flex items-center justify-between gap-3">
             <Link href="/" data-testid="link-brand-logo">

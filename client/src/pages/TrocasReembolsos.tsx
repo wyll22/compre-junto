@@ -1,10 +1,28 @@
 import { Link } from "wouter";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ArrowLeft } from "lucide-react";
-import { companyConfig } from "@/lib/companyConfig";
+import { useSiteConfigQuery, normalizeWhatsAppLink } from "@/lib/siteConfig";
 import { Footer } from "@/components/Footer";
 
 export default function TrocasReembolsos() {
+  const { data: siteConfig = {} } = useSiteConfigQuery();
+  const company = {
+    nomeFantasia: String((siteConfig as any).companyName || "Compra Junto Formosa"),
+    razaoSocial: String((siteConfig as any).legalName || ""),
+    cnpj: String((siteConfig as any).cnpj || ""),
+    cidadeUf: [String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    whatsappSuporte: String((siteConfig as any).whatsapp || ""),
+    emailSuporte: String((siteConfig as any).supportEmail || (siteConfig as any).email || ""),
+    endereco: [String((siteConfig as any).addressLine1 || ""), String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    horarioAtendimento: String((siteConfig as any).openingHoursText || ""),
+    googleMapsUrl: String((siteConfig as any).mapsUrl || ""),
+    redesSociais: {
+      whatsapp: normalizeWhatsAppLink(String((siteConfig as any).whatsapp || "")),
+      facebook: String((siteConfig as any).facebookUrl || ""),
+      instagram: String((siteConfig as any).instagramUrl || ""),
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
@@ -26,7 +44,7 @@ export default function TrocasReembolsos() {
             <ul className="list-disc pl-6 space-y-1">
               <li>O produto deve estar em sua embalagem original, sem sinais de uso.</li>
               <li>O reembolso sera efetuado pelo mesmo meio de pagamento utilizado na compra.</li>
-              <li>Os custos de devolucao serao por conta da {companyConfig.nomeFantasia}.</li>
+              <li>Os custos de devolucao serao por conta da {company.nomeFantasia}.</li>
             </ul>
           </section>
 
@@ -36,7 +54,7 @@ export default function TrocasReembolsos() {
             <ul className="list-disc pl-6 space-y-1">
               <li>Entre em contato pelo WhatsApp ou e-mail informando o problema.</li>
               <li>Envie fotos do defeito para agilizar a analise.</li>
-              <li>A {companyConfig.nomeFantasia} se responsabiliza pelo frete de devolucao.</li>
+              <li>A {company.nomeFantasia} se responsabiliza pelo frete de devolucao.</li>
             </ul>
           </section>
 
@@ -67,8 +85,8 @@ export default function TrocasReembolsos() {
             <h2 className="text-lg font-semibold text-foreground">6. Como Solicitar</h2>
             <p>Para solicitar troca ou reembolso:</p>
             <ul className="list-disc pl-6 space-y-1">
-              <li>WhatsApp: <strong>{companyConfig.whatsappSuporte}</strong></li>
-              <li>E-mail: <strong>{companyConfig.emailSuporte}</strong></li>
+              <li>WhatsApp: <strong>{company.whatsappSuporte}</strong></li>
+              <li>E-mail: <strong>{company.emailSuporte}</strong></li>
             </ul>
             <p>Informe o numero do pedido e uma descricao do problema.</p>
           </section>

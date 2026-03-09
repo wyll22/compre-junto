@@ -1,10 +1,28 @@
 import { Link } from "wouter";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ArrowLeft } from "lucide-react";
-import { companyConfig } from "@/lib/companyConfig";
+import { useSiteConfigQuery, normalizeWhatsAppLink } from "@/lib/siteConfig";
 import { Footer } from "@/components/Footer";
 
 export default function Termos() {
+  const { data: siteConfig = {} } = useSiteConfigQuery();
+  const company = {
+    nomeFantasia: String((siteConfig as any).companyName || "Compra Junto Formosa"),
+    razaoSocial: String((siteConfig as any).legalName || ""),
+    cnpj: String((siteConfig as any).cnpj || ""),
+    cidadeUf: [String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    whatsappSuporte: String((siteConfig as any).whatsapp || ""),
+    emailSuporte: String((siteConfig as any).supportEmail || (siteConfig as any).email || ""),
+    endereco: [String((siteConfig as any).addressLine1 || ""), String((siteConfig as any).city || ""), String((siteConfig as any).state || "")].filter(Boolean).join(" - "),
+    horarioAtendimento: String((siteConfig as any).openingHoursText || ""),
+    googleMapsUrl: String((siteConfig as any).mapsUrl || ""),
+    redesSociais: {
+      whatsapp: normalizeWhatsAppLink(String((siteConfig as any).whatsapp || "")),
+      facebook: String((siteConfig as any).facebookUrl || ""),
+      instagram: String((siteConfig as any).instagramUrl || ""),
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
@@ -22,7 +40,7 @@ export default function Termos() {
 
           <section className="space-y-2">
             <h2 className="text-lg font-semibold text-foreground">1. Aceitacao dos Termos</h2>
-            <p>Ao acessar e utilizar a plataforma <strong>{companyConfig.nomeFantasia}</strong>, voce concorda com estes Termos de Uso. Caso nao concorde, nao utilize nossos servicos.</p>
+            <p>Ao acessar e utilizar a plataforma <strong>{company.nomeFantasia}</strong>, voce concorda com estes Termos de Uso. Caso nao concorde, nao utilize nossos servicos.</p>
           </section>
 
           <section className="space-y-2">
@@ -79,9 +97,9 @@ export default function Termos() {
 
           <section className="space-y-2">
             <h2 className="text-lg font-semibold text-foreground">9. Contato</h2>
-            <p>E-mail: <strong>{companyConfig.emailSuporte}</strong><br />
-            WhatsApp: <strong>{companyConfig.whatsappSuporte}</strong><br />
-            {companyConfig.nomeFantasia} - {companyConfig.cidadeUf}</p>
+            <p>E-mail: <strong>{company.emailSuporte}</strong><br />
+            WhatsApp: <strong>{company.whatsappSuporte}</strong><br />
+            {company.nomeFantasia} - {company.cidadeUf}</p>
           </section>
         </div>
       </main>

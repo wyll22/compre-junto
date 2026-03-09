@@ -1,7 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 
 export type SiteConfig = {
+  companyName?: string;
+  legalName?: string;
+  cnpj?: string;
+  city?: string;
+  state?: string;
+  addressLine1?: string;
+  email?: string;
+  supportEmail?: string;
+  openingHoursText?: string;
   whatsapp?: string;
+  mapsUrl?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  pixKey?: string;
   [key: string]: unknown;
 };
 
