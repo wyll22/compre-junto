@@ -1,12 +1,15 @@
+import { useLocation } from "wouter";
 import { SiWhatsapp } from "react-icons/si";
 
 import { normalizeWhatsAppLink, useSiteConfigQuery } from "@/lib/siteConfig";
 
 export default function WhatsAppFloat() {
   const { data } = useSiteConfigQuery();
+  const [location] = useLocation();
   const whatsappLink = normalizeWhatsAppLink(String(data?.whatsapp ?? ""));
 
   if (!whatsappLink) return null;
+  if (["/admin", "/checkout", "/carrinho", "/minha-conta", "/notificacoes", "/login", "/cadastro", "/register"].some((r) => location.startsWith(r))) return null;
 
   return (
     <a

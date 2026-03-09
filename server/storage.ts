@@ -126,9 +126,24 @@ type OrderStatusHistoryRow = {
 type PickupPointRow = {
   id: number;
   name: string;
+  cep: string | null;
   address: string;
+  number: string | null;
+  complement: string | null;
+  district: string | null;
   city: string;
+  state: string | null;
+  reference: string | null;
   phone: string | null;
+  whatsapp: string | null;
+  manager: string | null;
+  pickupInstructions: string | null;
+  workingDays: string | null;
+  openingTime: string | null;
+  closingTime: string | null;
+  lunchStart: string | null;
+  lunchEnd: string | null;
+  unavailableDays: string | null;
   hours: string | null;
   active: boolean;
   sortOrder: number;
@@ -401,6 +416,15 @@ const ORDER_SELECT = `
   pickup_point_id AS "pickupPointId",
   status_changed_at AS "statusChangedAt",
   pickup_deadline AS "pickupDeadline",
+  (SELECT name FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointName",
+  (SELECT address FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointAddress",
+  (SELECT city FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointCity",
+  (SELECT phone FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointPhone",
+  (SELECT whatsapp FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointWhatsApp",
+  (SELECT pickup_instructions FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointInstructions",
+  (SELECT working_days FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointWorkingDays",
+  (SELECT opening_time FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointOpeningTime",
+  (SELECT closing_time FROM pickup_points pp WHERE pp.id = orders.pickup_point_id) AS "pickupPointClosingTime",
   created_at AS "createdAt"
 `;
 
@@ -418,9 +442,24 @@ const STATUS_HISTORY_SELECT = `
 const PICKUP_POINT_SELECT = `
   id,
   name,
+  cep,
   address,
+  number,
+  complement,
+  district,
   city,
+  state,
+  reference,
   phone,
+  whatsapp,
+  manager,
+  pickup_instructions AS "pickupInstructions",
+  working_days AS "workingDays",
+  opening_time AS "openingTime",
+  closing_time AS "closingTime",
+  lunch_start AS "lunchStart",
+  lunch_end AS "lunchEnd",
+  unavailable_days AS "unavailableDays",
   hours,
   active,
   sort_order AS "sortOrder",
@@ -1302,11 +1341,16 @@ class DatabaseStorage implements IStorage {
       const orderUserId = Number(order.userId);
       const statusLabel = statusLabels[newStatus] || newStatus;
       try {
+        const notificationType = newStatus === "pronto_retirada"
+          ? "retirada"
+          : newStatus === "retirado"
+            ? "pedido"
+            : "pagamento";
         await this.createNotification(
           orderUserId,
           `Pedido #${orderId} atualizado`,
           `Seu pedido mudou para: ${statusLabel}.${reason ? " Motivo: " + reason : ""}`,
-          "order_status",
+          notificationType,
           orderId,
         );
       } catch (_) {}
@@ -1384,7 +1428,14 @@ class DatabaseStorage implements IStorage {
          FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
         [userId],
       );
-      return result.rows;
+      return result.rows.map((row: any) => {
+        const type = String(row.type || "info").toLowerCase();
+        let targetPath = "/notificacoes";
+        if (row.referenceId && (type.includes("pedido") || type.includes("retirada") || type.includes("pagamento") || type.includes("order"))) {
+          targetPath = `/minha-conta?tab=orders&orderId=${row.referenceId}`;
+        }
+        return { ...row, targetPath };
+      });
     } catch (err) {
       return [];
     }
@@ -1437,17 +1488,61 @@ class DatabaseStorage implements IStorage {
 
   async createPickupPoint(input: any): Promise<PickupPointRow> {
     const result = await pool.query(
-      `INSERT INTO pickup_points (name, address, city, phone, hours, active, sort_order)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO pickup_points (name, cep, address, number, complement, district, city, state, reference, phone, whatsapp, manager, pickup_instructions, working_days, opening_time, closing_time, lunch_start, lunch_end, unavailable_days, hours, active, sort_order)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING ${PICKUP_POINT_SELECT}`,
-      [input.name, input.address, input.city ?? "Formosa - GO", input.phone ?? "", input.hours ?? "", input.active !== undefined ? input.active : true, input.sortOrder ?? 0],
+      [
+        input.name,
+        input.cep ?? "",
+        input.address,
+        input.number ?? "",
+        input.complement ?? "",
+        input.district ?? "",
+        input.city ?? "Formosa - GO",
+        input.state ?? "",
+        input.reference ?? "",
+        input.phone ?? "",
+        input.whatsapp ?? "",
+        input.manager ?? "",
+        input.pickupInstructions ?? "",
+        input.workingDays ?? "",
+        input.openingTime ?? "",
+        input.closingTime ?? "",
+        input.lunchStart ?? "",
+        input.lunchEnd ?? "",
+        input.unavailableDays ?? "",
+        input.hours ?? "",
+        input.active !== undefined ? input.active : true,
+        input.sortOrder ?? 0,
+      ],
     );
     return result.rows[0] as PickupPointRow;
   }
 
   async updatePickupPoint(id: number, input: any): Promise<PickupPointRow | null> {
     const map: Record<string, string> = {
-      name: "name", address: "address", city: "city", phone: "phone", hours: "hours", active: "active", sortOrder: "sort_order",
+      name: "name",
+      cep: "cep",
+      address: "address",
+      number: "number",
+      complement: "complement",
+      district: "district",
+      city: "city",
+      state: "state",
+      reference: "reference",
+      phone: "phone",
+      whatsapp: "whatsapp",
+      manager: "manager",
+      pickupInstructions: "pickup_instructions",
+      workingDays: "working_days",
+      openingTime: "opening_time",
+      closingTime: "closing_time",
+      lunchStart: "lunch_start",
+      lunchEnd: "lunch_end",
+      unavailableDays: "unavailable_days",
+      hours: "hours",
+      active: "active",
+      sortOrder: "sort_order",
     };
     const fields: string[] = [];
     const values: unknown[] = [];
