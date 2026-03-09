@@ -634,6 +634,10 @@ export default function Cart() {
                 </div>
                 <p className="text-sm font-medium">{selectedPoint.name}</p>
                 <p className="text-xs text-muted-foreground">{selectedPoint.address}</p>
+                {selectedPoint.workingDays && <p className="text-xs text-muted-foreground">Dias: {selectedPoint.workingDays}</p>}
+                {(selectedPoint.openingTime || selectedPoint.closingTime) && <p className="text-xs text-muted-foreground">Horario: {selectedPoint.openingTime || "--:--"} - {selectedPoint.closingTime || "--:--"}</p>}
+                {selectedPoint.phone && <p className="text-xs text-muted-foreground">Contato: {selectedPoint.phone}</p>}
+                {selectedPoint.pickupInstructions && <p className="text-xs text-muted-foreground">{selectedPoint.pickupInstructions}</p>}
                 {selectedPoint.hours && <p className="text-xs text-muted-foreground">{selectedPoint.hours}</p>}
               </CardContent>
             </Card>
@@ -902,6 +906,10 @@ export default function Cart() {
                     <div>
                       <p className="font-medium text-sm">{pt.name}</p>
                       <p className="text-xs text-muted-foreground">{pt.address}</p>
+                      {pt.workingDays && <p className="text-xs text-muted-foreground">Dias: {pt.workingDays}</p>}
+                      {(pt.openingTime || pt.closingTime) && <p className="text-xs text-muted-foreground">Horario: {pt.openingTime || "--:--"} - {pt.closingTime || "--:--"}</p>}
+                      {pt.phone && <p className="text-xs text-muted-foreground">Contato: {pt.phone}</p>}
+                      {pt.pickupInstructions && <p className="text-xs text-muted-foreground">{pt.pickupInstructions}</p>}
                       {pt.hours && <p className="text-xs text-muted-foreground">{pt.hours}</p>}
                     </div>
                   </label>
@@ -927,7 +935,7 @@ export default function Cart() {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 z-50" role="region" aria-label="Resumo do checkout">
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 z-40 pb-[calc(env(safe-area-inset-bottom)+0.9rem)]" role="region" aria-label="Resumo do checkout">
         <div className="max-w-4xl mx-auto flex items-center justify-between mb-3">
           <span className="text-base font-medium text-muted-foreground">Total:</span>
           <span data-testid="text-cart-total" className="text-xl font-bold text-primary">

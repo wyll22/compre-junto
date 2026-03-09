@@ -3240,6 +3240,27 @@ export default function Admin() {
   const [pickupFormOpen, setPickupFormOpen] = useState(false);
   const [editingPickup, setEditingPickup] = useState<any>(null);
 
+  const lookupPickupCep = async (form: HTMLFormElement) => {
+    const cep = String((form.elements.namedItem("cep") as HTMLInputElement | null)?.value || "").replace(/\D/g, "");
+    if (cep.length !== 8) {
+      toast({ title: "CEP invalido", description: "Informe 8 digitos", variant: "destructive" });
+      return;
+    }
+    try {
+      const res = await fetch(`/api/cep?cep=${cep}`, { credentials: "include" });
+      if (!res.ok) throw new Error();
+      const payload = await res.json();
+      const data = payload?.data || {};
+      (form.elements.namedItem("address") as HTMLInputElement | null)!.value = data.street || "";
+      (form.elements.namedItem("district") as HTMLInputElement | null)!.value = data.district || "";
+      (form.elements.namedItem("city") as HTMLInputElement | null)!.value = data.city || "";
+      (form.elements.namedItem("state") as HTMLInputElement | null)!.value = data.state || "";
+      toast({ title: "Endereco preenchido pelo CEP" });
+    } catch {
+      toast({ title: "Falha ao buscar CEP", variant: "destructive" });
+    }
+  };
+
   const { data: allCategories } = useQuery({
     queryKey: ["/api/categories"],
     queryFn: async () => {
@@ -4131,7 +4152,13 @@ export default function Admin() {
                         <p className="text-xs text-muted-foreground">{pt.address}</p>
                         <p className="text-xs text-muted-foreground">{pt.city}</p>
                         {pt.phone && <p className="text-xs text-muted-foreground">{pt.phone}</p>}
-                        {pt.hours && <p className="text-xs text-muted-foreground">{pt.hours}</p>}
+                        {pt.manager && <p className="text-xs text-muted-foreground">Responsavel: {pt.manager}</p>}
+                        {pt.phone && <p className="text-xs text-muted-foreground">Telefone: {pt.phone}</p>}
+                        {pt.whatsapp && <p className="text-xs text-muted-foreground">WhatsApp: {pt.whatsapp}</p>}
+                        {pt.workingDays && <p className="text-xs text-muted-foreground">Dias: {pt.workingDays}</p>}
+                        {(pt.openingTime || pt.closingTime) && <p className="text-xs text-muted-foreground">Horario: {pt.openingTime || "--:--"} - {pt.closingTime || "--:--"}</p>}
+                        {pt.pickupInstructions && <p className="text-xs text-muted-foreground">Instrucoes: {pt.pickupInstructions}</p>}
+                        {pt.hours && <p className="text-xs text-muted-foreground">Resumo: {pt.hours}</p>}
                       </div>
                       <Badge variant={pt.active ? "default" : "secondary"} className="text-[10px]">{pt.active ? "Ativo" : "Inativo"}</Badge>
                       <div className="flex gap-1">
@@ -4159,7 +4186,7 @@ export default function Admin() {
             </div>
 
             <Dialog open={pickupFormOpen} onOpenChange={(open) => !open && setPickupFormOpen(false)}>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingPickup ? "Editar Ponto" : "Novo Ponto de Retirada"}</DialogTitle>
                 </DialogHeader>
@@ -4168,9 +4195,24 @@ export default function Admin() {
                   const fd = new FormData(e.currentTarget);
                   const data = {
                     name: fd.get("name") as string,
+                    cep: fd.get("cep") as string || "",
                     address: fd.get("address") as string,
+                    number: fd.get("number") as string || "",
+                    complement: fd.get("complement") as string || "",
+                    district: fd.get("district") as string || "",
                     city: fd.get("city") as string || "Formosa - GO",
+                    state: fd.get("state") as string || "",
+                    reference: fd.get("reference") as string || "",
                     phone: fd.get("phone") as string || "",
+                    whatsapp: fd.get("whatsapp") as string || "",
+                    manager: fd.get("manager") as string || "",
+                    pickupInstructions: fd.get("pickupInstructions") as string || "",
+                    workingDays: fd.get("workingDays") as string || "",
+                    openingTime: fd.get("openingTime") as string || "",
+                    closingTime: fd.get("closingTime") as string || "",
+                    lunchStart: fd.get("lunchStart") as string || "",
+                    lunchEnd: fd.get("lunchEnd") as string || "",
+                    unavailableDays: fd.get("unavailableDays") as string || "",
                     hours: fd.get("hours") as string || "",
                     active: (fd.get("active") as string) === "true",
                   };
@@ -4182,36 +4224,42 @@ export default function Admin() {
                   setPickupFormOpen(false);
                   setEditingPickup(null);
                 }} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label>Nome</Label>
-                    <Input data-testid="input-pickup-name" name="name" defaultValue={editingPickup?.name || ""} required />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5 sm:col-span-2"><Label>Nome</Label><Input data-testid="input-pickup-name" name="name" defaultValue={editingPickup?.name || ""} required /></div>
+                    <div className="space-y-1.5"><Label>CEP</Label><div className="flex gap-2"><Input name="cep" defaultValue={editingPickup?.cep || ""} /><Button type="button" variant="outline" size="sm" onClick={(e) => lookupPickupCep((e.currentTarget.form as HTMLFormElement))}>Buscar</Button></div></div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Endereco</Label>
-                    <Input data-testid="input-pickup-address" name="address" defaultValue={editingPickup?.address || ""} required />
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div className="space-y-1.5 sm:col-span-3"><Label>Endereco</Label><Input data-testid="input-pickup-address" name="address" defaultValue={editingPickup?.address || ""} required /></div>
+                    <div className="space-y-1.5"><Label>Numero</Label><Input name="number" defaultValue={editingPickup?.number || ""} /></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Cidade</Label>
-                      <Input data-testid="input-pickup-city" name="city" defaultValue={editingPickup?.city || "Formosa - GO"} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Telefone</Label>
-                      <Input data-testid="input-pickup-phone" name="phone" defaultValue={editingPickup?.phone || ""} />
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5"><Label>Complemento</Label><Input name="complement" defaultValue={editingPickup?.complement || ""} /></div>
+                    <div className="space-y-1.5"><Label>Bairro</Label><Input name="district" defaultValue={editingPickup?.district || ""} /></div>
+                    <div className="space-y-1.5"><Label>Referencia</Label><Input name="reference" defaultValue={editingPickup?.reference || ""} /></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Horario</Label>
-                      <Input data-testid="input-pickup-hours" name="hours" defaultValue={editingPickup?.hours || ""} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Status</Label>
-                      <select name="active" defaultValue={editingPickup?.active !== false ? "true" : "false"} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                        <option value="true">Ativo</option>
-                        <option value="false">Inativo</option>
-                      </select>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5 sm:col-span-2"><Label>Cidade</Label><Input data-testid="input-pickup-city" name="city" defaultValue={editingPickup?.city || "Formosa - GO"} /></div>
+                    <div className="space-y-1.5"><Label>UF</Label><Input name="state" defaultValue={editingPickup?.state || "GO"} /></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5"><Label>Telefone</Label><Input data-testid="input-pickup-phone" name="phone" defaultValue={editingPickup?.phone || ""} /></div>
+                    <div className="space-y-1.5"><Label>WhatsApp</Label><Input name="whatsapp" defaultValue={editingPickup?.whatsapp || ""} /></div>
+                    <div className="space-y-1.5"><Label>Responsavel</Label><Input name="manager" defaultValue={editingPickup?.manager || ""} /></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5"><Label>Dias funcionamento</Label><Input name="workingDays" defaultValue={editingPickup?.workingDays || ""} placeholder="Seg a Sab" /></div>
+                    <div className="space-y-1.5"><Label>Abertura</Label><Input name="openingTime" defaultValue={editingPickup?.openingTime || ""} placeholder="08:00" /></div>
+                    <div className="space-y-1.5"><Label>Fechamento</Label><Input name="closingTime" defaultValue={editingPickup?.closingTime || ""} placeholder="18:00" /></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5"><Label>Inicio almoco</Label><Input name="lunchStart" defaultValue={editingPickup?.lunchStart || ""} /></div>
+                    <div className="space-y-1.5"><Label>Fim almoco</Label><Input name="lunchEnd" defaultValue={editingPickup?.lunchEnd || ""} /></div>
+                    <div className="space-y-1.5"><Label>Dias indisponiveis</Label><Input name="unavailableDays" defaultValue={editingPickup?.unavailableDays || ""} /></div>
+                  </div>
+                  <div className="space-y-1.5"><Label>Instrucoes de retirada</Label><Textarea name="pickupInstructions" defaultValue={editingPickup?.pickupInstructions || ""} /></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5"><Label>Resumo de horarios</Label><Input data-testid="input-pickup-hours" name="hours" defaultValue={editingPickup?.hours || ""} /></div>
+                    <div className="space-y-1.5"><Label>Status</Label><select name="active" defaultValue={editingPickup?.active !== false ? "true" : "false"} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
                   </div>
                   <Button type="submit" className="w-full" disabled={createPickupPoint.isPending || updatePickupPoint.isPending}>
                     {createPickupPoint.isPending || updatePickupPoint.isPending ? "Salvando..." : "Salvar"}

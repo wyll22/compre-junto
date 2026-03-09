@@ -36,7 +36,7 @@ export default function HelpFloat() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { data } = useSiteConfigQuery();
 
-  const isAdminRoute = location.startsWith("/admin");
+  const isBlockedRoute = ["/admin", "/checkout", "/carrinho", "/minha-conta", "/notificacoes", "/login", "/cadastro", "/register"].some((r) => location.startsWith(r));
   const whatsappLink = normalizeWhatsAppLink(String(data?.whatsapp ?? ""));
   const whatsappSupportLink = whatsappLink
     ? `${whatsappLink}${whatsappLink.includes("?") ? "&" : "?"}text=${encodeURIComponent(SUPPORT_MESSAGE)}`
@@ -47,7 +47,7 @@ export default function HelpFloat() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [isOpen, messages]);
 
-  if (isAdminRoute) return null;
+  if (isBlockedRoute) return null;
 
   const onSelectFaq = (question: string, answer: string) => {
     setMessages((previous) => [
