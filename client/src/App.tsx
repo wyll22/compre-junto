@@ -19,6 +19,7 @@ const ProductDetail = lazy(() => import("@/pages/ProductDetail"));
 const BlogList = lazy(() => import("@/pages/Blog").then((module) => ({ default: module.BlogList })));
 const BlogPost = lazy(() => import("@/pages/Blog").then((module) => ({ default: module.BlogPost })));
 const Partner = lazy(() => import("@/pages/Partner"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
 const Toaster = lazy(() =>
   import("@/components/ui/toaster").then((module) => ({ default: module.Toaster })),
 );
@@ -79,6 +80,7 @@ function Router() {
         <Route path="/blog" component={BlogList} />
         <Route path="/blog/:slug" component={BlogPost} />
         <Route path="/parceiro" component={Partner} />
+        <Route path="/notificacoes" component={Notifications} />
         <Route path="/grupos" component={Home} />
         <Route path="/compre-agora" component={Home} />
         <Route component={NotFound} />

@@ -33,6 +33,7 @@ import {
   History,
   PackageCheck,
   Timer,
+  Bell,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
@@ -42,7 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { parseApiError } from "@/lib/error-utils";
 import { Footer } from "@/components/Footer";
 
-type AccountTab = "profile" | "address" | "security" | "orders" | "groups";
+type AccountTab = "profile" | "address" | "security" | "orders" | "groups" | "notifications";
 
 const STATUS_LABELS: Record<string, string> = {
   recebido: "Recebido",
@@ -1215,6 +1216,14 @@ export default function Account() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<AccountTab>("profile");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab") as AccountTab | null;
+    if (tabParam && ["profile", "address", "security", "orders", "groups", "notifications"].includes(tabParam)) {
+      setTab(tabParam);
+    }
+  }, []);
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -1234,6 +1243,7 @@ export default function Account() {
     { key: "security", label: "Seguranca", icon: Shield },
     { key: "orders", label: "Pedidos", icon: Package },
     { key: "groups", label: "Grupos", icon: Users },
+    { key: "notifications", label: "Notificacoes", icon: Bell },
   ];
 
   return (
@@ -1287,7 +1297,7 @@ export default function Account() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 pb-1">
+          <div className="flex gap-2 pb-1 overflow-x-auto">
             {tabs.map((t) => (
               <Button
                 key={t.key}
@@ -1295,7 +1305,7 @@ export default function Account() {
                 variant={tab === t.key ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setTab(t.key)}
-                className="flex-1 min-w-[140px] sm:flex-none sm:min-w-0"
+                className="flex-none min-w-[132px]"
               >
                 <t.icon className="w-4 h-4 mr-1.5" />
                 {t.label}
@@ -1304,12 +1314,15 @@ export default function Account() {
           </div>
         </div>
 
-        <div className="pb-8">
+        <div className="pb-24 sm:pb-10">
           {tab === "profile" && <ProfileTab user={user} />}
           {tab === "address" && <AddressTab user={user} />}
           {tab === "security" && <SecurityTab />}
           {tab === "orders" && <OrdersTab />}
           {tab === "groups" && <GroupsTab />}
+          {tab === "notifications" && (
+            <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Acompanhe notificacoes e mensagens da sua conta.</p><Link href="/notificacoes"><Button size="sm" className="mt-3">Abrir central de notificacoes</Button></Link></CardContent></Card>
+          )}
         </div>
       </div>
 

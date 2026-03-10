@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Bell, Package, CheckCheck, X } from "lucide-react";
+import { Bell, Package, CheckCheck, X, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 
@@ -81,7 +81,7 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <Card className="absolute right-0 top-full mt-1 w-80 max-h-96 overflow-y-auto z-50 shadow-lg">
+          <Card className="fixed left-2 right-2 top-[4.2rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1 w-auto sm:w-80 max-h-[calc(100dvh-5.5rem)] sm:max-h-96 overflow-y-auto z-50 shadow-lg">
             <div className="flex items-center justify-between gap-2 p-3 border-b border-border">
               <span className="font-bold text-sm text-foreground">Notificacoes</span>
               <div className="flex items-center gap-1">
@@ -115,37 +115,39 @@ export function NotificationBell() {
                 </div>
               ) : (
                 <div>
-                  {notifications.map((n: any) => (
-                    <div
-                      key={n.id}
-                      className={`flex items-start gap-2 p-3 border-b border-border last:border-0 ${!n.read ? "bg-primary/5" : ""}`}
-                      data-testid={`notification-${n.id}`}
-                    >
-                      <Package className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs leading-snug ${!n.read ? "font-semibold text-foreground" : "text-foreground"}`}>
-                          {n.title}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-                          {n.message}
-                        </p>
-                        <span className="text-[10px] text-muted-foreground/60">{formatDate(n.createdAt)}</span>
-                      </div>
-                      {n.referenceId && (
-                        <Link href="/minha-conta">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-[10px] h-6 px-1.5"
-                            onClick={() => setOpen(false)}
-                            data-testid={`button-view-order-${n.referenceId}`}
-                          >
-                            Ver
-                          </Button>
-                        </Link>
-                      )}
-                    </div>
-                  ))}
+                  {notifications.map((n: any) => {
+                    const href = n.referenceId ? `/minha-conta?tab=orders&orderId=${n.referenceId}` : "/notificacoes";
+                    return (
+                      <Link key={n.id} href={href}>
+                        <button
+                          className={`w-full flex items-start gap-2 p-3 border-b border-border last:border-0 text-left ${!n.read ? "bg-primary/5" : ""}`}
+                          onClick={() => {
+                            if (!n.read) markRead.mutate([n.id]);
+                            setOpen(false);
+                          }}
+                          data-testid={`notification-${n.id}`}
+                        >
+                          <Package className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs leading-snug ${!n.read ? "font-semibold text-foreground" : "text-foreground"}`}>
+                              {n.title}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                              {n.message}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground/60">{formatDate(n.createdAt)}</span>
+                          </div>
+                        </button>
+                      </Link>
+                    );
+                  })}
+                  <div className="p-2">
+                    <Link href="/notificacoes">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(false)}>
+                        Ver central de notificacoes <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               )}
             </CardContent>
