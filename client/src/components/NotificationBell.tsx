@@ -2,11 +2,20 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bell, Package, CheckCheck, X, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
+
+type UserNotification = {
+  id: number;
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+  referenceId?: number;
+  targetPath?: string;
+};
 
 export function NotificationBell() {
   const { data: user } = useAuth();
@@ -24,7 +33,7 @@ export function NotificationBell() {
     refetchInterval: 30000,
   });
 
-  const { data: notifications } = useQuery<any[]>({
+  const { data: notifications } = useQuery<UserNotification[]>({
     queryKey: ["/api/notifications"],
     queryFn: async () => {
       const res = await fetch("/api/notifications", { credentials: "include" });
@@ -44,9 +53,8 @@ export function NotificationBell() {
     },
   });
 
-  const unreadCount = countData?.count || 0;
-
   if (!user) return null;
+  const unreadCount = countData?.count || 0;
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -57,19 +65,12 @@ export function NotificationBell() {
     if (diffMin < 60) return `${diffMin}min`;
     const diffH = Math.floor(diffMin / 60);
     if (diffH < 24) return `${diffH}h`;
-    const diffD = Math.floor(diffH / 24);
-    return `${diffD}d`;
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   };
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setOpen(!open)}
-        className="relative text-primary-foreground"
-        data-testid="button-notifications"
-      >
+      <Button variant="ghost" size="icon" onClick={() => setOpen(!open)} className="relative text-primary-foreground" data-testid="button-notifications">
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full w-4.5 h-4.5 flex items-center justify-center min-w-[18px] px-1">
@@ -82,27 +83,17 @@ export function NotificationBell() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <Card className="fixed left-2 right-2 top-[4.2rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1 w-auto sm:w-80 max-h-[calc(100dvh-5.5rem)] sm:max-h-96 overflow-y-auto z-50 shadow-lg">
+          <Card className="absolute right-0 top-full mt-1 w-[22rem] max-w-[92vw] max-h-[70vh] overflow-y-auto z-50 shadow-lg">
             <div className="flex items-center justify-between gap-2 p-3 border-b border-border">
               <span className="font-bold text-sm text-foreground">Notificacoes</span>
               <div className="flex items-center gap-1">
                 {unreadCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs h-7 px-2"
-                    onClick={() => markRead.mutate(undefined)}
-                    data-testid="button-mark-all-read"
-                  >
+                  <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => markRead.mutate(undefined)} data-testid="button-mark-all-read">
                     <CheckCheck className="w-3 h-3 mr-1" />
                     Marcar lidas
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setOpen(false)}
-                >
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(false)}>
                   <X className="w-4 h-4" />
                 </Button>
               </div>
@@ -145,6 +136,30 @@ export function NotificationBell() {
                     <Link href="/notificacoes">
                       <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(false)}>
                         Ver central de notificacoes <ArrowRight className="w-3 h-3 ml-1" />
+                  {notifications.map((n) => (
+                    <Link key={n.id} href={n.targetPath || "/notificacoes"}>
+                      <button
+                        className={`w-full flex items-start gap-2 p-3 border-b border-border last:border-0 text-left ${!n.read ? "bg-primary/5" : ""}`}
+                        onClick={() => {
+                          if (!n.read) markRead.mutate([n.id]);
+                          setOpen(false);
+                        }}
+                        data-testid={`notification-${n.id}`}
+                      >
+                        <Package className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs leading-snug ${!n.read ? "font-semibold text-foreground" : "text-foreground"}`}>{n.title}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                          <span className="text-[10px] text-muted-foreground/60">{formatDate(n.createdAt)}</span>
+                        </div>
+                      </button>
+                    </Link>
+                  ))}
+                  <div className="p-2">
+                    <Link href="/notificacoes">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(false)}>
+                        Ver central de notificacoes
+                        <ArrowRight className="w-3 h-3 ml-1" />
                       </Button>
                     </Link>
                   </div>

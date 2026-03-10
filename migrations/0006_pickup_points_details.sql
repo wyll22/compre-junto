@@ -1,0 +1,16 @@
+ALTER TABLE pickup_points
+  ADD COLUMN IF NOT EXISTS cep text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS number text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS complement text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS district text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS state text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS reference text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS whatsapp text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS manager text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS pickup_instructions text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS working_days text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS opening_time text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS closing_time text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS lunch_start text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS lunch_end text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS unavailable_days text DEFAULT '';

@@ -878,6 +878,11 @@ function OrderHistory({ orderId }: { orderId: number }) {
 function OrdersTab() {
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
 
+  useEffect(() => {
+    const orderId = Number(new URLSearchParams(window.location.search).get("orderId") || "");
+    if (orderId) setExpandedOrder(orderId);
+  }, []);
+
   const { data: userOrders, isLoading } = useQuery({
     queryKey: ["/api/orders"],
     queryFn: async () => {
@@ -1076,6 +1081,29 @@ function OrdersTab() {
                       R$ {Number(order.total).toFixed(2)}
                     </span>
                   </div>
+
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-md border p-2">
+                      <p className="font-semibold">Tipo</p>
+                      <p className="text-muted-foreground">{order.fulfillmentType === "pickup" ? "Retirada" : "Entrega"}</p>
+                    </div>
+                    <div className="rounded-md border p-2">
+                      <p className="font-semibold">Pagamento</p>
+                      <p className="text-muted-foreground">Pagamento em confirmacao. A equipe valida e notifica voce.</p>
+                    </div>
+                  </div>
+
+                  {order.fulfillmentType === "pickup" && (
+                    <div className="mt-2 rounded-md border p-3 text-xs space-y-1">
+                      <p className="font-semibold">Ponto de retirada</p>
+                      <p>{order.pickupPointName || "Ponto selecionado"}</p>
+                      <p className="text-muted-foreground">{order.pickupPointAddress || "Endereco indisponivel"}{order.pickupPointCity ? ` - ${order.pickupPointCity}` : ""}</p>
+                      {order.pickupPointPhone && <p className="text-muted-foreground">Contato: {order.pickupPointPhone}</p>}
+                      {order.pickupPointWorkingDays && <p className="text-muted-foreground">Funcionamento: {order.pickupPointWorkingDays}</p>}
+                      {(order.pickupPointOpeningTime || order.pickupPointClosingTime) && <p className="text-muted-foreground">Horario: {order.pickupPointOpeningTime || "--:--"} - {order.pickupPointClosingTime || "--:--"}</p>}
+                      {order.pickupPointInstructions && <p className="text-muted-foreground">Instrucoes: {order.pickupPointInstructions}</p>}
+                    </div>
+                  )}
 
                   <OrderHistory orderId={order.id} />
                 </div>
@@ -1321,7 +1349,14 @@ export default function Account() {
           {tab === "orders" && <OrdersTab />}
           {tab === "groups" && <GroupsTab />}
           {tab === "notifications" && (
-            <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Acompanhe notificacoes e mensagens da sua conta.</p><Link href="/notificacoes"><Button size="sm" className="mt-3">Abrir central de notificacoes</Button></Link></CardContent></Card>
+            <div className="space-y-3">
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Acesse sua central completa de mensagens e notificacoes.</p>
+                  <Link href="/notificacoes"><Button className="mt-3" size="sm">Abrir central de notificacoes</Button></Link>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </div>
