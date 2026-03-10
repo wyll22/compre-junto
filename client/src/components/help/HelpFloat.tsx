@@ -36,7 +36,7 @@ export default function HelpFloat() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { data } = useSiteConfigQuery();
 
-  const isBlockedRoute = ["/admin", "/checkout", "/carrinho", "/minha-conta", "/notificacoes", "/login", "/cadastro", "/register"].some((r) => location.startsWith(r));
+  const isBlockedRoute = ["/admin","/checkout","/carrinho","/minha-conta","/notificacoes","/login","/cadastro","/register"].some((r)=>location.startsWith(r));
   const whatsappLink = normalizeWhatsAppLink(String(data?.whatsapp ?? ""));
   const whatsappSupportLink = whatsappLink
     ? `${whatsappLink}${whatsappLink.includes("?") ? "&" : "?"}text=${encodeURIComponent(SUPPORT_MESSAGE)}`
@@ -64,7 +64,7 @@ export default function HelpFloat() {
           type="button"
           title="Ajuda"
           aria-label="Abrir ajuda"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-3 z-[9999] flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-[#16A34A] shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-[calc(env(safe-area-inset-bottom)+6rem)] sm:right-4 sm:h-14 sm:w-14"
+          className="hidden sm:flex fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-3 z-[9999] h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-[#16A34A] shadow-[0_10px_28px_rgba(2,6,23,0.2)] transition-transform duration-200 hover:scale-105 sm:bottom-[calc(env(safe-area-inset-bottom)+6rem)] sm:right-4 sm:h-14 sm:w-14"
           data-testid="button-help-float"
         >
           <img

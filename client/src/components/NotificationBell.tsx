@@ -82,6 +82,7 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <Card className="fixed left-2 right-2 top-[4.2rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1 w-auto sm:w-80 max-h-[calc(100dvh-5.5rem)] sm:max-h-96 overflow-y-auto z-50 shadow-lg">
           <Card className="absolute right-0 top-full mt-1 w-[22rem] max-w-[92vw] max-h-[70vh] overflow-y-auto z-50 shadow-lg">
             <div className="flex items-center justify-between gap-2 p-3 border-b border-border">
               <span className="font-bold text-sm text-foreground">Notificacoes</span>
@@ -105,6 +106,36 @@ export function NotificationBell() {
                 </div>
               ) : (
                 <div>
+                  {notifications.map((n: any) => {
+                    const href = n.referenceId ? `/minha-conta?tab=orders&orderId=${n.referenceId}` : "/notificacoes";
+                    return (
+                      <Link key={n.id} href={href}>
+                        <button
+                          className={`w-full flex items-start gap-2 p-3 border-b border-border last:border-0 text-left ${!n.read ? "bg-primary/5" : ""}`}
+                          onClick={() => {
+                            if (!n.read) markRead.mutate([n.id]);
+                            setOpen(false);
+                          }}
+                          data-testid={`notification-${n.id}`}
+                        >
+                          <Package className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs leading-snug ${!n.read ? "font-semibold text-foreground" : "text-foreground"}`}>
+                              {n.title}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                              {n.message}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground/60">{formatDate(n.createdAt)}</span>
+                          </div>
+                        </button>
+                      </Link>
+                    );
+                  })}
+                  <div className="p-2">
+                    <Link href="/notificacoes">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(false)}>
+                        Ver central de notificacoes <ArrowRight className="w-3 h-3 ml-1" />
                   {notifications.map((n) => (
                     <Link key={n.id} href={n.targetPath || "/notificacoes"}>
                       <button

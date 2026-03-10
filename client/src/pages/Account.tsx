@@ -1247,7 +1247,7 @@ export default function Account() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get("tab") as AccountTab | null;
-    if (tabParam && ["profile","address","security","orders","groups","notifications"].includes(tabParam)) {
+    if (tabParam && ["profile", "address", "security", "orders", "groups", "notifications"].includes(tabParam)) {
       setTab(tabParam);
     }
   }, []);
@@ -1342,7 +1342,7 @@ export default function Account() {
           </div>
         </div>
 
-        <div className="pb-8">
+        <div className="pb-24 sm:pb-10">
           {tab === "profile" && <ProfileTab user={user} />}
           {tab === "address" && <AddressTab user={user} />}
           {tab === "security" && <SecurityTab />}
