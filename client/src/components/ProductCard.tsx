@@ -176,12 +176,12 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
           </div>
         </Link>
 
-        <div className="p-3 flex-1 flex flex-col">
-          <div className="flex items-center gap-1 mb-0.5">
-            <span className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+        <div className="p-2 sm:p-3 flex-1 flex flex-col">
+          <div className="flex items-center gap-1 mb-0.5 flex-wrap">
+            <span className="text-[9px] sm:text-[10px] font-medium tracking-wider text-muted-foreground uppercase truncate">
               {product.category}
             </span>
-            <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 gap-0.5">
+            <Badge variant="outline" className="text-[7px] sm:text-[8px] px-0.5 sm:px-1 py-0 h-3 sm:h-3.5 gap-0.5 flex-shrink-0">
               {product.fulfillmentType === "delivery" ? (
                 <><Truck className="w-2.5 h-2.5" /> Entrega</>
               ) : (

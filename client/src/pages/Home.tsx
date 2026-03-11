@@ -787,7 +787,7 @@ export default function Home() {
         </Dialog>
       )}
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32 sm:pb-20 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-32 sm:pb-20 w-full">
         {isHomeLanding && !searchTerm && activeBanners.length > 0 && (
           <div
             className="mb-6 relative rounded-md overflow-hidden"
@@ -967,7 +967,7 @@ export default function Home() {
             </div>
 
             {featuredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
                   {featuredProducts.map((product: any) => (
                     <ProductCard
                       key={`featured-${product.id}`}
@@ -1045,6 +1045,16 @@ export default function Home() {
                   <p className="text-muted-foreground text-sm">
                     Carregando produtos...
                   </p>
+                </div>
+              ) : products && products.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+                  {products.map((product: any) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      saleMode={saleMode}
+                    />
+                  ))}
                 </div>
               ) : error ? (
                 <div className="text-center py-16 bg-card rounded-md border border-border">
