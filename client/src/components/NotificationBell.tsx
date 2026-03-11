@@ -93,7 +93,7 @@ export function NotificationBell() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          <Card className="fixed left-2 right-2 top-[4.2rem] z-50 w-auto max-h-[calc(100dvh-5.5rem)] overflow-y-auto shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:w-[22rem] sm:max-h-[70vh]">
+          <Card className="fixed left-2 right-2 top-[calc(env(safe-area-inset-top)+4rem)] z-50 w-auto max-h-[calc(100dvh-5.25rem)] overflow-y-auto shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:w-[22rem] sm:max-h-[70vh]">
             <div className="flex items-center justify-between gap-2 p-3 border-b border-border sticky top-0 bg-card">
               <span className="font-bold text-sm text-foreground">Notificacoes</span>
               <div className="flex items-center gap-1">
@@ -137,13 +137,21 @@ export function NotificationBell() {
 
                     return (
                       <Link key={n.id} href={href}>
-                        <button
-                          className={`w-full flex items-start gap-2 p-3 border-b border-border last:border-0 text-left ${
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          className={`w-full flex items-start gap-2 p-3 border-b border-border last:border-0 text-left cursor-pointer ${
                             !n.read ? "bg-primary/5" : ""
                           }`}
                           onClick={() => {
                             if (!n.read) markRead.mutate([n.id]);
                             setOpen(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              if (!n.read) markRead.mutate([n.id]);
+                              setOpen(false);
+                            }
                           }}
                           data-testid={`notification-${n.id}`}
                         >
@@ -165,7 +173,7 @@ export function NotificationBell() {
                               {formatDate(n.createdAt)}
                             </span>
                           </div>
-                        </button>
+                        </div>
                       </Link>
                     );
                   })}
