@@ -30,20 +30,20 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="brand-gradient sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <Link href="/" data-testid="link-brand-logo">
-            <BrandLogo size="header" />
+            <BrandLogo size="header" className="justify-center sm:justify-start" />
           </Link>
 
-          <div className="flex items-center gap-2">
-            <Link href="/grupos">
-              <Button className="bg-white/10 hover:bg-white/15 text-white border border-white/15">
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:flex items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <Link href="/grupos" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto bg-white/10 hover:bg-white/15 text-white border border-white/15">
                 <Users className="w-4 h-4 mr-2" />
                 Compra em Grupo
               </Button>
             </Link>
-            <Link href="/compre-agora">
-              <Button className="bg-[#D4A62A] hover:bg-[#C59A26] text-[#1F2937] font-bold">
+            <Link href="/compre-agora" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto bg-[#D4A62A] hover:bg-[#C59A26] text-[#1F2937] font-bold">
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 Compre Agora
               </Button>
