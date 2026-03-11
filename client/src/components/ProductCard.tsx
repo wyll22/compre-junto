@@ -144,7 +144,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
     <>
       <div
         data-testid={`card-product-${product.id}`}
-        className="group relative bg-card rounded-md border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col h-full overflow-visible"
+        className="group relative bg-card rounded-md border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col h-full overflow-hidden"
       >
         {savings > 0 && (
           <div className="absolute top-2 left-2 z-10">
@@ -177,40 +177,40 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
         </Link>
 
         <div className="p-2 sm:p-3 flex-1 flex flex-col">
-          <div className="flex items-center gap-1 mb-0.5 flex-wrap">
-            <span className="text-[9px] sm:text-[10px] font-medium tracking-wider text-muted-foreground uppercase truncate">
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span className="text-[11px] sm:text-xs font-medium tracking-wide text-muted-foreground uppercase truncate">
               {product.category}
             </span>
-            <Badge variant="outline" className="text-[7px] sm:text-[8px] px-0.5 sm:px-1 py-0 h-3 sm:h-3.5 gap-0.5 flex-shrink-0">
+            <Badge variant="outline" className="text-[10px] sm:text-[11px] px-1.5 py-0.5 h-5 gap-1 flex-shrink-0">
               {product.fulfillmentType === "delivery" ? (
-                <><Truck className="w-2.5 h-2.5" /> Entrega</>
+                <><Truck className="w-3 h-3" /><span className="hidden sm:inline">Entrega</span></>
               ) : (
-                <><MapPin className="w-2.5 h-2.5" /> Retirada</>
+                <><MapPin className="w-3 h-3" /><span className="hidden sm:inline">Retirada</span></>
               )}
             </Badge>
           </div>
 
           <Link href={`/produto/${product.id}`} className="block">
-            <h3 className="font-display font-semibold text-sm leading-tight mb-2 line-clamp-2 min-h-[2.5rem] text-foreground hover:text-primary transition-colors cursor-pointer">
+            <h3 className="font-display font-semibold text-sm sm:text-base leading-tight mb-2 line-clamp-2 min-h-[2.7rem] text-foreground hover:text-primary transition-colors cursor-pointer">
               {product.name}
             </h3>
           </Link>
 
           <div className="mt-auto space-y-2">
             <div>
-              <span className="text-xs text-muted-foreground line-through">
+              <span className="text-[11px] sm:text-xs text-muted-foreground line-through">
                 R$ {originalPrice.toFixed(2)}
               </span>
               <div className="flex items-baseline gap-1">
-                <span className="text-xl font-bold text-primary tracking-tight">
+                <span className="text-lg sm:text-xl font-bold text-primary tracking-tight">
                   R$ {displayPrice.toFixed(2)}
                 </span>
               </div>
-              <span className="text-[10px] text-primary/80 font-medium">
+              <span className="text-xs text-primary/80 font-medium block">
                 {saleMode === "grupo" ? "Preco em grupo" : "Preco individual"}
               </span>
               {product.stock > 0 && product.stock <= 5 && (
-                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-medium block">
                   Restam {product.stock}!
                 </span>
               )}
@@ -226,7 +226,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                 <div className="space-y-2">
                   {hasOpenGroup ? (
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-medium">
+                      <div className="flex justify-between text-xs font-medium">
                         <span className="flex items-center gap-0.5 text-primary">
                           <Users className="w-3 h-3" />
                           Grupo aberto
@@ -236,13 +236,13 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                         </span>
                       </div>
                       <Progress value={progressPercent} className="h-1.5" />
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         Faltam {peopleLeft}
                       </span>
                     </div>
                   ) : hasAnyGroup ? (
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-medium">
+                      <div className="flex justify-between text-xs font-medium">
                         <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
                           <CheckCircle className="w-3 h-3" />
                           Grupo fechado
@@ -252,17 +252,17 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                         </span>
                       </div>
                       <Progress value={100} className="h-1.5" />
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         Grupo completo
                       </span>
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         <span>Seja o primeiro!</span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         Min. {minPeople} pessoas | Faltam {peopleLeft}
                       </span>
                     </div>

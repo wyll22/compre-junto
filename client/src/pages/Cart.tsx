@@ -65,7 +65,7 @@ function CartCrossSelling({ cartItems, onAddToCart }: { cartItems: CartItem[]; o
         <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
         Aproveite e leve tambem
       </h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
         {filtered.map((item: any) => {
           const price = Number(item.nowPrice || item.originalPrice);
           return (
