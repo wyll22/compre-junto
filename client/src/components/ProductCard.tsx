@@ -183,9 +183,9 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
             </span>
             <Badge variant="outline" className="text-[10px] sm:text-[11px] px-1.5 py-0.5 h-5 gap-1 flex-shrink-0">
               {product.fulfillmentType === "delivery" ? (
-                <><Truck className="w-3 h-3" /><span className="hidden sm:inline">Entrega</span></>
+                <><Truck className="w-3 h-3" /><span className="sm:hidden">Ent.</span><span className="hidden sm:inline">Entrega</span></>
               ) : (
-                <><MapPin className="w-3 h-3" /><span className="hidden sm:inline">Retirada</span></>
+                <><MapPin className="w-3 h-3" /><span className="sm:hidden">Ret.</span><span className="hidden sm:inline">Retirada</span></>
               )}
             </Badge>
           </div>
@@ -272,7 +272,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                     <Button
                       data-testid={`button-join-group-${product.id}`}
                       onClick={handleJoinGroup}
-                      className="w-full font-bold"
+                      className="w-full h-10 sm:h-9 font-bold"
                       size="sm"
                     >
                       <Users className="w-3.5 h-3.5 mr-1.5" />
@@ -282,7 +282,7 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                     <Button
                       data-testid={`button-join-group-${product.id}`}
                       onClick={handleJoinGroup}
-                      className="w-full font-bold"
+                      className="w-full h-10 sm:h-9 font-bold"
                       size="sm"
                     >
                       <Users className="w-3.5 h-3.5 mr-1.5" />
@@ -298,14 +298,14 @@ export function ProductCard({ product, saleMode }: ProductCardProps) {
                 <Button
                   data-testid={`button-add-cart-${product.id}`}
                   onClick={handleAddToCart}
-                  className="w-full font-bold"
+                  className="w-full h-10 sm:h-9 font-bold"
                   size="sm"
                 >
                   <ShoppingCart className="w-3.5 h-3.5 mr-1.5" />
                   Adicionar ao carrinho
                 </Button>
               ) : (
-                <Button disabled className="w-full font-bold" size="sm" data-testid={`button-out-of-stock-${product.id}`}>
+                <Button disabled className="w-full h-10 sm:h-9 font-bold" size="sm" data-testid={`button-out-of-stock-${product.id}`}>
                   Esgotado
                 </Button>
               )

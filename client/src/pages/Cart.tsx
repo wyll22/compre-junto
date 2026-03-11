@@ -255,7 +255,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="cart-cep">CEP</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col min-[420px]:flex-row gap-2">
               <Input
                 data-testid="input-cart-cep"
                 id="cart-cep"
@@ -288,7 +288,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="cart-number">Numero</Label>
               <Input
@@ -346,10 +346,11 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="flex flex-col sm:flex-row gap-2 pt-1">
             <Button
               data-testid="button-save-address"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() => saveAddress.mutate()}
               disabled={!canSave || saveAddress.isPending}
             >
@@ -357,7 +358,7 @@ function DeliveryAddressSection({ user, onAddressSaved }: { user: any; onAddress
               Salvar endereco
             </Button>
             {user.addressStreet && (
-              <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+              <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => setEditing(false)}>
                 Cancelar
               </Button>
             )}
@@ -421,7 +422,7 @@ function GuestDeliveryAddressSection() {
 
         <div className="space-y-1.5">
           <Label htmlFor="guest-cart-cep">CEP</Label>
-          <div className="flex gap-2">
+          <div className="flex flex-col min-[420px]:flex-row gap-2">
             <Input
               data-testid="input-guest-cart-cep"
               id="guest-cart-cep"
@@ -772,7 +773,7 @@ export default function Cart() {
                 <p className="text-xs text-muted-foreground mb-3">
                   Seu carrinho tem produtos de retirada e entrega. Para finalizar, mantenha apenas um tipo.
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Button size="sm" variant="outline" data-testid="button-keep-pickup" onClick={() => removeByFulfillment("delivery")}>
                     <MapPin className="w-3.5 h-3.5 mr-1" /> Manter so retirada
                   </Button>
@@ -805,7 +806,7 @@ export default function Cart() {
                   <h3 className="font-bold leading-tight text-sm text-foreground">{item.name}</h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className="text-primary font-bold text-sm">R$ {Number(item.price).toFixed(2)}</p>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 gap-0.5">
+                    <Badge variant="outline" className="text-[10px] sm:text-[11px] px-1.5 py-0.5 h-5 gap-1">
                       {(item.fulfillmentType || "delivery") === "delivery" ? (
                         <><Truck className="w-2.5 h-2.5" /> Entrega</>
                       ) : (
@@ -815,11 +816,12 @@ export default function Cart() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-1">
-                  <div className="flex items-center border border-border rounded-md">
+                  <div className="flex items-center border border-border rounded-md h-9">
                     <Button
                       data-testid={`button-decrease-${item.productId}`}
                       variant="ghost"
                       size="icon"
+                      className="h-9 w-9"
                       onClick={() => updateQty(item.productId, -1)}
                     >
                       <Minus className="w-3 h-3" />
@@ -829,6 +831,7 @@ export default function Cart() {
                       data-testid={`button-increase-${item.productId}`}
                       variant="ghost"
                       size="icon"
+                      className="h-9 w-9"
                       onClick={() => updateQty(item.productId, 1)}
                     >
                       <Plus className="w-3 h-3" />
@@ -838,7 +841,7 @@ export default function Cart() {
                     data-testid={`button-remove-${item.productId}`}
                     variant="ghost"
                     size="icon"
-                    className="text-destructive"
+                    className="text-destructive h-9 w-9"
                     onClick={() => removeItem(item.productId)}
                   >
                     <Trash2 className="w-4 h-4" />
