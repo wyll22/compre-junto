@@ -292,7 +292,7 @@ function ProductForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Preco Normal (R$)</Label>
               <Input data-testid="input-original-price" type="number" step="0.01" value={form.originalPrice} onChange={(e) => setForm({ ...form, originalPrice: e.target.value })} required />
@@ -307,7 +307,7 @@ function ProductForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Estoque</Label>
               <Input data-testid="input-stock" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} required />
@@ -327,7 +327,7 @@ function ProductForm({
             <Input data-testid="input-image-url" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Marca</Label>
               <Input data-testid="input-brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Ex: Samsung" />
@@ -454,7 +454,7 @@ function BannerForm({ isOpen, onClose, editBanner }: { isOpen: boolean; onClose:
           <div className="space-y-1.5"><Label>Titulo</Label><Input data-testid="input-banner-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
           <div className="space-y-1.5"><Label>URL da Imagem (Desktop)</Label><Input data-testid="input-banner-image" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} required /></div>
           <div className="space-y-1.5"><Label>URL da Imagem (Mobile)</Label><Input data-testid="input-banner-mobile-image" value={form.mobileImageUrl} onChange={(e) => setForm({ ...form, mobileImageUrl: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Link</Label><Input data-testid="input-banner-link" value={form.linkUrl} onChange={(e) => setForm({ ...form, linkUrl: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Ordem</Label><Input data-testid="input-banner-order" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></div>
           </div>
@@ -900,7 +900,7 @@ function OrderDetailPanel({ order, onStatusChange }: { order: any; onStatusChang
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <div>
           <p className="text-muted-foreground text-xs">Cliente</p>
           <p className="font-medium">{order.userName || "N/A"}</p>
@@ -1293,7 +1293,7 @@ function SystemTab() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <Card data-testid="card-site-status">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Status do Site</CardTitle>
             <Globe className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -1310,7 +1310,7 @@ function SystemTab() {
         </Card>
 
         <Card data-testid="card-db-status">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Banco de Dados</CardTitle>
             <Database className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -1327,7 +1327,7 @@ function SystemTab() {
         </Card>
 
         <Card data-testid="card-server-status">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Servidor</CardTitle>
             <Server className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -1367,7 +1367,7 @@ function SystemTab() {
       )}
 
       <Card data-testid="card-visitors">
-        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+        <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-sm font-medium">Visitantes</CardTitle>
           <Eye className="w-4 h-4 text-muted-foreground" />
         </CardHeader>
@@ -1436,7 +1436,7 @@ function SystemTab() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Recursos do Sistema</CardTitle>
             <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -1463,7 +1463,7 @@ function SystemTab() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Atividade Recente</CardTitle>
             <History className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -1491,7 +1491,7 @@ function SystemTab() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+        <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-sm font-medium">Seguranca</CardTitle>
           <Shield className="w-4 h-4 text-muted-foreground" />
         </CardHeader>
@@ -1573,7 +1573,7 @@ function AnalyticsSection() {
 
       {dailyViews.length > 0 && (
         <Card data-testid="card-daily-views">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Visualizacoes por Dia</CardTitle>
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -1598,7 +1598,7 @@ function AnalyticsSection() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card data-testid="card-top-pages">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Paginas Mais Visitadas</CardTitle>
             <Eye className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -1625,7 +1625,7 @@ function AnalyticsSection() {
         </Card>
 
         <Card data-testid="card-top-referrers">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+          <CardHeader className="flex flex-col items-start gap-1 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-sm font-medium">Origens de Trafego</CardTitle>
             <Globe className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -2105,7 +2105,7 @@ function NavigationTab() {
               <Label>URL</Label>
               <Input data-testid="input-link-url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Local</Label>
                 <select data-testid="select-link-location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
@@ -2838,7 +2838,7 @@ function SponsorBannersTab() {
               <Label>URL do Link</Label>
               <Input data-testid="input-sponsor-link-url" value={form.linkUrl} onChange={(e) => setForm({ ...form, linkUrl: e.target.value })} placeholder="https://... (opcional)" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Posicao</Label>
                 <select data-testid="select-sponsor-position" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
@@ -3902,7 +3902,7 @@ export default function Admin() {
 
                 return (
                   <Card key={cat.id} data-testid={`card-category-${cat.id}`}>
-                    <CardHeader className="flex flex-row items-center justify-between gap-2 py-3 px-4">
+                    <CardHeader className="flex flex-col items-start gap-2 py-3 px-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-2">
                         <button
                           data-testid={`button-toggle-category-${cat.id}`}

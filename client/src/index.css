@@ -146,7 +146,6 @@ html,
 body {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
 }
 
 img,
@@ -161,5 +160,13 @@ canvas {
 #root {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+}
+
+/* responsividade global sem mascarar overflow */
+:where(h1, h2, h3, h4, h5, h6, p, span, a, button, label) {
+  overflow-wrap: anywhere;
+}
+
+:where(.flex, .grid) > * {
+  min-width: 0;
 }
