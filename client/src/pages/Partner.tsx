@@ -629,13 +629,13 @@ function OrdersTab({
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3">
           <CardTitle className="text-base">Pedidos do Ponto de Retirada</CardTitle>
           <Badge variant="outline">{filteredOrders.length} pedido(s)</Badge>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2 mb-4">
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 data-testid="input-partner-search"
@@ -647,7 +647,7 @@ function OrdersTab({
             </div>
             <select
               data-testid="select-partner-status-filter"
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full sm:w-auto rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >

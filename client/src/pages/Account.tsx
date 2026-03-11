@@ -454,7 +454,7 @@ function AddressTab({ user }: { user: AuthUser }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="addr-number">Numero</Label>
               <Input
@@ -488,7 +488,7 @@ function AddressTab({ user }: { user: AuthUser }) {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label htmlFor="addr-city">Cidade</Label>
               <Input
@@ -1325,7 +1325,7 @@ export default function Account() {
             </div>
           </div>
 
-          <div className="flex gap-2 pb-1 overflow-x-auto">
+          <div className="grid grid-cols-2 sm:flex gap-2 pb-1">
             {tabs.map((t) => (
               <Button
                 key={t.key}
@@ -1333,7 +1333,7 @@ export default function Account() {
                 variant={tab === t.key ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setTab(t.key)}
-                className="flex-none min-w-[132px]"
+                className="w-full sm:w-auto"
               >
                 <t.icon className="w-4 h-4 mr-1.5" />
                 {t.label}
