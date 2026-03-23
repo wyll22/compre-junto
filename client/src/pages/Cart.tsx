@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil, Smartphone, CreditCard, Sparkles, ShoppingCart } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil, Smartphone, CreditCard, Sparkles, ShoppingCart, ExternalLink } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -460,6 +460,7 @@ export default function Cart() {
   const [orderFulfillment, setOrderFulfillment] = useState<string | null>(null);
   const [orderTotal, setOrderTotal] = useState<number>(0);
   const [selectedPickupPointId, setSelectedPickupPointId] = useState<number | null>(null);
+  const [mpLoading, setMpLoading] = useState(false);
   const { data: user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -582,6 +583,25 @@ export default function Cart() {
     window.open(wa, "_blank", "noopener,noreferrer");
   };
 
+  const handleMercadoPago = async () => {
+    if (!orderSuccess) return;
+    setMpLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/orders/${orderSuccess}/payment/preference`, {});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erro ao gerar pagamento");
+      const url = data.initPoint || data.sandboxInitPoint;
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error("Link de pagamento nao disponivel");
+      }
+    } catch (err: any) {
+      toast({ title: "Erro no pagamento", description: err.message || "Tente novamente.", variant: "destructive" });
+      setMpLoading(false);
+    }
+  };
+
   const handleCheckout = () => {
     if (!user) {
       setLocation("/login?redirect=/carrinho");
@@ -663,22 +683,44 @@ export default function Cart() {
             </Card>
           )}
 
+          <Card className="mb-4 max-w-sm w-full border-2 border-[#009EE3]/30 bg-[#009EE3]/5">
+            <CardContent className="p-4 text-left">
+              <div className="flex items-center gap-2 mb-3">
+                <CreditCard className="w-4 h-4 text-[#009EE3]" />
+                <span className="font-bold text-sm text-foreground">Pagar online agora</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Pague com cartao de credito, debito, Pix ou saldo no Mercado Pago. Pagamento 100% seguro.
+              </p>
+              <Button
+                className="w-full font-bold text-white"
+                style={{ backgroundColor: "#009EE3" }}
+                onClick={handleMercadoPago}
+                disabled={mpLoading}
+                data-testid="button-pay-mercadopago"
+              >
+                {mpLoading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aguarde...</>
+                ) : (
+                  <><ExternalLink className="w-4 h-4 mr-2" />Pagar com Mercado Pago</>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="mb-4 max-w-sm w-full">
             <CardContent className="p-4 text-left">
               <div className="flex items-center gap-2 mb-2">
                 <CreditCard className="w-4 h-4 text-primary" />
-                <span className="font-bold text-sm">Como pagar</span>
+                <span className="font-bold text-sm">Outras formas de pagar</span>
               </div>
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <Smartphone className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="w-full">
-                    <p className="text-sm font-medium">PIX</p>
+                    <p className="text-sm font-medium">PIX manual</p>
                     {pixKey ? (
                       <div className="mt-1 space-y-1.5">
-                        <p className="text-xs text-muted-foreground">
-                          Pague agora com copia-e-cola para agilizar seu pedido.
-                        </p>
                         <div className="rounded-md border border-border p-2 bg-muted/40">
                           <p className="text-[11px] text-muted-foreground">Chave PIX:</p>
                           <p className="text-xs font-semibold break-all" data-testid="text-pix-key">{pixKey}</p>
@@ -705,9 +747,6 @@ export default function Cart() {
                   </div>
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-3 pt-2 border-t border-border">
-                Se precisar, nossa equipe tambem confirma o pagamento pelo WhatsApp.
-              </p>
             </CardContent>
           </Card>
 

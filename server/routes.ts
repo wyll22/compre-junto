@@ -10,6 +10,7 @@ import path from "path";
 import fs from "fs";
 import { pool } from "./db";
 import { z } from "zod";
+import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 import multer from "multer";
 import {
   registerSchema, loginSchema, changePasswordSchema, profileUpdateSchema,
@@ -1560,6 +1561,92 @@ export async function registerRoutes(
       res.status(201).json(order);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar pedido" });
+    }
+  });
+
+  app.post("/api/orders/:id/payment/preference", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    try {
+      const order = await storage.getOrder(Number(req.params.id));
+      if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
+      if (order.userId !== userId) return res.status(403).json({ message: "Acesso negado" });
+
+      const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+      if (!accessToken) return res.status(500).json({ message: "Mercado Pago nao configurado" });
+
+      const client = new MercadoPagoConfig({ accessToken });
+      const preference = new Preference(client);
+
+      const items = (order.items as any[]).map((item: any) => ({
+        id: String(item.productId || "produto"),
+        title: String(item.name || "Produto"),
+        quantity: Number(item.qty || 1),
+        unit_price: Number(item.price),
+        currency_id: "BRL",
+      }));
+
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : (process.env.APP_URL || "http://localhost:5000");
+
+      const result = await preference.create({
+        body: {
+          items,
+          external_reference: String(order.id),
+          back_urls: {
+            success: `${baseUrl}/minha-conta`,
+            failure: `${baseUrl}/carrinho`,
+            pending: `${baseUrl}/minha-conta`,
+          },
+          auto_return: "approved",
+          notification_url: `${baseUrl}/api/orders/payment/webhook`,
+          statement_descriptor: "Compra Junto Formosa",
+          metadata: { order_id: order.id, user_id: userId },
+        },
+      });
+
+      res.json({ preferenceId: result.id, initPoint: result.init_point, sandboxInitPoint: result.sandbox_init_point });
+    } catch (err: any) {
+      console.error("[MP] Erro ao criar preferencia:", err?.message || err);
+      res.status(500).json({ message: "Erro ao criar pagamento. Tente novamente." });
+    }
+  });
+
+  app.post("/api/orders/payment/webhook", async (req: Request, res: Response) => {
+    try {
+      const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+      if (!accessToken) return res.sendStatus(500);
+
+      const { type, data } = req.body;
+      if (type !== "payment" || !data?.id) return res.sendStatus(200);
+
+      const client = new MercadoPagoConfig({ accessToken });
+      const paymentClient = new Payment(client);
+      const payment = await paymentClient.get({ id: String(data.id) });
+
+      if (!payment || !payment.external_reference) return res.sendStatus(200);
+
+      const orderId = Number(payment.external_reference);
+      if (isNaN(orderId)) return res.sendStatus(200);
+
+      const order = await storage.getOrder(orderId);
+      if (!order) return res.sendStatus(200);
+
+      const status = payment.status;
+      let newStatus: string | null = null;
+      if (status === "approved") newStatus = "pago";
+      else if (status === "rejected" || status === "cancelled") newStatus = "cancelado";
+      else if (status === "pending" || status === "in_process") newStatus = "aguardando_pagamento";
+
+      if (newStatus && order.status !== newStatus) {
+        await storage.changeOrderStatus(orderId, newStatus, 0, "Mercado Pago", `Pagamento ${status}`);
+      }
+
+      res.sendStatus(200);
+    } catch (err: any) {
+      console.error("[MP] Webhook erro:", err?.message || err);
+      res.sendStatus(200);
     }
   });
 
