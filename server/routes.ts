@@ -1586,9 +1586,11 @@ export async function registerRoutes(
         currency_id: "BRL",
       }));
 
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-        : (process.env.APP_URL || "http://localhost:5000");
+      const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+      const host = (req.headers["x-forwarded-host"] as string) || (req.headers["host"] as string) || "";
+      const baseUrl = host
+        ? `${proto}://${host}`
+        : process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
 
       const result = await preference.create({
         body: {
