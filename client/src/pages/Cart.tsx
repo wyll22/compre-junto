@@ -5,14 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil, Smartphone, CreditCard, Sparkles, ShoppingCart, ExternalLink } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, LogIn, Loader2, CheckCircle, MapPin, Truck, AlertTriangle, Search, Pencil, CreditCard, Sparkles, ShoppingCart, ExternalLink } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { parseApiError } from "@/lib/error-utils";
 import { Footer } from "@/components/Footer";
-import { useSiteConfigQuery } from "@/lib/siteConfig";
 
 interface CartItem {
   productId: number;
@@ -555,34 +554,6 @@ export default function Cart() {
     },
   });
 
-  const { data: siteConfig = {} } = useSiteConfigQuery();
-  const pixKey = String((siteConfig as any).pixKey || "").trim();
-  const pixSupport = String((siteConfig as any).supportEmail || (siteConfig as any).email || "").trim();
-
-  const copyPixKey = async () => {
-    if (!pixKey) return;
-    try {
-      await navigator.clipboard.writeText(pixKey);
-      toast({ title: "Chave PIX copiada!", description: "Cole no app do seu banco para pagar." });
-    } catch {
-      toast({ title: "Nao foi possivel copiar", description: "Copie a chave manualmente abaixo.", variant: "destructive" });
-    }
-  };
-
-  const openWhatsAppPayment = () => {
-    const orderLabel = orderSuccess ? `Pedido #${orderSuccess}` : "Pedido";
-    const totalLabel = Number(orderTotal || total || 0).toFixed(2);
-    const text = encodeURIComponent(`${orderLabel} - gostaria de confirmar o pagamento (R$ ${totalLabel}).`);
-    const waLink = String((siteConfig as any).whatsapp || "").trim();
-    const waDigits = waLink.replace(/\D/g, "");
-    const wa = waDigits ? `https://wa.me/${waDigits}?text=${text}` : "";
-    if (!wa) {
-      toast({ title: "WhatsApp indisponivel", description: "Configure o WhatsApp no painel administrativo.", variant: "destructive" });
-      return;
-    }
-    window.open(wa, "_blank", "noopener,noreferrer");
-  };
-
   const handleMercadoPago = async () => {
     if (!orderSuccess) return;
     setMpLoading(true);
@@ -687,10 +658,10 @@ export default function Cart() {
             <CardContent className="p-4 text-left">
               <div className="flex items-center gap-2 mb-3">
                 <CreditCard className="w-4 h-4 text-[#009EE3]" />
-                <span className="font-bold text-sm text-foreground">Pagar online agora</span>
+                <span className="font-bold text-sm text-foreground">Pagar agora</span>
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                Pague com cartao de credito, debito, Pix ou saldo no Mercado Pago. Pagamento 100% seguro.
+                Cartao de credito, debito, Pix ou saldo Mercado Pago. Pagamento 100% seguro.
               </p>
               <Button
                 className="w-full font-bold text-white"
@@ -705,48 +676,9 @@ export default function Cart() {
                   <><ExternalLink className="w-4 h-4 mr-2" />Pagar com Mercado Pago</>
                 )}
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="mb-4 max-w-sm w-full">
-            <CardContent className="p-4 text-left">
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="w-4 h-4 text-primary" />
-                <span className="font-bold text-sm">Outras formas de pagar</span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <Smartphone className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="w-full">
-                    <p className="text-sm font-medium">PIX manual</p>
-                    {pixKey ? (
-                      <div className="mt-1 space-y-1.5">
-                        <div className="rounded-md border border-border p-2 bg-muted/40">
-                          <p className="text-[11px] text-muted-foreground">Chave PIX:</p>
-                          <p className="text-xs font-semibold break-all" data-testid="text-pix-key">{pixKey}</p>
-                        </div>
-                        <div className="flex gap-2 flex-wrap">
-                          <Button size="sm" variant="outline" onClick={copyPixKey} data-testid="button-copy-pix-key">
-                            Copiar chave PIX
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={openWhatsAppPayment} data-testid="button-open-whatsapp-payment">
-                            Confirmar no WhatsApp
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Enviaremos a chave PIX por WhatsApp para pagamento imediato.</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">Na retirada/entrega</p>
-                    <p className="text-xs text-muted-foreground">Pague com dinheiro, cartao ou PIX no momento do recebimento.</p>
-                  </div>
-                </div>
-              </div>
+              <p className="text-[11px] text-muted-foreground mt-3 text-center">
+                Ou pague com dinheiro, cartao ou Pix na retirada/entrega.
+              </p>
             </CardContent>
           </Card>
 
