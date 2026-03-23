@@ -1615,6 +1615,54 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/orders/:id/payment/check", async (req: Request, res: Response) => {
+    const userId = requireAuth(req, res);
+    if (userId === null) return;
+    try {
+      const order = await storage.getOrder(Number(req.params.id));
+      if (!order) return res.status(404).json({ message: "Pedido nao encontrado" });
+
+      const user = await storage.getUserById(userId);
+      if (order.userId !== userId && user?.role !== "admin") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+      if (!accessToken) return res.status(500).json({ message: "Mercado Pago nao configurado" });
+
+      const client = new MercadoPagoConfig({ accessToken });
+      const paymentClient = new Payment(client);
+
+      const searchResult = await paymentClient.search({
+        options: { criteria: "desc", external_reference: String(order.id) },
+      });
+
+      const results = (searchResult as any)?.results ?? [];
+      if (!results.length) {
+        return res.json({ updated: false, message: "Nenhum pagamento encontrado para este pedido." });
+      }
+
+      const approvedPayment = results.find((p: any) => p.status === "approved");
+      const latestPayment = results[0];
+
+      let newStatus: string | null = null;
+      const mpStatus = approvedPayment?.status ?? latestPayment?.status;
+      if (mpStatus === "approved") newStatus = "pago";
+      else if (mpStatus === "rejected" || mpStatus === "cancelled") newStatus = "cancelado";
+      else if (mpStatus === "pending" || mpStatus === "in_process") newStatus = "aguardando_pagamento";
+
+      if (newStatus && order.status !== newStatus) {
+        await storage.changeOrderStatus(order.id, newStatus, userId, "Verificacao MP", `Pagamento ${mpStatus}`);
+        return res.json({ updated: true, newStatus, message: `Pedido atualizado para: ${newStatus}` });
+      }
+
+      return res.json({ updated: false, currentStatus: order.status, mpStatus, message: "Status ja esta atualizado." });
+    } catch (err: any) {
+      console.error("[MP] Erro ao verificar pagamento:", err?.message || err);
+      res.status(500).json({ message: "Erro ao verificar pagamento. Tente novamente." });
+    }
+  });
+
   app.post("/api/orders/payment/webhook", async (req: Request, res: Response) => {
     try {
       const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
