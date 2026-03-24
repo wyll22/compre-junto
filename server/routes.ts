@@ -76,6 +76,24 @@ function parseZodError(error: z.ZodError): string {
   return error.errors.map(e => e.message).join("; ");
 }
 
+const _cache = new Map<string, { data: any; expiresAt: number }>();
+function cacheGet(key: string): any | null {
+  const entry = _cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { _cache.delete(key); return null; }
+  return entry.data;
+}
+function cacheSet(key: string, data: any, ttlMs: number) {
+  _cache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+function cacheInvalidate(...prefixes: string[]) {
+  for (const prefix of prefixes) {
+    for (const key of _cache.keys()) {
+      if (key.startsWith(prefix)) _cache.delete(key);
+    }
+  }
+}
+
 
 const DEFAULT_SITE_CONFIG = {
   companyName: "",
@@ -840,6 +858,9 @@ export async function registerRoutes(
   app.get("/api/categories", async (req: Request, res: Response) => {
     try {
       const parentId = req.query.parentId;
+      const cacheKey = `categories:${parentId ?? "all"}`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return res.json(cached);
       let result;
       if (parentId === "null" || parentId === "0") {
         result = await storage.getCategories(null);
@@ -848,6 +869,7 @@ export async function registerRoutes(
       } else {
         result = await storage.getCategories();
       }
+      cacheSet(cacheKey, result, 5 * 60 * 1000);
       res.json(result);
     } catch (error) {
       logApiError(req, "/api/categories", error);
@@ -927,7 +949,11 @@ export async function registerRoutes(
       const filterOptionIds = filterOptionIdsRaw ? filterOptionIdsRaw.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
       const hasFilters = brand || minPrice !== undefined || maxPrice !== undefined || (filterOptionIds && filterOptionIds.length > 0);
       const filters = hasFilters ? { brand, minPrice, maxPrice, filterOptionIds } : undefined;
+      const cacheKey = `products:${JSON.stringify({ category, search, saleMode, categoryId, subcategoryId, filters })}`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return res.json(cached);
       const products = await storage.getProducts(category, search, saleMode, categoryId, subcategoryId, filters);
+      cacheSet(cacheKey, products, 30 * 1000);
       res.json(products);
     } catch (error) {
       logApiError(req, "/api/products", error);
@@ -953,7 +979,10 @@ export async function registerRoutes(
 
   app.get("/api/featured-products", async (req: Request, res: Response) => {
     try {
+      const cached = cacheGet("featured-products");
+      if (cached) return res.json(cached);
       const items = await storage.getFeaturedProducts(true);
+      cacheSet("featured-products", items, 60 * 1000);
       res.json(items);
     } catch (error) {
       logApiError(req, "/api/featured-products", error);
@@ -1170,6 +1199,7 @@ export async function registerRoutes(
     if (userId === null) return;
     const product = await storage.getProduct(Number(req.params.id));
     await storage.deleteProduct(Number(req.params.id));
+    cacheInvalidate("products:", "featured-products");
     await auditLog(req, userId, "excluir", "produto", Number(req.params.id), { name: product?.name });
     res.status(204).send();
   });
@@ -1404,7 +1434,11 @@ export async function registerRoutes(
   app.get("/api/banners", async (req: Request, res: Response) => {
     try {
       const activeOnly = req.query.active === "true";
+      const cacheKey = `banners:${activeOnly}`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return res.json(cached);
       const banners = await storage.getBanners(activeOnly);
+      cacheSet(cacheKey, banners, 5 * 60 * 1000);
       res.json(banners);
     } catch (error) {
       logApiError(req, "/api/banners", error);
@@ -1421,6 +1455,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
       const banner = await storage.createBanner(parsed.data);
+      cacheInvalidate("banners:");
       res.status(201).json(banner);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar banner" });
@@ -1436,6 +1471,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
       const banner = await storage.updateBanner(Number(req.params.id), parsed.data);
+      cacheInvalidate("banners:");
       res.json(banner);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar banner" });
@@ -1446,13 +1482,18 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     await storage.deleteBanner(Number(req.params.id));
+    cacheInvalidate("banners:");
     res.status(204).send();
   });
 
   app.get("/api/videos", async (req: Request, res: Response) => {
     try {
       const activeOnly = req.query.active === "true";
+      const cacheKey = `videos:${activeOnly}`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return res.json(cached);
       const videos = await storage.getVideos(activeOnly);
+      cacheSet(cacheKey, videos, 5 * 60 * 1000);
       res.json(videos);
     } catch (error) {
       logApiError(req, "/api/videos", error);
@@ -1469,6 +1510,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
       const video = await storage.createVideo(parsed.data);
+      cacheInvalidate("videos:");
       res.status(201).json(video);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar video" });
@@ -1484,6 +1526,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parseZodError(parsed.error) });
       }
       const video = await storage.updateVideo(Number(req.params.id), parsed.data);
+      cacheInvalidate("videos:");
       res.json(video);
     } catch (err: any) {
       res.status(400).json({ message: "Erro ao atualizar video" });
@@ -1494,6 +1537,7 @@ export async function registerRoutes(
     const userId = await requireAdmin(req, res);
     if (userId === null) return;
     await storage.deleteVideo(Number(req.params.id));
+    cacheInvalidate("videos:");
     res.status(204).send();
   });
 
@@ -1791,8 +1835,12 @@ export async function registerRoutes(
 
   app.get("/api/site-config", async (_req: Request, res: Response) => {
     try {
+      const cached = cacheGet("site-config");
+      if (cached) return res.json(cached);
       const config = await storage.getSiteConfig();
-      res.json({ ...DEFAULT_SITE_CONFIG, ...(config || {}) });
+      const result = { ...DEFAULT_SITE_CONFIG, ...(config || {}) };
+      cacheSet("site-config", result, 5 * 60 * 1000);
+      res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: "Erro ao buscar configuracoes do site" });
     }
@@ -1815,6 +1863,7 @@ export async function registerRoutes(
       };
 
       const config = await storage.upsertSiteConfig(payload);
+      cacheInvalidate("site-config");
       await auditLog(req, userId, "atualizar_configuracoes_site", "site_config", 1, payload);
       res.json({ ...DEFAULT_SITE_CONFIG, ...config });
     } catch (err: any) {
@@ -2219,7 +2268,11 @@ export async function registerRoutes(
     try {
       const location = req.query.location as string | undefined;
       const activeOnly = req.query.active === "true";
+      const cacheKey = `navigation-links:${location ?? "all"}:${activeOnly}`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return res.json(cached);
       const links = await storage.getNavigationLinks(location, activeOnly);
+      cacheSet(cacheKey, links, 5 * 60 * 1000);
       res.json(links);
     } catch {
       res.json([]);
@@ -2233,6 +2286,7 @@ export async function registerRoutes(
       const parsed = createNavLinkSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
       const link = await storage.createNavigationLink(parsed.data);
+      cacheInvalidate("navigation-links:");
       res.status(201).json(link);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao criar link" });
@@ -2247,6 +2301,7 @@ export async function registerRoutes(
       if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
       const link = await storage.updateNavigationLink(Number(req.params.id), parsed.data);
       if (!link) return res.status(404).json({ message: "Link nao encontrado" });
+      cacheInvalidate("navigation-links:");
       res.json(link);
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao atualizar link" });
@@ -2258,6 +2313,7 @@ export async function registerRoutes(
     if (userId === null) return;
     try {
       await storage.deleteNavigationLink(Number(req.params.id));
+      cacheInvalidate("navigation-links:");
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erro ao excluir link" });
@@ -2266,7 +2322,10 @@ export async function registerRoutes(
 
   app.get("/api/sponsor-banners", async (_req: Request, res: Response) => {
     try {
+      const cached = cacheGet("sponsor-banners");
+      if (cached) return res.json(cached);
       const banners = await storage.getSponsorBanners(true);
+      cacheSet("sponsor-banners", banners, 5 * 60 * 1000);
       res.json(banners);
     } catch {
       res.json([]);
@@ -2291,6 +2350,7 @@ export async function registerRoutes(
       const parsed = createSponsorBannerSchema.safeParse(sanitizeInput(req.body));
       if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
       const banner = await storage.createSponsorBanner(parsed.data);
+      cacheInvalidate("sponsor-banners");
       await auditLog(req, userId, "criar", "sponsor_banner", banner.id);
       res.status(201).json(banner);
     } catch (err: any) {
@@ -2306,6 +2366,7 @@ export async function registerRoutes(
       if (!parsed.success) return res.status(400).json({ message: parseZodError(parsed.error) });
       const banner = await storage.updateSponsorBanner(Number(req.params.id), parsed.data);
       if (!banner) return res.status(404).json({ message: "Banner nao encontrado" });
+      cacheInvalidate("sponsor-banners");
       await auditLog(req, userId, "atualizar", "sponsor_banner", banner.id);
       res.json(banner);
     } catch (err: any) {
@@ -2318,6 +2379,7 @@ export async function registerRoutes(
     if (userId === null) return;
     try {
       await storage.deleteSponsorBanner(Number(req.params.id));
+      cacheInvalidate("sponsor-banners");
       await auditLog(req, userId, "excluir", "sponsor_banner", Number(req.params.id));
       res.json({ ok: true });
     } catch (err: any) {
@@ -2421,6 +2483,7 @@ export async function registerRoutes(
     try {
       const product = await storage.approveProduct(Number(req.params.id));
       if (!product) return res.status(404).json({ message: "Produto nao encontrado" });
+      cacheInvalidate("products:", "featured-products");
       await auditLog(req, userId, "aprovar_produto", "produto", product.id, { name: product.name });
       res.json(product);
     } catch (err: any) {
