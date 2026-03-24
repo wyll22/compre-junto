@@ -28,6 +28,7 @@ import {
   Truck,
   XCircle,
   Search,
+  RefreshCw,
   AlertTriangle,
   ArrowRight,
   History,
@@ -877,11 +878,33 @@ function OrderHistory({ orderId }: { orderId: number }) {
 
 function OrdersTab() {
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [checkingPayment, setCheckingPayment] = useState<number | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const orderId = Number(new URLSearchParams(window.location.search).get("orderId") || "");
     if (orderId) setExpandedOrder(orderId);
   }, []);
+
+  const handleCheckPayment = async (orderId: number) => {
+    setCheckingPayment(orderId);
+    try {
+      const res = await apiRequest("POST", `/api/orders/${orderId}/payment/check`, {});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erro ao verificar");
+      if (data.updated) {
+        toast({ title: "Pagamento confirmado!", description: `Pedido #${orderId} atualizado para: ${data.newStatus}.` });
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      } else {
+        toast({ title: "Status atual: " + (data.mpStatus || data.currentStatus || "sem pagamento"), description: data.message, variant: "default" });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Nao foi possivel verificar o pagamento.", variant: "destructive" });
+    } finally {
+      setCheckingPayment(null);
+    }
+  };
 
   const { data: userOrders, isLoading } = useQuery({
     queryKey: ["/api/orders"],
@@ -1089,9 +1112,28 @@ function OrdersTab() {
                     </div>
                     <div className="rounded-md border p-2">
                       <p className="font-semibold">Pagamento</p>
-                      <p className="text-muted-foreground">Pagamento em confirmacao. A equipe valida e notifica voce.</p>
+                      <p className="text-muted-foreground">
+                        {order.status === "pago" ? "Pagamento confirmado." : "Pagamento em confirmacao."}
+                      </p>
                     </div>
                   </div>
+
+                  {(order.status === "recebido" || order.status === "aguardando_pagamento") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 w-full text-xs gap-2"
+                      onClick={() => handleCheckPayment(order.id)}
+                      disabled={checkingPayment === order.id}
+                      data-testid={`button-check-payment-${order.id}`}
+                    >
+                      {checkingPayment === order.id ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />Verificando pagamento...</>
+                      ) : (
+                        <><RefreshCw className="w-3.5 h-3.5" />Verificar se o pagamento foi aprovado</>
+                      )}
+                    </Button>
+                  )}
 
                   {order.fulfillmentType === "pickup" && (
                     <div className="mt-2 rounded-md border p-3 text-xs space-y-1">

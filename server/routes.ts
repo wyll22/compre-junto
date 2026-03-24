@@ -526,6 +526,7 @@ export async function registerRoutes(
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!MUTATION_METHODS.has(req.method)) return next();
     if (process.env.NODE_ENV !== "production") return next();
+    if (req.path === "/api/orders/payment/webhook") return next();
 
     const origin = req.headers.origin;
     const referer = req.headers.referer;
